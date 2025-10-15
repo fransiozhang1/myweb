@@ -3,101 +3,232 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ATELIER CH</title>
+  <title>ATELIER</title>
   <style>
-    /* 背景图 */
+    :root{
+      --header-h: 64px;
+      --maxw: 1100px;
+      --fg: #111;
+      --muted: #5b5b5b;
+      --bg: #ffffff;
+      --card: #f9f9f9;
+      --radius: 16px;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
     body {
       margin: 0;
-      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+      color: var(--fg);
+      background: var(--bg);
+      padding-top: var(--header-h); /* 预留给固定导航 */
+    }
+
+    /* 顶部固定导航 */
+    header {
+      position: fixed;
+      inset: 0 0 auto 0;
+      height: var(--header-h);
+      display: flex;
+      align-items: center;
+      z-index: 1000;
+      /* 半透明+毛玻璃，滚动时仍可读 */
+      background: rgba(255,255,255,0.75);
+      backdrop-filter: saturate(1.2) blur(8px);
+      border-bottom: 1px solid rgba(0,0,0,0.06);
+    }
+    .nav {
+      width: 100%;
+      max-width: var(--maxw);
+      margin: 0 auto;
+      padding: 0 16px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 18px;
+    }
+    .nav a {
+      text-decoration: none;
+      color: var(--fg);
+      font-weight: 600;
+      letter-spacing: .04em;
+      padding: 8px 10px;
+      border-radius: 10px;
+      transition: background .2s ease, transform .06s ease;
+    }
+    .nav a:hover { background: rgba(0,0,0,0.05); }
+    .nav a:active { transform: scale(0.98); }
+
+    /* 英雄区（全屏背景图 + 中央标题） */
+    .hero {
+      min-height: calc(100vh - var(--header-h));
       display: grid;
       place-items: center;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-      background: url("./bg.jpg") no-repeat center center fixed;
-      background-size: cover;
+      text-align: center;
       position: relative;
-      color: #fff;
+      color: white;
+      overflow: hidden;
     }
-    /* 暗化遮罩，避免文字被亮图淹没 */
-    body::before {
+    .hero::before {
       content: "";
       position: absolute;
       inset: 0;
-      background: rgba(0, 0, 0, 0.35);
-      z-index: 0; /* 背景层 */
+      background: url("./bg.jpg") no-repeat center center / cover fixed;
+      z-index: 0;
+      transform: scale(1.02);
     }
-
-    /* 内容容器放到最上层 */
-    .content {
+    .hero::after {
+      /* 暗化遮罩，保证标题可读 */
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(0,0,0,.35), rgba(0,0,0,.45));
+      z-index: 1;
+    }
+    .hero-inner {
       position: relative;
       z-index: 2;
-      width: min(90vw, 680px);
-      text-align: center;
-      padding: 24px;
+      padding: 32px;
     }
-
-    h1 {
-      margin: 0 0 28px;
-      font-size: clamp(36px, 6vw, 56px);
-      letter-spacing: 2px;
-      text-shadow: 0 2px 12px rgba(0,0,0,.6);
+    .hero h1 {
+      margin: 0;
+      font-size: clamp(40px, 8vw, 96px);
+      letter-spacing: 0.18em;
+      font-weight: 800;
+      text-shadow: 0 6px 30px rgba(0,0,0,.6);
     }
-
-    .search {
-      display: flex;
-      border-radius: 999px;
-      overflow: hidden;
-      background: rgba(255,255,255,0.92);
-      box-shadow: 0 6px 24px rgba(0,0,0,0.25);
-      backdrop-filter: blur(4px);
-    }
-    .search input {
-      flex: 1;
-      border: none;
-      padding: 14px 18px;
-      font-size: 16px;
-      outline: none;
-      color: #111;
-      background: transparent;
-    }
-    .search button {
-      border: none;
-      padding: 0 18px;
-      font-size: 16px;
-      cursor: pointer;
-      background: #111;
-      color: #fff;
-      transition: transform .06s ease, opacity .2s ease;
-    }
-    .search button:active { transform: scale(0.98); }
-    .hint {
-      margin-top: 12px;
-      font-size: 12px;
+    .hero p {
+      margin: 14px 0 0;
+      font-size: clamp(14px, 2.5vw, 18px);
       opacity: .9;
-      text-shadow: 0 1px 6px rgba(0,0,0,.6);
+      text-shadow: 0 3px 18px rgba(0,0,0,.5);
+    }
+
+    /* 内容区 */
+    .section {
+      max-width: var(--maxw);
+      margin: 0 auto;
+      padding: 56px 16px;
+    }
+    .lead {
+      font-size: clamp(16px, 2.2vw, 20px);
+      color: var(--muted);
+      line-height: 1.8;
+    }
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 16px;
+      margin-top: 28px;
+    }
+    .card {
+      grid-column: span 12;
+      background: var(--card);
+      border: 1px solid rgba(0,0,0,0.06);
+      border-radius: var(--radius);
+      padding: 20px;
+      transition: transform .12s ease, box-shadow .2s ease;
+    }
+    .card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 16px 40px rgba(0,0,0,0.06);
+    }
+    .card h3 { margin: 0 0 8px; }
+    .card p { margin: 0; color: var(--muted); line-height: 1.75; }
+
+    @media (min-width: 700px){
+      .card { grid-column: span 6; }
+    }
+    @media (min-width: 1000px){
+      .card { grid-column: span 4; }
+    }
+
+    /* 分区锚点的顶部偏移（避免被固定头遮住） */
+    .anchor {
+      position: relative;
+      scroll-margin-top: calc(var(--header-h) + 12px);
+    }
+
+    footer {
+      padding: 48px 16px 72px;
+      text-align: center;
+      color: var(--muted);
     }
   </style>
 </head>
 <body>
-  <div class="content">
-    <h1>ATELIER CH</h1>
-    <div class="search">
-      <input id="q" type="text" placeholder="Search on Google..." aria-label="Search" />
-      <button id="go" aria-label="Go Search">搜索</button>
+  <!-- 顶部固定导航 -->
+  <header>
+    <nav class="nav">
+      <a href="#a">a</a>
+      <a href="#b">b</a>
+      <a href="#c">c</a>
+      <a href="#d">d</a>
+    </nav>
+  </header>
+
+  <!-- 英雄区：中央 ATELIER -->
+  <section class="hero">
+    <div class="hero-inner">
+      <h1>ATELIER</h1>
+      <p>Scroll down to explore · 下滑以了解更多</p>
     </div>
-    <div class="hint">按 Enter 也可搜索</div>
-  </div>
+  </section>
+
+  <!-- 介绍/内容区 -->
+  <main>
+    <section id="a" class="section anchor">
+      <h2>a · 简介</h2>
+      <p class="lead">
+        这里是工作室的简要介绍。你可以写愿景、核心价值、设计方法或擅长领域。文本仅为示例，
+        请替换为真实内容，建议控制在 2–4 行，突出重点与差异化。
+      </p>
+      <div class="cards">
+        <article class="card">
+          <h3>方向一</h3>
+          <p>描述你在该方向的独到方法、关键案例或成果亮点。</p>
+        </article>
+        <article class="card">
+          <h3>方向二</h3>
+          <p>描述你在该方向的独到方法、关键案例或成果亮点。</p>
+        </article>
+        <article class="card">
+          <h3>方向三</h3>
+          <p>描述你在该方向的独到方法、关键案例或成果亮点。</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="b" class="section anchor">
+      <h2>b · 服务</h2>
+      <p class="lead">
+        概述可提供的服务类型、合作流程与交付内容。可加入典型工期、可选模块与增值服务说明。
+      </p>
+    </section>
+
+    <section id="c" class="section anchor">
+      <h2>c · 案例</h2>
+      <p class="lead">
+        简要展示 2–3 个代表性项目的摘要，配图可后续加入（建议使用 WebP 或 SVG 图标）。
+      </p>
+    </section>
+
+    <section id="d" class="section anchor">
+      <h2>d · 联系</h2>
+      <p class="lead">
+        留下邮箱、社交媒体或表单入口。也可以嵌入第三方表单服务，便于快速收集需求。
+      </p>
+    </section>
+  </main>
+
+  <footer>
+    © <span id="y"></span> ATELIER · All rights reserved.
+  </footer>
 
   <script>
-    function go() {
-      const v = document.getElementById('q').value.trim();
-      if (v) {
-        location.href = 'https://www.google.com/search?q=' + encodeURIComponent(v);
-      }
-    }
-    document.getElementById('go').addEventListener('click', go);
-    document.getElementById('q').addEventListener('keydown', e => {
-      if (e.key === 'Enter') go();
-    });
+    // 动态年份
+    document.getElementById('y').textContent = new Date().getFullYear();
   </script>
 </body>
 </html>
