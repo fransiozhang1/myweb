@@ -37,28 +37,34 @@
       background: rgba(255,255,255,0.75);
       backdrop-filter: saturate(1.2) blur(8px);
       border-bottom: 1px solid rgba(0,0,0,0.06);
+      padding: 0 16px;
     }
     .nav {
       width: 100%;
       max-width: var(--maxw);
       margin: 0 auto;
-      padding: 0 16px;
-      display: flex;
-      align-items: center;
-      justify-content: flex-start;
-      gap: 18px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      height: 44px;
+      border-radius: 999px;
+      overflow: hidden;
+      border: 1px solid rgba(0,0,0,0.08);
+      background: rgba(255,255,255,0.6);
     }
     .nav a {
       text-decoration: none;
       color: var(--fg);
       font-weight: 600;
       letter-spacing: .04em;
-      padding: 8px 10px;
-      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       transition: background .2s ease, transform .06s ease;
     }
-    .nav a:hover { background: rgba(0,0,0,0.05); }
+    .nav a + a { border-left: 1px solid rgba(0,0,0,0.08); }
+    .nav a:hover { background: rgba(0,0,0,0.08); }
     .nav a:active { transform: scale(0.98); }
+    .nav a.active { background: rgba(0,0,0,0.08); font-weight: 700; }
 
     /* 英雄区（全屏背景图 + 中央标题） */
     .hero {
@@ -161,7 +167,7 @@
   <!-- 顶部固定导航 -->
   <header>
     <nav class="nav">
-      <a href="#a">a</a>
+      <a href="about.html">a</a>
       <a href="#b">b</a>
       <a href="#c">c</a>
       <a href="#d">d</a>
