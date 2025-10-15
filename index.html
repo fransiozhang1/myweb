@@ -1,87 +1,51 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ATELIER CH</title>
-  <style>
-    body {
-      background-color: #f9f9f9;
-      font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-      margin: 0;
-    }
+<style>
+  body {
+    background: url('bg.jpg') no-repeat center center fixed;
+    background-size: cover;
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    margin: 0;
+  }
 
-    h1 {
-      font-size: 48px;
-      letter-spacing: 2px;
-      margin-bottom: 30px;
-      color: #222;
-    }
+  h1 {
+    font-size: 48px;
+    letter-spacing: 2px;
+    margin-bottom: 30px;
+    color: white; /* 背景图一般较暗时用白字 */
+    text-shadow: 0 0 10px rgba(0,0,0,0.5);
+  }
 
-    .search-container {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
+  .search-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
 
-    input[type="text"] {
-      width: 300px;
-      padding: 10px 15px;
-      font-size: 16px;
-      border: 2px solid #333;
-      border-radius: 25px 0 0 25px;
-      outline: none;
-      transition: 0.3s;
-    }
+  input[type="text"] {
+    width: 300px;
+    padding: 10px 15px;
+    font-size: 16px;
+    border: none;
+    border-radius: 25px 0 0 25px;
+    outline: none;
+  }
 
-    input[type="text"]:focus {
-      border-color: #000;
-    }
+  button {
+    padding: 10px 20px;
+    font-size: 16px;
+    border: none;
+    background-color: rgba(0, 0, 0, 0.7);
+    color: white;
+    border-radius: 0 25px 25px 0;
+    cursor: pointer;
+    transition: background-color 0.3s;
+  }
 
-    button {
-      padding: 10px 20px;
-      font-size: 16px;
-      border: 2px solid #333;
-      border-left: none;
-      background-color: #333;
-      color: white;
-      border-radius: 0 25px 25px 0;
-      cursor: pointer;
-      transition: background-color 0.3s;
-    }
-
-    button:hover {
-      background-color: #555;
-    }
-  </style>
-</head>
-<body>
-  <h1>ATELIER CH</h1>
-  <div class="search-container">
-    <input type="text" id="search-input" placeholder="Search...">
-    <button onclick="search()">搜索</button>
-  </div>
-
-  <script>
-    function search() {
-      const query = document.getElementById("search-input").value.trim();
-      if (query) {
-        const googleUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
-        window.location.href = googleUrl;
-      }
-    }
-
-    // 支持按下 Enter 键也能搜索
-    document.getElementById("search-input").addEventListener("keypress", function (e) {
-      if (e.key === "Enter") {
-        search();
-      }
-    });
-  </script>
-</body>
-</html>
+  button:hover {
+    background-color: rgba(0, 0, 0, 0.9);
+  }
+</style>
