@@ -1,240 +1,68 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ATELIER</title>
-  <style>
-    :root{
-      --header-h: 64px;
-      --maxw: 1100px;
-      --fg: #111;
-      --muted: #5b5b5b;
-      --bg: #ffffff;
-      --card: #f9f9f9;
-      --radius: 16px;
-    }
-
-    * { box-sizing: border-box; }
-    html { scroll-behavior: smooth; }
-    body {
-      margin: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
-      color: var(--fg);
-      background: var(--bg);
-      padding-top: var(--header-h); /* 预留给固定导航 */
-    }
-
-    /* 顶部固定导航 */
-    header {
-      position: fixed;
-      inset: 0 0 auto 0;
-      height: var(--header-h);
-      display: flex;
-      align-items: center;
-      z-index: 1000;
-      /* 半透明+毛玻璃，滚动时仍可读 */
-      background: rgba(255,255,255,0.75);
-      backdrop-filter: saturate(1.2) blur(8px);
-      border-bottom: 1px solid rgba(0,0,0,0.06);
-      padding: 0 16px;
-    }
-    .nav {
-      width: 100%;
-      max-width: var(--maxw);
-      margin: 0 auto;
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      height: 44px;
-      border-radius: 999px;
-      overflow: hidden;
-      border: 1px solid rgba(0,0,0,0.08);
-      background: rgba(255,255,255,0.6);
-    }
-    .nav a {
-      text-decoration: none;
-      color: var(--fg);
-      font-weight: 600;
-      letter-spacing: .04em;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: background .2s ease, transform .06s ease;
-    }
-    .nav a + a { border-left: 1px solid rgba(0,0,0,0.08); }
-    .nav a:hover { background: rgba(0,0,0,0.08); }
-    .nav a:active { transform: scale(0.98); }
-    .nav a.active { background: rgba(0,0,0,0.08); font-weight: 700; }
-
-    /* 英雄区（全屏背景图 + 中央标题） */
-    .hero {
-      min-height: calc(100vh - var(--header-h));
-      display: grid;
-      place-items: center;
-      text-align: center;
-      position: relative;
-      color: white;
-      overflow: hidden;
-    }
-    .hero::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: url("./bg.jpg") no-repeat center center / cover fixed;
-      z-index: 0;
-      transform: scale(1.02);
-    }
-    .hero::after {
-      /* 暗化遮罩，保证标题可读 */
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(180deg, rgba(0,0,0,.35), rgba(0,0,0,.45));
-      z-index: 1;
-    }
-    .hero-inner {
-      position: relative;
-      z-index: 2;
-      padding: 32px;
-    }
-    .hero h1 {
-      margin: 0;
-      font-size: clamp(40px, 8vw, 96px);
-      letter-spacing: 0.18em;
-      font-weight: 800;
-      text-shadow: 0 6px 30px rgba(0,0,0,.6);
-    }
-    .hero p {
-      margin: 14px 0 0;
-      font-size: clamp(14px, 2.5vw, 18px);
-      opacity: .9;
-      text-shadow: 0 3px 18px rgba(0,0,0,.5);
-    }
-
-    /* 内容区 */
-    .section {
-      max-width: var(--maxw);
-      margin: 0 auto;
-      padding: 56px 16px;
-    }
-    .lead {
-      font-size: clamp(16px, 2.2vw, 20px);
-      color: var(--muted);
-      line-height: 1.8;
-    }
-    .cards {
-      display: grid;
-      grid-template-columns: repeat(12, 1fr);
-      gap: 16px;
-      margin-top: 28px;
-    }
-    .card {
-      grid-column: span 12;
-      background: var(--card);
-      border: 1px solid rgba(0,0,0,0.06);
-      border-radius: var(--radius);
-      padding: 20px;
-      transition: transform .12s ease, box-shadow .2s ease;
-    }
-    .card:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 16px 40px rgba(0,0,0,0.06);
-    }
-    .card h3 { margin: 0 0 8px; }
-    .card p { margin: 0; color: var(--muted); line-height: 1.75; }
-
-    @media (min-width: 700px){
-      .card { grid-column: span 6; }
-    }
-    @media (min-width: 1000px){
-      .card { grid-column: span 4; }
-    }
-
-    /* 分区锚点的顶部偏移（避免被固定头遮住） */
-    .anchor {
-      position: relative;
-      scroll-margin-top: calc(var(--header-h) + 12px);
-    }
-
-    footer {
-      padding: 48px 16px 72px;
-      text-align: center;
-      color: var(--muted);
-    }
-  </style>
+    <meta charset="UTF-8">
+    <title>徐汇空间系统 (调试版)</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        #map { width: 100%; height: 100vh; }
+        #debug-info { 
+            position: absolute; bottom: 20px; left: 20px; z-index: 1000; 
+            background: rgba(0,0,0,0.7); color: #0f0; padding: 10px; 
+            font-family: monospace; font-size: 12px; max-width: 300px;
+        }
+    </style>
 </head>
 <body>
-  <!-- 顶部固定导航 -->
-  <header>
-    <nav class="nav">
-      <a href="about.html">a</a>
-      <a href="#b">b</a>
-      <a href="#c">c</a>
-      <a href="#d">d</a>
-    </nav>
-  </header>
 
-  <!-- 英雄区：中央 ATELIER -->
-  <section class="hero">
-    <div class="hero-inner">
-      <h1>ATELIER</h1>
-      <p>Scroll down to explore · 下滑以了解更多</p>
-    </div>
-  </section>
+<div id="debug-info">📡 正在初始化调试日志...</div>
+<div id="map"></div>
 
-  <!-- 介绍/内容区 -->
-  <main>
-    <section id="a" class="section anchor">
-      <h2>a · 简介</h2>
-      <p class="lead">
-        这里是工作室的简要介绍。你可以写愿景、核心价值、设计方法或擅长领域。文本仅为示例，
-        请替换为真实内容，建议控制在 2–4 行，突出重点与差异化。
-      </p>
-      <div class="cards">
-        <article class="card">
-          <h3>方向一</h3>
-          <p>描述你在该方向的独到方法、关键案例或成果亮点。</p>
-        </article>
-        <article class="card">
-          <h3>方向二</h3>
-          <p>描述你在该方向的独到方法、关键案例或成果亮点。</p>
-        </article>
-        <article class="card">
-          <h3>方向三</h3>
-          <p>描述你在该方向的独到方法、关键案例或成果亮点。</p>
-        </article>
-      </div>
-    </section>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+    const debug = (msg) => {
+        console.log(msg);
+        document.getElementById('debug-info').innerHTML += "<br>> " + msg;
+    };
 
-    <section id="b" class="section anchor">
-      <h2>b · 服务</h2>
-      <p class="lead">
-        概述可提供的服务类型、合作流程与交付内容。可加入典型工期、可选模块与增值服务说明。
-      </p>
-    </section>
+    var map = L.map('map').setView([31.15, 121.43], 12);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(map);
 
-    <section id="c" class="section anchor">
-      <h2>c · 案例</h2>
-      <p class="lead">
-        简要展示 2–3 个代表性项目的摘要，配图可后续加入（建议使用 WebP 或 SVG 图标）。
-      </p>
-    </section>
+    // 自动缩放的边界器
+    var bounds = L.latLngBounds();
 
-    <section id="d" class="section anchor">
-      <h2>d · 联系</h2>
-      <p class="lead">
-        留下邮箱、社交媒体或表单入口。也可以嵌入第三方表单服务，便于快速收集需求。
-      </p>
-    </section>
-  </main>
+    function loadLayer(file, style, name) {
+        debug(`正在尝试请求 ${file}...`);
+        
+        fetch(file)
+            .then(response => {
+                if (!response.ok) throw new Error(`HTTP 错误! 状态码: ${response.status}`);
+                return response.json();
+            })
+            .then(data => {
+                if (!data.features || data.features.length === 0) {
+                    debug(`⚠️ ${name} 加载成功但数据内容为空！`);
+                    return;
+                }
+                
+                var layer = L.geoJSON(data, { style: style }).addTo(map);
+                bounds.extend(layer.getBounds());
+                map.fitBounds(bounds); // 自动对齐视图
+                
+                debug(`✅ ${name} 加载成功: ${data.features.length} 个要素`);
+            })
+            .catch(err => {
+                debug(`❌ ${name} 失败: ${err.message}`);
+                if(location.protocol === 'file:') {
+                    debug("💡 检测到是以 file:// 协议打开，请使用本地服务器运行。");
+                }
+            });
+    }
 
-  <footer>
-    © <span id="y"></span> ATELIER · All rights reserved.
-  </footer>
+    // 执行加载
+    loadLayer('xuhui.json', { color: "#2BB5BE", fillColor: "#BFDBE4", fillOpacity: 0.3 }, "徐汇范围");
+    loadLayer('roads.json', { color: "#FF4500", weight: 2 }, "快速路网");
 
-  <script>
-    // 动态年份
-    document.getElementById('y').textContent = new Date().getFullYear();
-  </script>
+</script>
 </body>
 </html>
