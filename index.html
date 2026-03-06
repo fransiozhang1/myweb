@@ -86,41 +86,61 @@
     }
 
     // 4. 加载 POI
-    function togglePOI(name, color, show) {
-        if (show) {
-            fetch(`data_poi/${name}.json`).then(r => r.json()).then(data => {
-                const layer = L.geoJSON(data, {
-                    pointToLayer: (feature, latlng) => {
-                        return L.circleMarker(latlng, {
-                            radius: getRadius(map.getZoom()),
-                            fillColor: color,
-                            color: "#fff",
-                            weight: 1.5,
-                            fillOpacity: 0.9
-                        });
-                    },
-                    onEachFeature: (feature, layer) => {
-                        // 漂亮弹窗构建
-                        const props = feature.properties;
-                        let popupHtml = `
-                            <div class="popup-header"><h3>${props.name || '未知名称'}</h3></div>
-                            <div class="popup-body">
-                                ${props.type ? `<div class="popup-row"><span class="popup-label">类型</span><span class="popup-value">${props.type}</span></div>` : ''}
-                                ${props.address ? `<div class="popup-row"><span class="popup-label">地址</span><span class="popup-value">${props.address}</span></div>` : ''}
-                                ${props.tel && props.tel !== '[]' ? `<div class="popup-row"><span class="popup-label">电话</span><span class="popup-value">${props.tel}</span></div>` : ''}
-                                <div class="popup-row"><span class="popup-label">所属</span><span class="popup-value">徐汇区</span></div>
+    // ... 前面地图初始化和基础图层加载逻辑保持不变 ...
+
+function togglePOI(name, color, show) {
+    if (show) {
+        fetch(`data_poi/${name}.json`).then(r => r.json()).then(data => {
+            const layer = L.geoJSON(data, {
+                pointToLayer: (feature, latlng) => {
+                    return L.circleMarker(latlng, {
+                        radius: getRadius(map.getZoom()),
+                        fillColor: color,
+                        color: "#fff",
+                        weight: 1.5,
+                        fillOpacity: 0.9
+                    });
+                },
+                onEachFeature: (feature, layer) => {
+                    const props = feature.properties;
+                    // --- 按照你的要求精简后的漂亮弹窗 ---
+                    let popupHtml = `
+                        <div class="popup-header">
+                            <h3>${props.name || '未命名POI'}</h3> 
+                        </div>
+                        <div class="popup-body">
+                            <div class="popup-row">
+                                <span class="popup-label">id</span>
+                                <span class="popup-value">${props.id || '-'}</span>
                             </div>
-                        `;
-                        layer.bindPopup(popupHtml, { className: 'custom-popup', maxWidth: 300 });
-                    }
-                }).addTo(map);
-                activeLayers[name] = layer;
-            });
-        } else if (activeLayers[name]) {
-            map.removeLayer(activeLayers[name]);
-            delete activeLayers[name];
-        }
+                            <div class="popup-row">
+                                <span class="popup-label">地址</span>
+                                <span class="popup-value">${props.address || '-'}</span>
+                            </div>
+                            <div class="popup-row">
+                                <span class="popup-label">大类</span>
+                                <span class="popup-value">${props.大类 || '-'}</span>
+                            </div>
+                            <div class="popup-row">
+                                <span class="popup-label">中类</span>
+                                <span class="popup-value">${props.中类 || '-'}</span>
+                            </div>
+                            <div class="popup-row">
+                                <span class="popup-label">小类</span>
+                                <span class="popup-value">${props.小类 || '-'}</span>
+                            </div>
+                        </div>
+                    `;
+                    layer.bindPopup(popupHtml, { className: 'custom-popup', maxWidth: 300 });
+                }
+            }).addTo(map);
+            activeLayers[name] = layer;
+        });
+    } else if (activeLayers[name]) {
+        map.removeLayer(activeLayers[name]);
+        delete activeLayers[name];
     }
+}
 
     // 5. 监听缩放事件，动态更新所有点的尺寸
     map.on('zoomend', function() {
