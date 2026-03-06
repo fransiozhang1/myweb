@@ -2,24 +2,21 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>大徐家汇数智化空间分析平台</title>
+    <title>大徐家汇数智化空间分析平台 - V4.0</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         :root {
             --primary: #2BB5BE;
+            --accent: #FF7E5F;
             --sidebar-bg: #ffffff;
-            --bg-gray: #f4f7f9;
-            --text-main: #2c3e50;
-            --text-muted: #94a3b8;
             --sidebar-w: 320px;
-            --shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+            --shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
         }
 
-        body, html { margin: 0; padding: 0; height: 100%; width: 100%; display: flex; overflow: hidden; font-family: -apple-system, "Noto Sans SC", "Microsoft YaHei", sans-serif; background: var(--bg-gray); }
-        
+        body, html { margin: 0; padding: 0; height: 100%; width: 100%; display: flex; overflow: hidden; font-family: -apple-system, sans-serif; background: #f4f7f9; }
         #app-container { display: flex; width: 100%; height: 100%; position: relative; }
 
-        /* --- 侧边栏优化 --- */
+        /* --- 侧边栏分组设计 --- */
         #sidebar {
             width: var(--sidebar-w); height: 100%; background: var(--sidebar-bg);
             border-right: 1px solid #e2e8f0; display: flex; flex-direction: column;
@@ -27,63 +24,55 @@
         }
         #sidebar.collapsed { margin-left: calc(-1 * var(--sidebar-w)); }
 
-        .sidebar-header { padding: 32px 24px; border-bottom: 1px solid #f1f5f9; }
-        .sidebar-header h1 { margin: 0; font-size: 20px; font-weight: 700; color: var(--text-main); letter-spacing: -0.5px; }
-        .sidebar-header p { margin: 6px 0 0; font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
-
-        #filter-container { flex: 1; overflow-y: auto; padding: 20px; background: #fff; }
-        #filter-container::-webkit-scrollbar { width: 5px; }
-        #filter-container::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
-
-        /* 图层卡片设计 */
-        .layer-card {
-            display: flex; align-items: center; padding: 12px 16px; margin-bottom: 8px;
-            background: #fff; border: 1px solid #f1f5f9; border-radius: 10px;
-            cursor: pointer; transition: all 0.2s ease;
+        .sidebar-header { padding: 25px 20px; border-bottom: 1px solid #f1f5f9; }
+        .sidebar-header h1 { margin: 0; font-size: 18px; font-weight: 700; color: #1e293b; }
+        
+        /* 滚动区域与分组标题 */
+        #filter-container { flex: 1; overflow-y: auto; padding: 15px; background: #fff; }
+        .group-title { 
+            font-size: 11px; font-weight: 800; color: #94a3b8; 
+            text-transform: uppercase; letter-spacing: 1.5px;
+            margin: 20px 0 10px 5px; display: flex; align-items: center;
         }
-        .layer-card:hover { border-color: var(--primary); background: #fcfdfe; transform: translateX(4px); }
-        .layer-card input { appearance: none; width: 16px; height: 16px; border: 2px solid #cbd5e1; border-radius: 4px; margin-right: 12px; cursor: pointer; position: relative; transition: 0.2s; }
-        .layer-card input:checked { background: var(--primary); border-color: var(--primary); }
-        .layer-card input:checked::after { content: '✓'; position: absolute; color: white; font-size: 10px; left: 2px; top: -1px; }
-        .color-dot { width: 8px; height: 8px; border-radius: 50%; margin-right: 12px; }
-        .layer-name { font-size: 14px; color: #475569; font-weight: 500; }
+        .group-title::after { content: ""; flex: 1; height: 1px; background: #f1f5f9; margin-left: 10px; }
 
-        /* --- 地图区域 --- */
-        #map { flex: 1; height: 100%; transition: all 0.5s ease; }
+        .layer-card {
+            display: flex; align-items: center; padding: 10px 14px; margin-bottom: 6px;
+            background: #fff; border: 1px solid #f1f5f9; border-radius: 8px;
+            cursor: pointer; transition: 0.2s;
+        }
+        .layer-card:hover { border-color: var(--primary); transform: translateX(4px); }
+        .layer-card input { margin-right: 12px; accent-color: var(--primary); }
+        .color-dot { width: 8px; height: 8px; border-radius: 50%; margin-right: 10px; }
+        .layer-name { font-size: 13px; color: #475569; font-weight: 500; }
 
-        /* 折叠按钮 - SVG */
+        /* --- 地图与工具 --- */
+        #map { flex: 1; height: 100%; }
         #toggle-btn {
-            position: absolute; left: var(--sidebar-w); top: 30px;
-            z-index: 2001; background: white; border: 1px solid #e2e8f0;
-            width: 28px; height: 48px; border-radius: 0 8px 8px 0;
-            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            position: absolute; left: var(--sidebar-w); top: 30px; z-index: 2001;
+            background: white; border: 1px solid #e2e8f0; width: 28px; height: 48px;
+            border-radius: 0 8px 8px 0; cursor: pointer; display: flex; align-items: center; justify-content: center;
             transition: 0.5s; box-shadow: 4px 0 10px rgba(0,0,0,0.03);
         }
         #sidebar.collapsed + #toggle-btn { left: 0; }
-        #toggle-btn svg { transition: 0.5s; color: #64748b; }
         #sidebar.collapsed + #toggle-btn svg { transform: rotate(180deg); }
 
-        /* 右侧工具栏 */
         #toolbar { position: absolute; right: 24px; top: 24px; z-index: 1000; display: flex; flex-direction: column; gap: 12px; }
-        .tool-btn {
-            width: 48px; height: 48px; background: white; border-radius: 12px;
-            display: flex; align-items: center; justify-content: center;
-            box-shadow: var(--shadow); cursor: pointer; border: 1px solid #fff; transition: 0.3s; color: #64748b;
-        }
-        .tool-btn:hover { color: var(--primary); transform: translateY(-2px); border-color: var(--primary); }
+        .tool-btn { width: 44px; height: 44px; background: white; border-radius: 10px; display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow); cursor: pointer; border: 1px solid #fff; transition: 0.3s; color: #64748b; }
+        .tool-btn:hover { color: var(--primary); transform: translateY(-2px); }
 
-        /* --- 弹窗美化 (修复不撑满问题) --- */
-        .custom-popup .leaflet-popup-content-wrapper { border-radius: 12px; padding: 0; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); }
-        .custom-popup .leaflet-popup-content { margin: 0 !important; width: 280px !important; }
-        .popup-header { background: var(--primary); color: white; padding: 16px 20px; }
-        .popup-header h3 { margin: 0; font-size: 16px; font-weight: 700; letter-spacing: -0.3px; }
-        .popup-body { padding: 12px 20px 20px; background: white; }
-        .popup-row { display: flex; padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; align-items: flex-start; }
-        .popup-label { color: var(--text-muted); width: 45px; font-weight: 600; flex-shrink: 0; }
-        .popup-value { color: var(--text-main); flex: 1; padding-left: 10px; line-height: 1.4; }
+        /* --- 弹窗美化 --- */
+        .custom-popup .leaflet-popup-content-wrapper { border-radius: 12px; padding: 0; overflow: hidden; }
+        .custom-popup .leaflet-popup-content { margin: 0 !important; width: 260px !important; }
+        .popup-header { background: var(--primary); color: white; padding: 14px 18px; }
+        .popup-header.house { background: var(--accent); } /* 房产用珊瑚色区分 */
+        .popup-header h3 { margin: 0; font-size: 15px; font-weight: 700; }
+        .popup-body { padding: 12px 18px 18px; font-size: 12px; }
+        .popup-row { display: flex; padding: 6px 0; border-bottom: 1px solid #f8fafc; }
+        .popup-label { color: #94a3b8; width: 40px; font-weight: 600; }
+        .popup-value { color: #334155; flex: 1; padding-left: 8px; }
 
-        #status-info { position: absolute; bottom: 20px; left: calc(var(--sidebar-w) + 20px); z-index: 1000; background: rgba(15, 23, 42, 0.8); color: #fff; padding: 6px 12px; border-radius: 6px; font-size: 11px; transition: 0.5s; }
-        #sidebar.collapsed ~ #status-info { left: 20px; }
+        #status-info { position: absolute; bottom: 20px; right: 80px; z-index: 1000; background: rgba(15, 23, 42, 0.8); color: #fff; padding: 6px 12px; border-radius: 6px; font-size: 11px; }
     </style>
 </head>
 <body>
@@ -91,27 +80,28 @@
 <div id="app-container">
     <aside id="sidebar">
         <div class="sidebar-header">
-            <h1>徐汇空间数智化</h1>
-            <p>POI Intelligence Analysis</p>
+            <h1>大徐家汇分析平台</h1>
+            <p>Xuhui Multi-Source Data Platform</p>
         </div>
-        <div id="filter-container"></div>
+        <div id="filter-container">
+            <div class="group-title">房产数据</div>
+            <div id="house-list"></div>
+            
+            <div class="group-title">POI 数据</div>
+            <div id="poi-list"></div>
+        </div>
     </aside>
 
     <div id="toggle-btn">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
     </div>
 
     <div id="toolbar">
-        <div class="tool-btn" id="btn-export" title="导出地图截图">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-        </div>
-        <div class="tool-btn" onclick="alert('标注模块建设中...')" title="添加标注">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        </div>
+        <div class="tool-btn" id="btn-export" title="导出截图"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
     </div>
 
     <main id="map"></main>
-    <div id="status-info">系统初始化完成</div>
+    <div id="status-info">● 平台初始化就绪</div>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -121,32 +111,20 @@
 <script>
     const log = (msg) => { document.getElementById('status-info').innerText = `● ${msg}`; };
 
-    // 1. 地图初始化 (锁定样式与坐标)
+    // 1. 地图初始化 (锁定样式与坐标：WGS84)
     var map = L.map('map', { zoomControl: false, renderer: L.canvas() }).setView([31.15, 121.43], 13);
-    
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-        attribution: '© CartoDB',
-        crossOrigin: true  // 截图必备
-    }).addTo(map);
-
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { crossOrigin: true }).addTo(map);
     L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-    // 2. 截图插件
+    // 截图功能
     const screenshoter = L.simpleMapScreenshoter({ hidden: true }).addTo(map);
-    document.getElementById('btn-export').onclick = () => {
-        log("正在渲染高清截图...");
-        screenshoter.takeScreen('blob').then(blob => {
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = `徐汇分析_${new Date().getTime()}.png`;
-            a.click();
-            log("导出成功");
-        }).catch(e => log("导出失败，请检查服务器环境"));
-    };
+    document.getElementById('btn-export').onclick = () => { screenshoter.takeScreen('blob').then(blob => {
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `分析导出.png`; a.click();
+    });};
 
-    // 3. 侧边栏逻辑
-    document.getElementById('toggle-btn').onclick = function() {
-        const isCollapsed = document.getElementById('sidebar').classList.toggle('collapsed');
+    // 侧边栏折叠
+    document.getElementById('toggle-btn').onclick = () => {
+        document.getElementById('sidebar').classList.toggle('collapsed');
         setTimeout(() => { map.invalidateSize(); }, 500);
     };
 
@@ -159,73 +137,79 @@
         return { r: 7, w: 2.5 };
     }
 
-    // 4. 加载 POI
-    function togglePOI(name, color, show) {
+    // --- 通用加载逻辑 ---
+    function toggleDataLayer(name, color, type, show) {
         if (show) {
-            log(`加载: ${name}`);
-            fetch(`data_poi/${name}.json`).then(r => r.json()).then(data => {
+            log(`正在载入: ${name}`);
+            const path = type === 'house' ? 'houses.json' : `data_poi/${name}.json`;
+            fetch(path).then(r => r.json()).then(data => {
                 const layer = L.geoJSON(data, {
                     pointToLayer: (f, latlng) => {
                         const s = getPOIStyle(map.getZoom());
-                        return L.circleMarker(latlng, {
-                            radius: s.r, weight: s.w, fillColor: color, color: "#fff", fillOpacity: 0.9
-                        });
+                        return L.circleMarker(latlng, { radius: s.r, weight: s.w, fillColor: color, color: "#fff", fillOpacity: 0.9 });
                     },
                     onEachFeature: (f, l) => {
                         const p = f.properties;
-                        // --- 按照要求精简的 6 项信息 ---
-                        let html = `
-                            <div class="popup-header"><h3>${p.name || 'POI'}</h3></div>
-                            <div class="popup-body">
-                                <div class="popup-row"><span class="popup-label">id</span><span class="popup-value">${p.id || '-'}</span></div>
-                                <div class="popup-row"><span class="popup-label">地址</span><span class="popup-value">${p.address || '-'}</span></div>
-                                <div class="popup-row"><span class="popup-label">大类</span><span class="popup-value">${p.大类 || '-'}</span></div>
-                                <div class="popup-row"><span class="popup-label">中类</span><span class="popup-value">${p.中类 || '-'}</span></div>
-                                <div class="popup-row"><span class="popup-label">小类</span><span class="popup-value">${p.小类 || '-'}</span></div>
-                            </div>`;
+                        let html = '';
+                        if (type === 'house') {
+                            // 房产定制弹窗
+                            html = `<div class="popup-header house"><h3>${p.name || '房产项目'}</h3></div>
+                                    <div class="popup-body">
+                                        <div class="popup-row"><span class="popup-label">地址</span><span class="popup-value">${p.address || '-'}</span></div>
+                                        <div class="popup-row"><span class="popup-label">类型</span><span class="popup-value">${p.type || '-'}</span></div>
+                                    </div>`;
+                        } else {
+                            // POI 定制弹窗
+                            html = `<div class="popup-header"><h3>${p.name || 'POI'}</h3></div>
+                                    <div class="popup-body">
+                                        <div class="popup-row"><span class="popup-label">id</span><span class="popup-value">${p.id || '-'}</span></div>
+                                        <div class="popup-row"><span class="popup-label">地址</span><span class="popup-value">${p.address || '-'}</span></div>
+                                        <div class="popup-row"><span class="popup-label">大类</span><span class="popup-value">${p.大类 || '-'}</span></div>
+                                        <div class="popup-row"><span class="popup-label">中类</span><span class="popup-value">${p.中类 || '-'}</span></div>
+                                        <div class="popup-row"><span class="popup-label">小类</span><span class="popup-value">${p.小类 || '-'}</span></div>
+                                    </div>`;
+                        }
                         l.bindPopup(html, { className: 'custom-popup', maxWidth: 280 });
                     }
                 }).addTo(map);
                 activeLayers[name] = layer;
-            });
+                log(`${name} 渲染完成`);
+            }).catch(e => log(`加载失败: ${name}`));
         } else if (activeLayers[name]) {
             map.removeLayer(activeLayers[name]);
             delete activeLayers[name];
         }
     }
 
-    // 5. 基础底图加载
-    fetch('xuhui.json').then(r => r.json()).then(data => {
-        L.geoJSON(data, { style: { color: "#2BB5BE", fillColor: "#BFDBE4", fillOpacity: 0.05, weight: 1.5 }}).addTo(map);
-    });
-    fetch('roads.json').then(r => r.json()).then(data => {
-        L.geoJSON(data, { style: { color: "#C4C4C4", weight: 0.8, opacity: 0.3 }}).addTo(map);
-    });
+    // 生成 UI (房产数据)
+    const houseContainer = document.getElementById('house-list');
+    const houseCard = document.createElement('div');
+    houseCard.className = 'layer-card';
+    houseCard.innerHTML = `<input type="checkbox"><div class="color-dot" style="background:var(--accent)"></div><span class="layer-name">徐汇区房产分布</span>`;
+    houseCard.onclick = (e) => { if (e.target.tagName !== 'INPUT') { const chk = houseCard.querySelector('input'); chk.checked = !chk.checked; chk.dispatchEvent(new Event('change')); }};
+    houseCard.querySelector('input').onchange = (e) => toggleDataLayer('徐汇区房产分布', '#FF7E5F', 'house', e.target.checked);
+    houseContainer.appendChild(houseCard);
 
-    // 自动生成菜单
-    const container = document.getElementById('filter-container');
+    // 生成 UI (POI 数据)
+    const poiContainer = document.getElementById('poi-list');
     poiFiles.forEach((name, index) => {
         const color = `hsl(${(index * 137.5) % 360}, 65%, 50%)`;
         const div = document.createElement('div');
         div.className = 'layer-card';
         div.innerHTML = `<input type="checkbox"><div class="color-dot" style="background:${color}"></div><span class="layer-name">${name}</span>`;
-        div.onclick = (e) => {
-            if (e.target.tagName !== 'INPUT') {
-                const chk = div.querySelector('input');
-                chk.checked = !chk.checked;
-                chk.dispatchEvent(new Event('change'));
-            }
-        };
-        container.appendChild(div);
-        div.querySelector('input').onchange = (e) => togglePOI(name, color, e.target.checked);
+        div.onclick = (e) => { if (e.target.tagName !== 'INPUT') { const chk = div.querySelector('input'); chk.checked = !chk.checked; chk.dispatchEvent(new Event('change')); }};
+        div.querySelector('input').onchange = (e) => toggleDataLayer(name, color, 'poi', e.target.checked);
+        poiContainer.appendChild(div);
     });
 
+    // 缩放同步
     map.on('zoomend', () => {
         const s = getPOIStyle(map.getZoom());
-        for (let key in activeLayers) {
-            activeLayers[key].eachLayer(l => l.setStyle({ radius: s.r, weight: s.w }));
-        }
+        for (let key in activeLayers) { activeLayers[key].eachLayer(l => l.setStyle({ radius: s.r, weight: s.w })); }
     });
+
+    // 初始底图
+    fetch('xuhui.json').then(r => r.json()).then(data => L.geoJSON(data, { style: { color: "#2BB5BE", fillColor: "#BFDBE4", fillOpacity: 0.05, weight: 1.5 }}).addTo(map));
 </script>
 </body>
 </html>
