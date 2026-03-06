@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>大徐家汇数智化空间分析平台</title>
+    <title>大徐家汇数智化空间分析平台 - Pro Plus</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         :root {
@@ -12,222 +12,137 @@
             --gray-border: #e0e6ed;
         }
 
-        body, html { margin: 0; padding: 0; height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Microsoft YaHei", sans-serif; overflow: hidden; }
-        
+        body, html { margin: 0; padding: 0; height: 100%; width: 100%; display: flex; overflow: hidden; font-family: -apple-system, sans-serif; }
         #app-container { display: flex; width: 100%; height: 100vh; }
 
-        /* --- 极简侧边栏设计 --- */
-        #sidebar {
-            width: 320px;
-            height: 100%;
-            background: var(--sidebar-bg);
-            border-right: 1px solid var(--gray-border);
-            display: flex;
-            flex-direction: column;
-            z-index: 1000;
-            box-shadow: 4px 0 20px rgba(0,0,0,0.05);
-            backdrop-filter: blur(10px);
-        }
+        /* 侧边栏样式 */
+        #sidebar { width: 320px; background: var(--sidebar-bg); border-right: 1px solid var(--gray-border); display: flex; flex-direction: column; z-index: 1000; box-shadow: 4px 0 20px rgba(0,0,0,0.05); }
+        .sidebar-header { padding: 30px 20px; border-bottom: 1px solid var(--gray-border); }
+        .sidebar-header h1 { margin: 0; font-size: 20px; font-weight: 600; color: var(--text-main); }
+        #filter-container { flex: 1; overflow-y: auto; padding: 20px; }
 
-        .sidebar-header {
-            padding: 30px 20px;
-            background: #fff;
-            border-bottom: 1px solid var(--gray-border);
-        }
-
-        .sidebar-header h1 {
-            margin: 0; font-size: 20px; font-weight: 600; color: var(--text-main); letter-spacing: 1px;
-        }
-
-        .sidebar-header p { margin: 8px 0 0 0; font-size: 12px; color: #95a5a6; text-transform: uppercase; }
-
-        /* 滚动区域 */
-        #filter-container {
-            flex: 1; overflow-y: auto; padding: 20px;
-        }
-
-        /* 隐藏原生滚动条，美化显示 */
-        #filter-container::-webkit-scrollbar { width: 4px; }
-        #filter-container::-webkit-scrollbar-thumb { background: #dcdde1; border-radius: 10px; }
-
-        /* 单个图层选项样式 */
-        .layer-card {
-            display: flex; align-items: center;
-            padding: 12px 15px; margin-bottom: 8px;
-            background: #fff; border: 1px solid #f1f2f6;
-            border-radius: 8px; transition: all 0.2s ease; cursor: pointer;
-        }
-
-        .layer-card:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.05); border-color: var(--primary-color); }
-
-        .layer-card input {
-            appearance: none; width: 16px; height: 16px; border: 2px solid #dcdde1;
-            border-radius: 4px; margin-right: 12px; cursor: pointer; position: relative;
-        }
-
-        .layer-card input:checked { background: var(--primary-color); border-color: var(--primary-color); }
-        .layer-card input:checked::after {
-            content: ''; position: absolute; left: 4px; top: 1px;
-            width: 4px; height: 8px; border: solid white; border-width: 0 2px 2px 0; transform: rotate(45deg);
-        }
-
+        .layer-card { display: flex; align-items: center; padding: 12px; margin-bottom: 8px; background: #fff; border: 1px solid #f1f2f6; border-radius: 8px; cursor: pointer; transition: 0.2s; }
+        .layer-card:hover { border-color: var(--primary-color); }
+        .layer-card input { margin-right: 12px; }
         .color-indicator { width: 8px; height: 8px; border-radius: 50%; margin-right: 12px; }
 
-        .layer-name { font-size: 14px; color: #4b6584; font-weight: 500; }
+        /* 地图容器 */
+        #map { flex: 1; background: #f5f6fa; }
 
-        /* --- 地图区域 --- */
-        #map { flex: 1; height: 100%; background: #f5f6fa; }
+        /* --- 漂亮弹窗样式 --- */
+        .custom-popup .leaflet-popup-content-wrapper { border-radius: 12px; padding: 0; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.15); }
+        .custom-popup .leaflet-popup-content { margin: 0; width: 280px !important; }
+        .popup-header { background: var(--primary-color); color: white; padding: 15px; }
+        .popup-header h3 { margin: 0; font-size: 16px; font-weight: 600; line-height: 1.4; }
+        .popup-body { padding: 15px; background: white; }
+        .popup-row { margin-bottom: 10px; display: flex; font-size: 13px; line-height: 1.5; color: #57606f; }
+        .popup-label { color: #a4b0be; width: 60px; flex-shrink: 0; font-weight: bold; }
+        .popup-value { color: #2f3542; }
 
-        /* 极简调试框 */
-        #debug-info {
-            position: absolute; bottom: 20px; right: 20px;
-            background: rgba(44, 62, 80, 0.8); color: #ecf0f1;
-            padding: 10px 15px; border-radius: 6px; font-size: 11px;
-            pointer-events: none; z-index: 1001; max-width: 260px;
-        }
-
-        /* 弹窗美化 */
-        .leaflet-popup-content-wrapper { border-radius: 8px; padding: 5px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
-        .leaflet-popup-tip { display: none; }
+        #debug-info { position: absolute; bottom: 20px; right: 20px; background: rgba(44, 62, 80, 0.8); color: #ecf0f1; padding: 8px 15px; border-radius: 6px; font-size: 11px; z-index: 1001; }
     </style>
 </head>
 <body>
 
 <div id="app-container">
     <aside id="sidebar">
-        <div class="sidebar-header">
-            <h1>徐汇空间管理</h1>
-            <p>POI Layers Control Panel</p>
-        </div>
-        <div id="filter-container">
-            </div>
+        <div class="sidebar-header"><h1>徐汇空间管理</h1><p>POI Layers Control</p></div>
+        <div id="filter-container"></div>
     </aside>
-
     <main id="map"></main>
 </div>
-
-<div id="debug-info">📡 系统初始化中...</div>
+<div id="debug-info">📡 系统运行中...</div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-    const debug = (msg) => {
-        console.log(msg);
-        const info = document.getElementById('debug-info');
-        info.innerHTML = `> ${msg}`;
-    };
+    const debug = (msg) => { document.getElementById('debug-info').innerHTML = `> ${msg}`; };
 
-    // 1. 初始化地图 (采用你喜欢的灰色系 CartoDB 底图)
-    var map = L.map('map', { zoomControl: false }).setView([31.15, 121.43], 13);
+    // 1. 初始化地图 (锁定样式：CartoDB Positron)
+    var map = L.map('map', { 
+        zoomControl: false,
+        renderer: L.canvas() // 性能优化：使用 Canvas 渲染大量点位
+    }).setView([31.15, 121.43], 13);
     
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-        attribution: '© CartoDB'
-    }).addTo(map);
-
-    // 将缩放按钮移到右下角，保持左侧清爽
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(map);
     L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-    const poiFiles = [
-        "餐饮服务", "风景名胜", "公共设施", "公司企业", "购物服务",
-        "交通设施服务", "金融保险服务", "科教文化服务", "摩托车服务", "汽车服务",
-        "汽车维修", "汽车销售", "商务住宅", "生活服务", "室内设施",
-        "体育休闲服务", "通行设施", "虚拟数据", "医疗保健服务", "政府机构及社会团体", "住宿服务"
-    ];
-
+    const poiFiles = ["餐饮服务", "风景名胜", "公共设施", "公司企业", "购物服务", "交通设施服务", "金融保险服务", "科教文化服务", "摩托车服务", "汽车服务", "汽车维修", "汽车销售", "商务住宅", "生活服务", "室内设施", "体育休闲服务", "通行设施", "虚拟数据", "医疗保健服务", "政府机构及社会团体", "住宿服务"];
     const activeLayers = {};
-    let globalBounds = L.latLngBounds();
 
-    // 2. 加载基础底图逻辑 (徐汇边界 & 路网)
-    function loadBaseLayer(file, style, name) {
-        debug(`正在加载 ${name}...`);
-        fetch(file)
-            .then(res => res.json())
-            .then(data => {
-                const layer = L.geoJSON(data, { style: style }).addTo(map);
-                globalBounds.extend(layer.getBounds());
-                map.fitBounds(globalBounds);
-                debug(`✅ ${name} 已就绪`);
-            })
-            .catch(e => debug(`❌ ${name} 加载失败`));
-    }
-
-    loadBaseLayer('xuhui.json', { color: "#2BB5BE", fillColor: "#BFDBE4", fillOpacity: 0.15, weight: 1.5 }, "徐汇范围");
-    loadBaseLayer('roads.json', { color: "#C4C4C4", weight: 1, opacity: 0.5 }, "快速路网");
-
-    // 3. 生成 POI 筛选 UI
-    const container = document.getElementById('filter-container');
-    
-    poiFiles.forEach((name, index) => {
-        // 使用冷静的色调配色
-        const color = `hsl(${(index * 137.5) % 360}, 60%, 55%)`;
-        
-        const card = document.createElement('div');
-        card.className = 'layer-card';
-        card.innerHTML = `
-            <input type="checkbox" id="chk-${index}">
-            <div class="color-indicator" style="background:${color}"></div>
-            <span class="layer-name">${name}</span>
-        `;
-        
-        // 点击卡片任意位置均可触发 checkbox
-        card.onclick = (e) => {
-            if (e.target.tagName !== 'INPUT') {
-                const chk = card.querySelector('input');
-                chk.checked = !chk.checked;
-                chk.dispatchEvent(new Event('change'));
-            }
-        };
-
-        container.appendChild(card);
-
-        // 监听图层切换
-        card.querySelector('input').onchange = function(e) {
-            if (e.target.checked) {
-                togglePOI(name, color, true);
-            } else {
-                togglePOI(name, color, false);
-            }
-        };
+    // 2. 加载基础底图 (锁定坐标：WGS84)
+    fetch('xuhui.json').then(res => res.json()).then(data => {
+        L.geoJSON(data, { style: { color: "#2BB5BE", fillColor: "#BFDBE4", fillOpacity: 0.1, weight: 1.5 }}).addTo(map);
+    });
+    fetch('roads.json').then(res => res.json()).then(data => {
+        L.geoJSON(data, { style: { color: "#C4C4C4", weight: 1, opacity: 0.4 }}).addTo(map);
     });
 
-    // 4. 加载 POI 点位逻辑
+    // 3. 核心功能：根据缩放动态计算半径
+    function getRadius(zoom) {
+        if (zoom <= 12) return 2;
+        if (zoom <= 14) return 4;
+        if (zoom <= 16) return 6;
+        return 9; // 放大后变大
+    }
+
+    // 4. 加载 POI
     function togglePOI(name, color, show) {
         if (show) {
-            debug(`加载中: ${name}`);
-            fetch(`data_poi/${name}.json`)
-                .then(r => r.json())
-                .then(data => {
-                    const layer = L.geoJSON(data, {
-                        pointToLayer: (feature, latlng) => {
-                            return L.circleMarker(latlng, {
-                                radius: 4,
-                                fillColor: color,
-                                color: "#fff",
-                                weight: 1,
-                                opacity: 1,
-                                fillOpacity: 0.8
-                            });
-                        },
-                        onEachFeature: (feature, layer) => {
-                            let content = `<div style="padding:10px"><strong>${name}</strong><hr style="border:0; border-top:1px solid #eee; margin:8px 0;">`;
-                            for (let key in feature.properties) {
-                                content += `<div style="font-size:11px; margin-bottom:3px;"><b style="color:#7f8c8d">${key}:</b> ${feature.properties[key]}</div>`;
-                            }
-                            content += `</div>`;
-                            layer.bindPopup(content);
-                        }
-                    }).addTo(map);
-                    activeLayers[name] = layer;
-                    debug(`显示: ${name} (${data.features.length}点)`);
-                })
-                .catch(e => debug(`❌ 文件 data_poi/${name}.json 未找到`));
-        } else {
-            if (activeLayers[name]) {
-                map.removeLayer(activeLayers[name]);
-                delete activeLayers[name];
-                debug(`已移除: ${name}`);
-            }
+            fetch(`data_poi/${name}.json`).then(r => r.json()).then(data => {
+                const layer = L.geoJSON(data, {
+                    pointToLayer: (feature, latlng) => {
+                        return L.circleMarker(latlng, {
+                            radius: getRadius(map.getZoom()),
+                            fillColor: color,
+                            color: "#fff",
+                            weight: 1.5,
+                            fillOpacity: 0.9
+                        });
+                    },
+                    onEachFeature: (feature, layer) => {
+                        // 漂亮弹窗构建
+                        const props = feature.properties;
+                        let popupHtml = `
+                            <div class="popup-header"><h3>${props.name || '未知名称'}</h3></div>
+                            <div class="popup-body">
+                                ${props.type ? `<div class="popup-row"><span class="popup-label">类型</span><span class="popup-value">${props.type}</span></div>` : ''}
+                                ${props.address ? `<div class="popup-row"><span class="popup-label">地址</span><span class="popup-value">${props.address}</span></div>` : ''}
+                                ${props.tel && props.tel !== '[]' ? `<div class="popup-row"><span class="popup-label">电话</span><span class="popup-value">${props.tel}</span></div>` : ''}
+                                <div class="popup-row"><span class="popup-label">所属</span><span class="popup-value">徐汇区</span></div>
+                            </div>
+                        `;
+                        layer.bindPopup(popupHtml, { className: 'custom-popup', maxWidth: 300 });
+                    }
+                }).addTo(map);
+                activeLayers[name] = layer;
+            });
+        } else if (activeLayers[name]) {
+            map.removeLayer(activeLayers[name]);
+            delete activeLayers[name];
         }
     }
+
+    // 5. 监听缩放事件，动态更新所有点的尺寸
+    map.on('zoomend', function() {
+        const newRadius = getRadius(map.getZoom());
+        for (let name in activeLayers) {
+            activeLayers[name].eachLayer(layer => {
+                if (layer.setRadius) layer.setRadius(newRadius);
+            });
+        }
+    });
+
+    // 6. UI 生成 (略，保持之前的遍历逻辑)
+    const container = document.getElementById('filter-container');
+    poiFiles.forEach((name, index) => {
+        const color = `hsl(${(index * 137.5) % 360}, 65%, 55%)`;
+        const card = document.createElement('div');
+        card.className = 'layer-card';
+        card.innerHTML = `<input type="checkbox" id="chk-${index}"><div class="color-indicator" style="background:${color}"></div><span class="layer-name">${name}</span>`;
+        card.onclick = (e) => { if (e.target.tagName !== 'INPUT') { const chk = card.querySelector('input'); chk.checked = !chk.checked; chk.dispatchEvent(new Event('change')); }};
+        container.appendChild(card);
+        card.querySelector('input').onchange = (e) => togglePOI(name, color, e.target.checked);
+    });
 </script>
 </body>
 </html>
