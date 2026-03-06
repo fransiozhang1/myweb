@@ -1,68 +1,164 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>徐汇空间系统 (调试版)</title>
+    <title>大徐家汇数智化空间分析平台</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        #map { width: 100%; height: 100vh; }
-        #debug-info { 
-            position: absolute; bottom: 20px; left: 20px; z-index: 1000; 
-            background: rgba(0,0,0,0.7); color: #0f0; padding: 10px; 
-            font-family: monospace; font-size: 12px; max-width: 300px;
+        body, html { margin: 0; padding: 0; height: 100%; font-family: "Microsoft YaHei", sans-serif; display: flex; }
+        
+        /* 侧边栏样式 */
+        #sidebar {
+            width: 300px; height: 100vh; background: #ffffff;
+            border-right: 1px solid #ddd; display: flex; flex-direction: column;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1); z-index: 1001;
+        }
+        
+        .sidebar-header {
+            padding: 20px; background: #2BB5BE; color: white;
+        }
+        
+        .sidebar-header h2 { margin: 0; font-size: 18px; }
+        
+        #filter-container {
+            flex: 1; overflow-y: auto; padding: 15px; background: #f9f9f9;
+        }
+
+        .filter-item {
+            display: flex; align-items: center; padding: 8px 12px;
+            margin-bottom: 5px; background: white; border-radius: 4px;
+            border: 1px solid #eee; transition: all 0.2s; cursor: pointer;
+        }
+        
+        .filter-item:hover { background: #f0fbfc; border-color: #2BB5BE; }
+        
+        .filter-item input { margin-right: 12px; cursor: pointer; }
+        
+        .color-dot { width: 12px; height: 12px; border-radius: 50%; margin-right: 10px; border: 1px solid rgba(0,0,0,0.1); }
+        
+        .filter-item label { font-size: 13px; color: #444; cursor: pointer; flex: 1; }
+
+        /* 地图容器 */
+        #map { flex: 1; height: 100vh; }
+        
+        /* 调试日志 */
+        #debug-log {
+            position: absolute; bottom: 10px; right: 10px; 
+            background: rgba(0,0,0,0.7); color: #0f0; 
+            padding: 5px 10px; font-size: 10px; border-radius: 4px; pointer-events: none;
         }
     </style>
 </head>
 <body>
 
-<div id="debug-info">📡 正在初始化调试日志...</div>
+<div id="sidebar">
+    <div class="sidebar-header">
+        <h2>图层筛选控制</h2>
+    </div>
+    <div id="filter-container">
+        </div>
+</div>
+
 <div id="map"></div>
+<div id="debug-log">系统就绪</div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-    const debug = (msg) => {
-        console.log(msg);
-        document.getElementById('debug-info').innerHTML += "<br>> " + msg;
-    };
+    // 1. 定义你的 21 个 POI 文件列表
+    const poiFiles = [
+        "餐饮服务", "风景名胜", "公共设施", "公司企业", "购物服务",
+        "交通设施服务", "金融保险服务", "科教文化服务", "摩托车服务", "汽车服务",
+        "汽车维修", "汽车销售", "商务住宅", "生活服务", "室内设施",
+        "体育休闲服务", "通行设施", "虚拟数据", "医疗保健服务", "政府机构及社会团体", "住宿服务"
+    ];
 
-    var map = L.map('map').setView([31.15, 121.43], 12);
+    // 存储当前显示的图层
+    const activeLayers = {};
+
+    // 初始化地图
+    var map = L.map('map').setView([31.15, 121.43], 13);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(map);
 
-    // 自动缩放的边界器
-    var bounds = L.latLngBounds();
+    // 辅助调试函数
+    function log(msg) { document.getElementById('debug-log').innerText = msg; }
 
-    function loadLayer(file, style, name) {
-        debug(`正在尝试请求 ${file}...`);
+    // 2. 加载基础底图
+    fetch('xuhui.json').then(r => r.json()).then(data => {
+        L.geoJSON(data, {style: {color: "#2BB5BE", fillColor: "#BFDBE4", fillOpacity: 0.2, weight: 2}}).addTo(map);
+    }).catch(e => log("底图边界加载失败"));
+
+    fetch('roads.json').then(r => r.json()).then(data => {
+        L.geoJSON(data, {style: {color: "#C4C4C4", weight: 1.5, opacity: 0.6}}).addTo(map);
+    }).catch(e => log("道路数据加载失败"));
+
+    // 3. 动态创建侧边栏筛选器
+    const container = document.getElementById('filter-container');
+    
+    poiFiles.forEach((name, index) => {
+        // 分配一个独特的颜色
+        const color = `hsl(${(index * 137.5) % 360}, 70%, 50%)`;
         
-        fetch(file)
-            .then(response => {
-                if (!response.ok) throw new Error(`HTTP 错误! 状态码: ${response.status}`);
-                return response.json();
-            })
-            .then(data => {
-                if (!data.features || data.features.length === 0) {
-                    debug(`⚠️ ${name} 加载成功但数据内容为空！`);
-                    return;
-                }
-                
-                var layer = L.geoJSON(data, { style: style }).addTo(map);
-                bounds.extend(layer.getBounds());
-                map.fitBounds(bounds); // 自动对齐视图
-                
-                debug(`✅ ${name} 加载成功: ${data.features.length} 个要素`);
-            })
-            .catch(err => {
-                debug(`❌ ${name} 失败: ${err.message}`);
-                if(location.protocol === 'file:') {
-                    debug("💡 检测到是以 file:// 协议打开，请使用本地服务器运行。");
-                }
-            });
+        const item = document.createElement('div');
+        item.className = 'filter-item';
+        item.innerHTML = `
+            <input type="checkbox" id="chk-${index}">
+            <div class="color-dot" style="background:${color}"></div>
+            <label for="chk-${index}">${name}</label>
+        `;
+        container.appendChild(item);
+
+        // 监听勾选状态
+        document.getElementById(`chk-${index}`).onchange = function(e) {
+            if (e.target.checked) {
+                togglePoiLayer(name, color, true);
+            } else {
+                togglePoiLayer(name, color, false);
+            }
+        };
+    });
+
+    // 4. 控制 POI 图层的显示与隐藏
+    function togglePoiLayer(name, color, show) {
+        if (show) {
+            log(`正在加载: ${name}...`);
+            fetch(`data_poi/${name}.json`)
+                .then(r => {
+                    if(!r.ok) throw new Error("文件未找到");
+                    return r.json();
+                })
+                .then(data => {
+                    const layer = L.geoJSON(data, {
+                        pointToLayer: (feature, latlng) => {
+                            return L.circleMarker(latlng, {
+                                radius: 5,
+                                fillColor: color,
+                                color: "#fff",
+                                weight: 1,
+                                opacity: 1,
+                                fillOpacity: 0.8
+                            });
+                        },
+                        onEachFeature: (feature, layer) => {
+                            // 弹出所有属性信息
+                            let popupContent = `<strong>${name}</strong><hr>`;
+                            for (let key in feature.properties) {
+                                popupContent += `<div style="font-size:11px"><b>${key}:</b> ${feature.properties[key]}</div>`;
+                            }
+                            layer.bindPopup(popupContent);
+                        }
+                    }).addTo(map);
+                    activeLayers[name] = layer;
+                    log(`${name} 加载完成`);
+                })
+                .catch(err => log(`错误: 无法读取 ${name}.json`));
+        } else {
+            if (activeLayers[name]) {
+                map.removeLayer(activeLayers[name]);
+                delete activeLayers[name];
+                log(`已移除: ${name}`);
+            }
+        }
     }
-
-    // 执行加载
-    loadLayer('xuhui.json', { color: "#2BB5BE", fillColor: "#BFDBE4", fillOpacity: 0.3 }, "徐汇范围");
-    loadLayer('roads.json', { color: "#FF4500", weight: 2 }, "快速路网");
-
 </script>
 </body>
 </html>
