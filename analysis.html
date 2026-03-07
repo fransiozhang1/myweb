@@ -32,15 +32,22 @@
 </div>
 
 <div id="deep-filter-win" class="floating-window">
-    <div class="win-header"><span>AI 深度语义筛选</span><span class="close-win" onclick="deactivateAll()">×</span></div>
+    <div class="win-header"><span>AI 深度语义筛选</span><span class="close-win">×</span></div>
     <div style="padding:25px; display:flex; flex-direction:column; gap:15px;">
-        <div style="border:2px dashed #e2e8f0; padding:25px; border-radius:16px; text-align:center; background:#fafafa;">
-            <input type="file" id="deep-file-in" style="display:none;">
-            <label for="deep-file-in" style="cursor:pointer; color:var(--primary); font-weight:800;">点击上传参考文件</label>
-            <div id="file-name" style="font-size:11px; color:#94a3b8; margin-top:10px;">未选择文件</div>
+        <div style="border:2px dashed #e2e8f0; padding:20px; border-radius:16px; text-align:center; background:#fafafa;">
+            <input type="file" id="deep-file-in" style="display:none;" accept=".csv,.txt">
+            <label for="deep-file-in" style="cursor:pointer; color:var(--primary); font-weight:800;">点击上传 CSV 参考文件</label>
+            <div id="file-name" style="font-size:11px; color:#94a3b8; margin-top:10px;">支持带数据的 CSV 格式</div>
         </div>
-        <button id="btn-run-deep" style="background:var(--primary); color:white; border:none; padding:12px; border-radius:12px; font-weight:800; cursor:pointer;">开始提取并筛选</button>
-        <button id="btn-restore-deep" style="background:#f1f5f9; color:#64748b; border:none; padding:10px; border-radius:12px; display:none; cursor:pointer;">取消提取并还原</button>
+
+        <div id="csv-columns-section" style="display:none;">
+            <div class="group-label" style="margin-top:0;">检测到数据列 (勾选以显示在弹窗)</div>
+            <div id="csv-column-list" style="max-height:120px; overflow-y:auto; background:#fff; border:1px solid #f1f5f9; border-radius:10px; padding:5px;">
+                </div>
+        </div>
+
+        <button id="btn-run-deep" style="background:var(--primary); color:white; border:none; padding:12px; border-radius:12px; font-weight:800; cursor:pointer;">开始提取并分析</button>
+        <button id="btn-restore-deep" style="background:#f1f5f9; color:#64748b; border:none; padding:10px; border-radius:12px; display:none; cursor:pointer;">取消提取还原</button>
         <div id="deep-log" style="font-size:11px; color:var(--primary); text-align:center;"></div>
     </div>
 </div>
@@ -294,6 +301,107 @@ const API_KEY = "sk-953b1a97918949d2a18c9a07a14729d0";
     // 7. 加载基础边界
     fetch('xuhui.json')
         .then(r => r.json())
-        .then(data => L.geoJSON(data, { style: { color: "#2BB5BE", weight: 1.5, fillOpacity: 0.05 }}).addTo(map));</script>
+        .then(data => L.geoJSON(data, { style: { color: "#2BB5BE", weight: 1.5, fillOpacity: 0.05 }}).addTo(map));
+        
+     // --- 新增状态变量 ---
+let csvFullData = [];      // 存储 CSV 完整的行对象数组
+let csvHeaders = [];       // 存储 CSV 的所有列名
+let activeCsvCols = new Set(); // 记录当前勾选了哪些列
+let csvDataLookup = {};    // 以“名称”为 key 的快速查询表
+
+// --- 修改文件选择逻辑：增加本地解析 ---
+document.getElementById('deep-file-in').onchange = (e) => {
+    const file = e.target.files[0];
+    if(!file) return;
+    document.getElementById('file-name').innerText = file.name;
+
+    // 本地解析 CSV 表头
+    const reader = new FileReader();
+    reader.onload = function(f) {
+        const text = f.target.result;
+        const lines = text.split('\n').filter(l => l.trim());
+        if(lines.length > 0) {
+            // 提取表头 (假设第一行是标题)
+            csvHeaders = lines[0].split(',').map(h => h.trim());
+            // 填充数据查询表
+            csvFullData = [];
+            csvDataLookup = {};
+            for(let i=1; i<lines.length; i++) {
+                const values = lines[i].split(',').map(v => v.trim());
+                const row = {};
+                csvHeaders.forEach((h, idx) => row[h] = values[idx]);
+                if(row[csvHeaders[0]]) { // 假设第一列通常是名称
+                    csvDataLookup[row[csvHeaders[0]]] = row; 
+                }
+                csvFullData.push(row);
+            }
+            renderColumnSelectors(); // 显示列勾选 UI
+        }
+    };
+    reader.readAsText(file);
+};
+
+// --- 新增：渲染列勾选 UI ---
+function renderColumnSelectors() {
+    const container = document.getElementById('csv-column-list');
+    document.getElementById('csv-columns-section').style.display = 'block';
+    container.innerHTML = '';
+    
+    csvHeaders.forEach(header => {
+        const div = document.createElement('div');
+        div.className = 'layer-item';
+        div.style = "padding: 6px 10px; margin-bottom: 4px; font-size: 12px;";
+        div.innerHTML = `<input type="checkbox" data-col="${header}"><span>${header}</span>`;
+        div.querySelector('input').onchange = (e) => {
+            if(e.target.checked) activeCsvCols.add(header);
+            else activeCsvCols.delete(header);
+            refreshMap(); // 勾选后立即刷新地图弹窗内容
+        };
+        container.appendChild(div);
+    });
+}
+
+// --- 修改：地图弹窗渲染逻辑 (核心) ---
+// 找到你代码中的 refreshMap 里的 onEachFeature 部分，进行如下修改：
+function refreshMap() {
+    for(let name in displayLayers) {
+        const conf = displayLayers[name].conf;
+        map.removeLayer(displayLayers[name].layer);
+        if(conf.visible) {
+            displayLayers[name].layer = L.geoJSON(pool[name], {
+                filter: (f) => {
+                    if(currentKeywords.length === 0) return true;
+                    return currentKeywords.some(kw => (f.properties.name || "").includes(kw) && keywordVisibility[kw]);
+                },
+                pointToLayer: (f, latlng) => L.circleMarker(latlng, { radius: 6, weight: 2.0, fillColor: conf.c, color: "#fff", fillOpacity: 0.9 }),
+                onEachFeature: (f, l) => { 
+                    const p = f.properties;
+                    let popupHtml = `<div class="popup-header ${name.includes('房产')?'house':''}"><h3>${p.name}</h3></div>`;
+                    popupHtml += `<div style="padding:15px; font-size:12px;">`;
+                    popupHtml += `<div><b>原始地址:</b> ${p.address || '-'}</div>`;
+                    
+                    // --- 动态注入 CSV 额外数据 ---
+                    if (csvDataLookup[p.name]) {
+                        const extraData = csvDataLookup[p.name];
+                        activeCsvCols.forEach(col => {
+                            if(extraData[col]) {
+                                popupHtml += `<div style="margin-top:5px; padding-top:5px; border-top:1px dashed #eee;">
+                                                <b style="color:var(--primary)">${col}:</b> ${extraData[col]}
+                                              </div>`;
+                            }
+                        });
+                    }
+                    
+                    l.bindPopup(popupHtml + `</div>`); 
+                }
+            }).addTo(map);
+        }
+    }
+}   
+        
+</script>
+
+    
+
 </body>
 </html>
