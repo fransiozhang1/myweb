@@ -5,73 +5,59 @@
     <title>大徐家汇数智化平台 - 分析端</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/@geoman-io/leaflet-geoman-free@latest/dist/leaflet-geoman.css" />
-    <style>
-        :root { --primary: #2BB5BE; --accent: #FF7E5F; --glass: rgba(255, 255, 255, 0.98); --shadow: 0 12px 45px rgba(0,0,0,0.15); --btn-size: 54px; --icon-size: 22px; --stroke-w: 2.0; }
-        body, html { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; font-family: -apple-system, sans-serif; background: #f0f2f5; }
-        #map { width: 100vw; height: 100vh; z-index: 1; }
-
-        #header-hud { position: absolute; top: 30px; left: 35px; z-index: 2000; pointer-events: none; }
-        #header h1 { margin: 0; font-size: 28px; font-weight: 800; color: #1e293b; letter-spacing: -1px; }
-        #header p { margin: 5px 0 0; font-size: 12px; color: var(--primary); font-weight: 800; text-transform: uppercase; letter-spacing: 2px; }
-
-        .toolbar-group { position: absolute; right: 30px; z-index: 2000; display: flex; flex-direction: column; gap: 15px; }
-        #analysis-tools { top: 30px; } 
-        #editor-tools { top: 150px; } /* 布局更紧凑 */
-
-        .tool-btn { width: var(--btn-size); height: var(--btn-size); background: white; border-radius: 15px; display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow); cursor: pointer; border: 1px solid #fff; transition: 0.2s; color: #64748b; }
-        .tool-btn svg { width: var(--icon-size); height: var(--icon-size); stroke-width: var(--stroke-w); }
-        .tool-btn:hover, .tool-btn.active { color: var(--primary); transform: scale(1.08); border-color: var(--primary); }
-        .tool-btn.danger:hover { color: #ff4757; border-color: #ff4757; }
-
-        /* 浮动窗口 */
-        .floating-window { position: absolute; z-index: 2000; background: var(--glass); backdrop-filter: blur(15px); border-radius: 24px; border: 1px solid #fff; box-shadow: var(--shadow); display: none; flex-direction: column; overflow: hidden; }
-        .win-header { padding: 18px 22px; background: #fff; border-bottom: 1px solid #f1f5f9; cursor: move; display: flex; justify-content: space-between; align-items: center; font-weight: 700; color: #334155; }
-        #layer-menu { top: 30px; right: 100px; width: 320px; max-height: 80vh; }
-
-        .group-label { font-size: 11px; color: #94a3b8; font-weight: 800; text-transform: uppercase; margin: 15px 0 10px 0; }
-        .layer-item { display: flex; align-items: center; padding: 10px; background: #fff; border-radius: 10px; margin-bottom: 5px; border: 1px solid #f1f5f9; cursor: pointer; }
-        .layer-item input { margin-right: 12px; width: 16px; height: 16px; accent-color: var(--primary); }
-
-        /* 命名与弹窗 */
-        #naming-ui { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 260px; z-index: 3000; display: none; background: white; padding: 30px; border-radius: 24px; box-shadow: var(--shadow); text-align: center; }
-        #naming-ui input { width: 100%; border: 1px solid #e2e8f0; padding: 12px; border-radius: 12px; margin-bottom: 15px; outline: none; }
-        #naming-ui button { background: var(--primary); color: white; border: none; padding: 12px; border-radius: 12px; cursor: pointer; width: 100%; font-weight: 700; }
-    </style>
+    <link rel="stylesheet" href="analysis.css" />
 </head>
 <body>
 
-<div id="header-hud">
+<div id="hud-left">
     <div id="header">
         <h1>大徐家汇数智化平台</h1>
-        <p>● 分析模式 (只读已筛选数据)</p>
+        <p>● 深度分析模式</p>
     </div>
+    <button id="btn-deep-filter" class="big-action-btn">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15.5 19l-7-7 7-7"/><path d="M8.5 12h13"/></svg>
+        AI 深度筛选
+    </button>
 </div>
 
 <div id="analysis-tools" class="toolbar-group">
-    <div class="tool-btn" id="btn-layer-t" title="图层与筛选控制"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
+    <div class="tool-btn" id="btn-layer-t" title="控制面板"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
 </div>
 
 <div id="editor-tools" class="toolbar-group">
     <div class="tool-btn" id="btn-ruler" title="测距"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M19 20L5 6M9 6l3 3M12 9l3 3M15 12l3 3"/></svg></div>
-    <div class="tool-btn" id="btn-poly" title="绘制区域"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z"/></svg></div>
-    <div class="tool-btn" id="btn-marker" title="标注点"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div>
+    <div class="tool-btn" id="btn-poly" title="绘面"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z"/></svg></div>
+    <div class="tool-btn" id="btn-marker" title="点标注"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div>
     <div class="tool-btn danger" id="btn-eraser" title="橡皮擦"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20H7L3 16C2 15 2 13 3 12L13 2L22 11L20 20Z"/><path d="M17 17l-10-10"/></svg></div>
 </div>
 
+<div id="deep-filter-win" class="floating-window">
+    <div class="win-header"><span>AI 深度语义筛选</span><span class="close-win" onclick="deactivateAll()">×</span></div>
+    <div style="padding:25px; display:flex; flex-direction:column; gap:15px;">
+        <div style="border:2px dashed #e2e8f0; padding:25px; border-radius:16px; text-align:center; background:#fafafa;">
+            <input type="file" id="deep-file-in" style="display:none;">
+            <label for="deep-file-in" style="cursor:pointer; color:var(--primary); font-weight:800;">点击上传参考文件</label>
+            <div id="file-name" style="font-size:11px; color:#94a3b8; margin-top:10px;">未选择文件</div>
+        </div>
+        <button id="btn-run-deep" style="background:var(--primary); color:white; border:none; padding:12px; border-radius:12px; font-weight:800; cursor:pointer;">开始提取并筛选</button>
+        <button id="btn-restore-deep" style="background:#f1f5f9; color:#64748b; border:none; padding:10px; border-radius:12px; display:none; cursor:pointer;">取消提取并还原</button>
+        <div id="deep-log" style="font-size:11px; color:var(--primary); text-align:center;"></div>
+    </div>
+</div>
+
 <div id="layer-menu" class="floating-window">
-    <div class="win-header"><span>分析控制面板</span><span onclick="deactivateAll()" style="cursor:pointer; font-size:20px;">×</span></div>
+    <div class="win-header"><span>分析控制面板</span><span class="close-win" onclick="deactivateAll()">×</span></div>
     <div style="padding:20px; overflow-y:auto; flex:1;">
-        <div class="group-label">活跃数据大类</div>
+        <div class="group-label">活跃数据大类开关</div>
         <div id="active-category-list"></div>
-        
-        <div class="group-label">筛选项微调 (关键词)</div>
+        <div class="group-label">筛选关键词微调</div>
         <div id="active-keyword-list"></div>
     </div>
 </div>
 
 <div id="naming-ui">
-    <h3 style="margin-top:0; font-size:16px;">标记点命名</h3>
-    <input type="text" id="m-name" placeholder="输入名称...">
+    <h3 style="margin-top:0; font-size:18px;">标记点命名</h3>
+    <input type="text" id="m-name" placeholder="名称...">
     <button id="m-save">确认保存</button>
 </div>
 
@@ -81,18 +67,73 @@
 <script src="https://unpkg.com/@geoman-io/leaflet-geoman-free@latest/dist/leaflet-geoman.min.js"></script>
 
 <script>
-    // 1. 初始化地图
+const API_KEY = "sk-953b1a97918949d2a18c9a07a14729d0";
+
+    // 1. 地图初始化
     var map = L.map('map', { zoomControl: false, renderer: L.canvas() }).setView([31.15, 121.43], 13);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { crossOrigin: true }).addTo(map);
     map.pm.setLang('zh');
+    // 禁用 Geoman 默认工具条，我们使用自定义按钮控制
+    map.pm.addControls({ drawControls: false, editControls: false });
 
-    // 2. 读取上一页保存的状态
+    // 2. 状态读取与备份
     const state = JSON.parse(localStorage.getItem('analysis_state')) || { keywords: [], activeLayers: [] };
+    let currentKeywords = [...state.keywords];
+    let originalStateKeywords = [...state.keywords]; // 用于 AI 还原
     const pool = {}, displayLayers = {};
     const keywordVisibility = {};
-    state.keywords.forEach(kw => keywordVisibility[kw] = true); // 默认关键词全部开启
+    currentKeywords.forEach(kw => keywordVisibility[kw] = true);
 
-    // 3. 核心渲染函数：结合大类开关和关键词开关
+    // 3. 核心交互逻辑：排他性与状态重置
+    function deactivateAll() {
+        // 隐藏所有浮动窗口
+        document.querySelectorAll('.floating-window').forEach(w => w.style.display = 'none');
+        // 移除所有按钮（包括侧边大按钮和右侧工具按钮）的激活样式
+        document.querySelectorAll('.tool-btn, .big-action-btn').forEach(b => b.classList.remove('active'));
+        // 隐藏命名 UI
+        document.getElementById('naming-ui').style.display = 'none';
+        // 停止 Geoman 绘图模式
+        map.pm.disableDraw();
+        map.pm.disableGlobalRemovalMode();
+    }
+
+    // 全局 ESC 键监听：一键清场
+    window.addEventListener('keydown', (e) => { 
+        if(e.key === 'Escape') deactivateAll(); 
+    });
+
+    // 通用按钮绑定函数（处理开启/关闭切换）
+    const setupBtn = (id, action) => {
+        const btn = document.getElementById(id);
+        btn.onclick = () => {
+            const wasActive = btn.classList.contains('active');
+            deactivateAll(); // 开启任何功能前先关闭其他所有功能
+            if(!wasActive) { 
+                action(); 
+                btn.classList.add('active'); 
+            }
+        };
+    };
+
+    // 绑定左侧深度筛选
+    setupBtn('btn-deep-filter', () => document.getElementById('deep-filter-win').style.display = 'flex');
+    
+    // 绑定右侧分析工具
+    setupBtn('btn-layer-t', () => document.getElementById('layer-menu').style.display = 'flex');
+    setupBtn('btn-ruler', () => map.pm.enableDraw('Line', { measurements: { displayUnit: 'metric', showLength: true } }));
+    setupBtn('btn-poly', () => map.pm.enableDraw('Polygon', { measurements: { displayUnit: 'metric', showArea: true } }));
+    setupBtn('btn-marker', () => map.pm.enableDraw('Marker'));
+    setupBtn('btn-eraser', () => map.pm.toggleGlobalRemovalMode());
+
+    // 统一处理所有窗口的关闭按钮（×）
+    document.querySelectorAll('.close-win').forEach(closeBtn => {
+        closeBtn.onclick = (e) => {
+            e.stopPropagation();
+            deactivateAll();
+        };
+    });
+
+    // 4. 双重开关渲染引擎
     function refreshMap() {
         for(let name in displayLayers) {
             const conf = displayLayers[name].conf;
@@ -101,74 +142,158 @@
             if(conf.visible) {
                 displayLayers[name].layer = L.geoJSON(pool[name], {
                     filter: (f) => {
-                        if(state.keywords.length === 0) return true;
-                        // 逻辑：如果该点包含某个关键词，且该关键词在 UI 中被勾选，则显示
-                        return state.keywords.some(kw => f.properties.name.includes(kw) && keywordVisibility[kw]);
+                        if(currentKeywords.length === 0) return true;
+                        // 逻辑：检查点名称是否包含当前“勾选为可见”的任何关键词
+                        return currentKeywords.some(kw => (f.properties.name || "").includes(kw) && keywordVisibility[kw]);
                     },
-                    pointToLayer: (f, latlng) => L.circleMarker(latlng, { radius: 5, weight: 1.5, fillColor: conf.c, color: "#fff", fillOpacity: 0.9 }),
-                    onEachFeature: (f, l) => { l.bindPopup(`<b>${f.properties.name}</b><br>${f.properties.address || '-'}`); }
+                    pointToLayer: (f, latlng) => L.circleMarker(latlng, { radius: 6, weight: 2.0, fillColor: conf.c, color: "#fff", fillOpacity: 0.9 }),
+                    onEachFeature: (f, l) => { 
+                        l.bindPopup(`<b>${f.properties.name}</b><br>${f.properties.address || '-'}`); 
+                    }
                 }).addTo(map);
             }
         }
     }
 
-    // 4. 加载数据并生成 UI
+    // 初始化/刷新关键词微调列表 UI
+    function initToggles() {
+        const listContainer = document.getElementById('active-keyword-list');
+        listContainer.innerHTML = '';
+        currentKeywords.forEach(kw => {
+            if (!(kw in keywordVisibility)) keywordVisibility[kw] = true;
+            const div = document.createElement('div'); 
+            div.className = 'layer-item';
+            div.innerHTML = `<input type="checkbox" ${keywordVisibility[kw]?'checked':''}><span>${kw}</span>`;
+            div.querySelector('input').onchange = (e) => { 
+                keywordVisibility[kw] = e.target.checked; 
+                refreshMap(); 
+            };
+            listContainer.appendChild(div);
+        });
+    }
+
+    // 加载数据大类逻辑
     state.activeLayers.forEach(name => {
-        const color = name.includes('房产') ? '#FF7E5F' : `hsl(${(state.activeLayers.indexOf(name)*137)%360},65%,50%)`;
-        const path = name.includes('房产') ? 'houses.json' : `data_poi/${name}.json`;
+        const isH = name.includes('房产');
+        const color = isH ? '#FF7E5F' : `hsl(${(state.activeLayers.indexOf(name)*137)%360},65%,50%)`;
+        const path = isH ? 'houses.json' : `data_poi/${name}.json`;
         
         fetch(path).then(r => r.json()).then(data => {
             pool[name] = data;
             displayLayers[name] = { layer: L.layerGroup(), conf: { c: color, visible: true } };
             
-            // 生成大类开关
-            const div = document.createElement('div'); div.className = 'layer-item';
-            div.innerHTML = `<input type="checkbox" checked><div style="width:8px; height:8px; border-radius:50%; background:${color}; margin-right:12px;"></div><span>${name}</span>`;
-            div.querySelector('input').onchange = (e) => { displayLayers[name].conf.visible = e.target.checked; refreshMap(); };
+            const div = document.createElement('div'); 
+            div.className = 'layer-item';
+            div.innerHTML = `<input type="checkbox" checked><div class="legend-dot" style="background:${color}"></div><span>${name}</span>`;
+            div.querySelector('input').onchange = (e) => { 
+                displayLayers[name].conf.visible = e.target.checked; 
+                refreshMap(); 
+            };
             document.getElementById('active-category-list').appendChild(div);
-            
             refreshMap();
         });
     });
+    initToggles();
 
-    // 生成关键词开关
-    state.keywords.forEach(kw => {
-        const div = document.createElement('div'); div.className = 'layer-item';
-        div.innerHTML = `<input type="checkbox" checked><span>${kw}</span>`;
-        div.querySelector('input').onchange = (e) => { keywordVisibility[kw] = e.target.checked; refreshMap(); };
-        document.getElementById('active-keyword-list').appendChild(div);
-    });
-
-    // 5. 排他性与测绘工具 (含 ESC 逻辑)
-    function deactivateAll() {
-        document.querySelectorAll('.floating-window').forEach(w => w.style.display = 'none');
-        document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
-        document.getElementById('naming-ui').style.display = 'none';
-        map.pm.disableDraw();
-        map.pm.disableGlobalRemovalMode();
-    }
-    window.addEventListener('keydown', (e) => { if(e.key === 'Escape') deactivateAll(); });
-
-    const setupBtn = (id, action) => {
-        document.getElementById(id).onclick = () => {
-            const wasActive = document.getElementById(id).classList.contains('active');
-            deactivateAll();
-            if(!wasActive) { action(); document.getElementById(id).classList.add('active'); }
-        };
+    // 5. AI 深度提取逻辑 (分析模式专用)
+    document.getElementById('deep-file-in').onchange = (e) => { 
+        document.getElementById('file-name').innerText = e.target.files[0]?.name || "未选择"; 
     };
 
-    setupBtn('btn-layer-t', () => document.getElementById('layer-menu').style.display = 'flex');
-    setupBtn('btn-ruler', () => map.pm.enableDraw('Line', { measurements: { showLength: true } }));
-    setupBtn('btn-poly', () => map.pm.enableDraw('Polygon', { measurements: { showArea: true } }));
-    setupBtn('btn-marker', () => map.pm.enableDraw('Marker'));
-    setupBtn('btn-eraser', () => map.pm.toggleGlobalRemovalMode());
+    document.getElementById('btn-run-deep').onclick = async () => {
+        const file = document.getElementById('deep-file-in').files[0];
+        const log = document.getElementById('deep-log');
+        if(!file) return alert("请上传文件");
+        
+        log.innerText = "⏳ AI 正在深度分析提取...";
+        try {
+            const fd = new FormData(); 
+            fd.append('file', file); 
+            fd.append('purpose', 'file-extract');
+            
+            // 第一步：上传
+            const upRes = await fetch("https://dashscope.aliyuncs.com/compatible-mode/v1/files", { 
+                method:"POST", 
+                headers:{"Authorization":`Bearer ${API_KEY}`}, 
+                body:fd 
+            });
+            const fid = (await upRes.json()).id;
 
-    // 标注命名逻辑
+            // 第二步：提取店名/点位
+            const aiRes = await fetch("https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions", {
+                method:"POST", 
+                headers:{"Content-Type":"application/json", "Authorization":`Bearer ${API_KEY}`},
+                body: JSON.stringify({ 
+                    model:"qwen-long", 
+                    messages:[
+                        {role:"system", content:`fileid://${fid}`}, 
+                        {role:"user", content:"提取文件中提到的地点、店名或商户名称，用逗号分隔，仅返回名称列表。"}
+                    ]
+                })
+            });
+            
+            const content = (await aiRes.json()).choices[0].message.content;
+            const names = content.split(/[，,]/).map(n => n.trim()).filter(n => n);
+            
+            // 更新当前关键词列表并刷新地图
+            currentKeywords = names;
+            initToggles(); 
+            refreshMap();
+            
+            log.innerText = `✅ 已成功提取 ${names.length} 个目标`;
+            document.getElementById('btn-restore-deep').style.display = 'block';
+        } catch(e) { 
+            log.innerText = "❌ 提取失败，请重试"; 
+        }
+    };
+
+    // 深度筛选还原逻辑
+    document.getElementById('btn-restore-deep').onclick = () => { 
+        currentKeywords = [...originalStateKeywords]; 
+        initToggles(); 
+        refreshMap(); 
+        document.getElementById('btn-restore-deep').style.display = 'none'; 
+        document.getElementById('deep-log').innerText = ''; 
+        deactivateAll(); // 关闭窗口并重置按钮状态
+    };
+
+    // 6. 标注点 UI 与 窗口拖拽
     let curM = null;
-    map.on('pm:create', (e) => { if(e.shape === 'Marker') { curM = e.layer; document.getElementById('naming-ui').style.display='block'; } });
-    document.getElementById('m-save').onclick = () => { curM.bindPopup(`<b>${document.getElementById('m-name').value}</b>`).openPopup(); deactivateAll(); };
+    map.on('pm:create', (e) => { 
+        if(e.shape === 'Marker') { 
+            curM = e.layer; 
+            document.getElementById('naming-ui').style.display = 'block'; 
+            document.getElementById('m-name').focus(); 
+        } 
+    });
 
-    fetch('xuhui.json').then(r => r.json()).then(data => L.geoJSON(data, { style: { color: "#2BB5BE", weight: 1.5, fillOpacity: 0.05 }}).addTo(map));
-</script>
+    document.getElementById('m-save').onclick = () => { 
+        const nameValue = document.getElementById('m-name').value || "未命名点位";
+        if(curM) curM.bindPopup(`<b>${nameValue}</b>`).openPopup(); 
+        deactivateAll(); 
+        document.getElementById('m-name').value = "";
+    };
+
+    // 实现窗口自由拖拽
+    document.querySelectorAll('.win-header').forEach(h => {
+        let dragging = false, offset = [0,0], win = h.parentElement;
+        h.onmousedown = (e) => { 
+            dragging = true; 
+            offset = [win.offsetLeft - e.clientX, win.offsetTop - e.clientY]; 
+        };
+        document.onmousemove = (e) => { 
+            if(!dragging) return; 
+            win.style.left = (e.clientX + offset[0]) + 'px'; 
+            win.style.top = (e.clientY + offset[1]) + 'px'; 
+            win.style.bottom = 'auto'; 
+            win.style.right = 'auto'; 
+        };
+        document.onmouseup = () => dragging = false;
+    });
+
+    // 7. 加载基础边界
+    fetch('xuhui.json')
+        .then(r => r.json())
+        .then(data => L.geoJSON(data, { style: { color: "#2BB5BE", weight: 1.5, fillOpacity: 0.05 }}).addTo(map));</script>
 </body>
 </html>
