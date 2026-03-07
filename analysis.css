@@ -8,7 +8,7 @@
     --stroke-w: 2.0;
 }
 
-body, html { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; font-family: -apple-system, sans-serif; background: #f0f2f5; }
+body, html { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; font-family: -apple-system, "SF Pro SC", sans-serif; background: #f0f2f5; }
 #map { width: 100vw; height: 100vh; z-index: 1; }
 
 /* --- HUD 布局 --- */
@@ -39,28 +39,48 @@ body, html { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden;
 .tool-btn:hover, .tool-btn.active { color: var(--primary); transform: scale(1.08); border-color: var(--primary); }
 .tool-btn.danger:hover { color: #ff4757; border-color: #ff4757; }
 
-/* --- 窗口与列表 --- */
-.floating-window { position: absolute; z-index: 3000; background: var(--glass); backdrop-filter: blur(15px); border-radius: 24px; border: 1px solid #fff; box-shadow: var(--shadow); display: none; flex-direction: column; overflow: hidden; }
-.win-header { padding: 18px 22px; background: #fff; border-bottom: 1px solid #f1f5f9; cursor: move; display: flex; justify-content: space-between; align-items: center; font-weight: 700; font-size: 15px; }
-.close-win { cursor: pointer; font-size: 24px; color: #cbd5e1; }
+/* --- 浮动窗口与列表 --- */
+.floating-window { position: absolute; z-index: 3000; background: var(--glass); backdrop-filter: blur(20px); border-radius: 28px; border: 1px solid rgba(255,255,255,0.7); box-shadow: var(--shadow); display: none; flex-direction: column; overflow: hidden; }
+.win-header { padding: 20px 24px; background: #fff; border-bottom: 1px solid #f1f5f9; cursor: move; display: flex; justify-content: space-between; align-items: center; font-weight: 800; font-size: 16px; color: #1e293b; }
+.close-win { cursor: pointer; font-size: 26px; color: #cbd5e1; transition: 0.2s; }
+.close-win:hover { color: #ff4757; }
 
 #layer-menu { top: 35px; right: 100px; width: 320px; max-height: 80vh; }
-#deep-filter-win { top: 180px; left: 35px; width: 380px; max-height: 75vh; }
+#deep-filter-win { top: 180px; left: 35px; width: 400px; max-height: 75vh; }
 
-.group-label { font-size: 11px; color: #94a3b8; font-weight: 800; text-transform: uppercase; margin: 15px 0 10px 0; letter-spacing: 1px; }
-.layer-item { display: flex; align-items: center; padding: 10px; background: #fff; border-radius: 12px; margin-bottom: 6px; border: 1px solid #f1f5f9; font-size: 13px; }
-.layer-item input { margin-right: 12px; width: 18px; height: 18px; accent-color: var(--primary); }
+.group-label { font-size: 11px; color: #94a3b8; font-weight: 800; text-transform: uppercase; margin: 15px 0 10px 0; letter-spacing: 1.5px; }
 
-/* --- 筛选历史卡片 --- */
-.history-item { 
-    background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; 
-    margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; 
+/* --- 侧边栏及卡片样式 --- */
+.layer-item { display: flex; align-items: center; padding: 12px; background: #fff; border-radius: 14px; margin-bottom: 8px; border: 1px solid #f1f5f9; font-size: 14px; font-weight: 600; color: #334155; }
+.layer-item input { margin-right: 14px; width: 18px; height: 18px; accent-color: var(--primary); cursor: pointer; }
+
+/* --- 独立筛选历史卡片 (美化核心) --- */
+.history-card { 
+    background: #fff; border: 1px solid #eef2f7; border-radius: 20px; padding: 18px; 
+    margin-bottom: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.02); transition: 0.3s;
 }
-.history-info { display: flex; flex-direction: column; gap: 2px; }
-.history-target { font-size: 11px; font-weight: 800; color: var(--primary); text-transform: uppercase; }
-.history-count { font-size: 13px; color: #1e293b; font-weight: 600; }
-.btn-undo { background: #fee2e2; color: #ef4444; border: none; padding: 6px 12px; border-radius: 8px; font-size: 11px; font-weight: 800; cursor: pointer; }
+.history-card:hover { box-shadow: 0 8px 25px rgba(0,0,0,0.05); transform: translateY(-2px); }
+.history-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+.history-title { font-size: 15px; font-weight: 800; color: #1e293b; }
+.history-meta { font-size: 12px; color: var(--primary); font-weight: 700; margin-top: 2px; }
 
-#naming-ui { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 300px; z-index: 4000; display: none; background: white; padding: 30px; border-radius: 24px; box-shadow: var(--shadow); text-align: center; }
-#naming-ui input { width: 100%; border: 1px solid #e2e8f0; padding: 12px; border-radius: 12px; margin-bottom: 15px; outline: none; box-sizing: border-box; }
-#naming-ui button { background: var(--primary); color: white; border: none; padding: 12px; border-radius: 12px; cursor: pointer; width: 100%; font-weight: 700; }
+.history-fields { 
+    background: #f8fafc; border-radius: 12px; padding: 10px; margin: 10px 0;
+    display: flex; flex-wrap: wrap; gap: 8px;
+}
+.field-tag { 
+    display: flex; align-items: center; gap: 6px; background: #fff; 
+    border: 1px solid #edf2f7; padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: 600; color: #64748b;
+}
+
+.btn-undo-action { 
+    background: #fff0f0; color: #ff4757; border: 1px solid #ffe4e4; 
+    padding: 8px 16px; border-radius: 10px; font-size: 12px; font-weight: 800; 
+    cursor: pointer; transition: 0.2s; width: 100%; margin-top: 5px;
+}
+.btn-undo-action:hover { background: #ff4757; color: white; }
+
+/* --- 命名 UI --- */
+#naming-ui { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 300px; z-index: 4000; display: none; background: white; padding: 35px; border-radius: 28px; box-shadow: var(--shadow); text-align: center; border: 1px solid #eee; }
+#naming-ui input { width: 100%; border: 1px solid #e2e8f0; padding: 14px; border-radius: 14px; margin-bottom: 15px; outline: none; box-sizing: border-box; font-size: 15px; }
+#naming-ui button { background: var(--primary); color: white; border: none; padding: 14px; border-radius: 14px; cursor: pointer; width: 100%; font-weight: 800; font-size: 15px; }

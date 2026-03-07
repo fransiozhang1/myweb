@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>大徐家汇数智化平台 - 分析端</title>
+    <title>大徐家汇数智化平台 - 深度分析端</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/@geoman-io/leaflet-geoman-free@latest/dist/leaflet-geoman.css" />
     <link rel="stylesheet" href="analysis.css" />
@@ -12,56 +12,52 @@
 <div id="hud-left">
     <div id="header">
         <h1>大徐家汇数智化平台</h1>
-        <p>● 独立多轨分析模式</p>
+        <p>● 专业多轨数据分析</p>
     </div>
     <button id="btn-deep-filter" class="big-action-btn">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15.5 19l-7-7 7-7"/><path d="M8.5 12h13"/></svg>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15.5 19l-7-7 7-7"/><path d="M8.5 12h13"/></svg>
         AI 独立深度筛选
     </button>
 </div>
 
 <div id="deep-filter-win" class="floating-window">
-    <div class="win-header"><span>AI 独立轨道筛选</span><span class="close-win">×</span></div>
-    <div style="padding:22px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:15px;">
+    <div class="win-header"><span>独立轨道筛选与关联</span><span class="close-win">×</span></div>
+    <div style="padding:24px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:15px;">
         
-        <div class="group-label">第一步：选择此筛选要作用的图层</div>
-        <div id="deep-layer-targets" style="background:#f8fafc; padding:10px; border-radius:12px; border:1px solid #eef2f7;">
+        <div id="filter-config-zone">
+            <div class="group-label">1. 选择筛选范围</div>
+            <div id="deep-layer-targets" style="background:#f8fafc; padding:12px; border-radius:16px; border:1px solid #eef2f7; max-height: 120px; overflow-y: auto;"></div>
+
+            <div class="group-label">2. 上传参考数据 (CSV)</div>
+            <div style="border:2px dashed #cbd5e1; padding:20px; border-radius:18px; text-align:center; background:#fff; transition: 0.3s;" id="upload-box">
+                <input type="file" id="deep-file-in" style="display:none;" accept=".csv,.txt">
+                <label for="deep-file-in" style="cursor:pointer; color:var(--primary); font-weight:800; font-size:14px;">点击或拖拽 CSV 文件</label>
+                <div id="file-name" style="font-size:11px; color:#94a3b8; margin-top:6px;">支持全品类数据匹配关联</div>
             </div>
 
-        <div class="group-label">第二步：上传参考数据</div>
-        <div style="border:2px dashed #e2e8f0; padding:15px; border-radius:16px; text-align:center;">
-            <input type="file" id="deep-file-in" style="display:none;" accept=".csv,.txt">
-            <label for="deep-file-in" style="cursor:pointer; color:var(--primary); font-weight:800; font-size:13px;">点击选择 CSV/TXT 文件</label>
-            <div id="file-name" style="font-size:10px; color:#94a3b8; margin-top:5px;">支持多列属性关联</div>
+            <button id="btn-run-deep" style="background:var(--primary); color:white; border:none; padding:16px; border-radius:16px; font-weight:800; cursor:pointer; width:100%; margin-top:15px; font-size:15px;">执行 AI 智能提取</button>
         </div>
 
-        <div id="csv-fields-ui" style="display:none;">
-            <div class="group-label">关联显示字段</div>
-            <div id="csv-col-container" style="max-height:100px; overflow-y:auto; border:1px solid #f1f5f9; padding:5px; border-radius:8px;"></div>
-        </div>
-
-        <button id="btn-run-deep" style="background:var(--primary); color:white; border:none; padding:12px; border-radius:12px; font-weight:800; cursor:pointer;">开始独立筛选</button>
-        
         <hr style="border:0; border-top:1px solid #f1f5f9; margin:10px 0;">
 
-        <div class="group-label">当前生效的独立筛选</div>
-        <div id="filter-history-list">
-            <div style="font-size:12px; color:#cbd5e1; text-align:center;">暂无活动筛选</div>
+        <div class="group-label">当前生效的独立分析轨道</div>
+        <div id="filter-history-container">
+            <div style="padding:30px; text-align:center; color:#cbd5e1; font-size:13px; font-weight:600;">暂无活动分析轨道</div>
         </div>
         
-        <div id="deep-log" style="font-size:11px; color:var(--primary); text-align:center; font-weight:600;"></div>
+        <div id="deep-log" style="font-size:11px; color:var(--primary); text-align:center; font-weight:700;"></div>
     </div>
 </div>
 
 <div id="analysis-tools" class="toolbar-group">
-    <div class="tool-btn" id="btn-layer-t" title="图层控制"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
+    <div class="tool-btn" id="btn-layer-t" title="大类图层控制"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
 </div>
 
 <div id="editor-tools" class="toolbar-group">
     <div class="tool-btn" id="btn-ruler" title="测距"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M19 20L5 6M9 6l3 3M12 9l3 3M15 12l3 3"/></svg></div>
-    <div class="tool-btn" id="btn-poly" title="绘面"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z"/></svg></div>
+    <div class="tool-btn" id="btn-poly" title="绘面/面积"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z"/></svg></div>
     <div class="tool-btn" id="btn-marker" title="点标注"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div>
-    <div class="tool-btn danger" id="btn-eraser" title="橡皮擦"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20H7L3 16C2 15 2 13 3 12L13 2L22 11L20 20Z"/><path d="M17 17l-10-10"/></svg></div>
+    <div class="tool-btn danger" id="tool-eraser" title="橡皮擦"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20H7L3 16C2 15 2 13 3 12L13 2L22 11L20 20Z"/><path d="M17 17l-10-10"/></svg></div>
 </div>
 
 <div id="layer-menu" class="floating-window">
@@ -72,7 +68,7 @@
 <div id="naming-ui">
     <h3 style="margin-top:0; font-size:18px;">标记点命名</h3>
     <input type="text" id="m-name" placeholder="名称...">
-    <button id="m-save">确认保存</button>
+    <button id="m-save">保存至地图</button>
 </div>
 
 <div id="map"></div>
@@ -83,27 +79,32 @@
 <script>
     const API_KEY = "sk-953b1a97918949d2a18c9a07a14729d0";
 
-    // 1. 初始化地图
+    // 1. 地图初始化
     var map = L.map('map', { zoomControl: false, renderer: L.canvas() }).setView([31.15, 121.43], 13);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { crossOrigin: true }).addTo(map);
     map.pm.setLang('zh');
+    map.pm.addControls({ drawControls: false, editControls: false });
 
-    // 2. 状态结构升级
+    // 2. 数据与轨道管理
     const state = JSON.parse(localStorage.getItem('analysis_state')) || { keywords: [], activeLayers: [] };
     const pool = {}, displayLayers = {};
     
-    // 独立轨道核心数据
-    // 存储每个图层被“深度筛选”后的关键词，如果为空则显示首页带过来的所有点
-    let layerSpecificKws = {}; 
-    let csvDataMap = {}; 
-    let activeCsvFields = new Set();
-    
-    // 默认每个图层继承首页的 keywords
-    state.activeLayers.forEach(name => layerSpecificKws[name] = [...state.keywords]);
+    // 每一个图层的深度筛选数据：{ "餐饮服务": { kws: [], fields: Set(), headers: [] } }
+    let deepFilterRegistry = {};
+    let csvGlobalMap = {}; // 存储清洗后的名称映射
 
-    const normalize = (n) => (n||"").toString().replace(/\(.*\)|（.*）/g, "").replace(/公司|店|分店|超市|社区/g, "").trim().toLowerCase();
+    state.activeLayers.forEach(name => {
+        deepFilterRegistry[name] = {
+            kws: [...state.keywords], // 初始继承
+            activeFields: new Set(),
+            availableHeaders: [],
+            isDeep: false // 标记是否处于 AI 筛选模式
+        };
+    });
 
-    // 3. 排他性交互
+    const normalize = (n) => (n||"").toString().replace(/\(.*\)|（.*）/g, "").replace(/公司|店|分店|超市|社区|驿站/g, "").trim().toLowerCase();
+
+    // 3. 交互逻辑
     function deactivateAll() {
         document.querySelectorAll('.floating-window').forEach(w => w.style.display = 'none');
         document.querySelectorAll('.tool-btn, .big-action-btn').forEach(b => b.classList.remove('active'));
@@ -122,37 +123,40 @@
 
     setupBtn('btn-layer-t', () => document.getElementById('layer-menu').style.display = 'flex');
     setupBtn('btn-deep-filter', () => { 
-        updateDeepFilterUI(); 
+        renderDeepFilterUI(); 
         document.getElementById('deep-filter-win').style.display = 'flex'; 
     });
-    setupBtn('btn-ruler', () => map.pm.enableDraw('Line', { measurements: { showLength: true } }));
-    setupBtn('btn-poly', () => map.pm.enableDraw('Polygon', { measurements: { showArea: true } }));
+    setupBtn('btn-ruler', () => map.pm.enableDraw('Line', { measurements: { displayUnit: 'metric', showLength: true } }));
+    setupBtn('btn-poly', () => map.pm.enableDraw('Polygon', { measurements: { displayUnit: 'metric', showArea: true } }));
     setupBtn('btn-marker', () => map.pm.enableDraw('Marker'));
-    setupBtn('btn-eraser', () => map.pm.toggleGlobalRemovalMode());
+    document.getElementById('tool-eraser').onclick = () => map.pm.toggleGlobalRemovalMode();
     document.querySelectorAll('.close-win').forEach(c => c.onclick = deactivateAll);
 
-    // 4. 渲染引擎：按轨道过滤
+    // 4. 通用渲染逻辑 (核心：支持独立卡片字段开关)
     function refreshMap() {
         for(let name in displayLayers) {
             const conf = displayLayers[name].conf;
+            const reg = deepFilterRegistry[name];
             map.removeLayer(displayLayers[name].layer);
+            
             if(conf.visible) {
                 displayLayers[name].layer = L.geoJSON(pool[name], {
                     filter: (f) => {
-                        const targetKws = layerSpecificKws[name];
-                        // 如果该图层没有特定关键词（显示全部），或者点名匹配其中一个关键词
-                        if(targetKws.length === 0) return true;
-                        return targetKws.some(kw => (f.properties.name || "").includes(kw));
+                        if(reg.kws.length === 0) return true;
+                        return reg.kws.some(kw => (f.properties.name || "").includes(kw));
                     },
                     pointToLayer: (f, latlng) => L.circleMarker(latlng, { radius: 7, weight: 2.0, fillColor: conf.c, color: "#fff", fillOpacity: 0.9 }),
                     onEachFeature: (f, l) => {
                         const p = f.properties;
                         let h = `<div class="popup-header ${name.includes('房产')?'house':''}"><h3>${p.name}</h3></div><div style="padding:15px; font-size:12px;">`;
-                        h += `<div><b>地址:</b> ${p.address || '-'}</div>`;
-                        const matchKey = normalize(p.name);
-                        if(csvDataMap[matchKey]) {
-                            activeCsvFields.forEach(field => {
-                                if(csvDataMap[matchKey][field]) h += `<div style="margin-top:8px; color:var(--primary); border-top:1px dashed #eee; padding-top:5px;"><b>${field}:</b> ${csvDataMap[matchKey][field]}</div>`;
+                        h += `<div><b>原始地址:</b> ${p.address || '-'}</div>`;
+                        
+                        // 独立卡片关联逻辑
+                        const mKey = normalize(p.name);
+                        if(csvGlobalMap[mKey]) {
+                            const data = csvGlobalMap[mKey];
+                            reg.activeFields.forEach(field => {
+                                if(data[field]) h += `<div style="margin-top:8px; color:var(--primary); border-top:1px dashed #eee; padding-top:5px;"><b>${field}:</b> ${data[field]}</div>`;
                             });
                         }
                         l.bindPopup(h + `</div>`, { maxWidth: 280 });
@@ -162,12 +166,11 @@
         }
     }
 
-    // 5. 数据加载与 UI 初始化
+    // 5. 初始化加载
     state.activeLayers.forEach(name => {
         const isH = name.includes('房产');
         const color = isH ? '#FF7E5F' : `hsl(${(state.activeLayers.indexOf(name)*137)%360},65%,50%)`;
-        const path = isH ? 'houses.json' : `data_poi/${name}.json`;
-        fetch(path).then(r => r.json()).then(data => {
+        fetch(isH ? 'houses.json' : `data_poi/${name}.json`).then(r => r.json()).then(data => {
             pool[name] = data;
             displayLayers[name] = { layer: L.layerGroup(), conf: { c: color, visible: true } };
             const div = document.createElement('div'); div.className = 'layer-item';
@@ -178,14 +181,19 @@
         });
     });
 
-    // 6. 深度筛选 UI 更新
-    function updateDeepFilterUI() {
-        const container = document.getElementById('deep-layer-targets');
-        container.innerHTML = state.activeLayers.map(n => `<div style="display:flex; align-items:center; margin-bottom:5px; font-size:12px;"><input type="checkbox" class="target-layer-cb" value="${n}" checked style="margin-right:10px;">${n}</div>`).join('');
-        renderHistory();
+    // 6. 深度分析 UI 与 逻辑
+    let tempCsvHeaders = [];
+    let tempCsvData = [];
+
+    function renderDeepFilterUI() {
+        // 渲染图层选择器
+        document.getElementById('deep-layer-targets').innerHTML = state.activeLayers.map(n => 
+            `<div class="layer-item" style="padding:6px 10px; margin-bottom:5px; border-radius:10px;"><input type="checkbox" class="target-cb" value="${n}" checked><span>${n}</span></div>`
+        ).join('');
+        renderHistoryCards();
     }
 
-    // 7. CSV 解析与 AI 独立提取
+    // 处理文件解析
     document.getElementById('deep-file-in').onchange = (e) => {
         const file = e.target.files[0];
         if(!file) return;
@@ -193,82 +201,123 @@
         const reader = new FileReader();
         reader.onload = (event) => {
             const lines = event.target.result.split('\n').filter(l => l.trim());
-            const headers = lines[0].split(',').map(h => h.trim());
-            const nameIdx = headers.findIndex(h => /名称|店名|Name/i.test(h)) === -1 ? 0 : headers.findIndex(h => /名称|店名|Name/i.test(h));
-            lines.slice(1).forEach(line => {
+            tempCsvHeaders = lines[0].split(',').map(h => h.trim());
+            const nameIdx = tempCsvHeaders.findIndex(h => /名称|店名|Name/i.test(h)) || 0;
+            tempCsvData = lines.slice(1).map(line => {
                 const vals = line.split(',').map(v => v.trim());
-                const row = {}; headers.forEach((h, i) => row[h] = vals[i]);
-                const key = normalize(row[headers[nameIdx]]);
-                if(key) csvDataMap[key] = {...(csvDataMap[key] || {}), ...row}; // 合并新属性
-            });
-            const fieldContainer = document.getElementById('csv-col-container');
-            fieldContainer.innerHTML = ''; document.getElementById('csv-fields-ui').style.display = 'block';
-            headers.forEach(h => {
-                const div = document.createElement('div'); div.className = 'layer-item'; div.style="padding:5px; font-size:11px;";
-                div.innerHTML = `<input type="checkbox"><span>${h}</span>`;
-                div.querySelector('input').onchange = (ev) => { if(ev.target.checked) activeCsvFields.add(h); else activeCsvFields.delete(h); refreshMap(); };
-                fieldContainer.appendChild(div);
+                const obj = {}; tempCsvHeaders.forEach((h, i) => obj[h] = vals[i]);
+                const key = normalize(obj[tempCsvHeaders[nameIdx]]);
+                if(key) csvGlobalMap[key] = {...(csvGlobalMap[key] || {}), ...obj};
+                return obj;
             });
         };
         reader.readAsText(file);
     };
 
+    // 执行 AI 筛选分析
     document.getElementById('btn-run-deep').onclick = async () => {
-        const selectedLayers = Array.from(document.querySelectorAll('.target-layer-cb:checked')).map(cb => cb.value);
-        if(selectedLayers.length === 0) return alert("请至少勾选一个目标图层");
+        const selected = Array.from(document.querySelectorAll('.target-cb:checked')).map(cb => cb.value);
+        if(selected.length === 0) return alert("请勾选目标图层");
         const file = document.getElementById('deep-file-in').files[0];
-        if(!file) return alert("请选择参考文件");
-        const log = document.getElementById('deep-log'); log.innerText = "⏳ AI 正在执行分层筛选...";
+        if(!file) return alert("请上传 CSV 数据文件");
+        
+        const log = document.getElementById('deep-log'); log.innerText = "⏳ AI 正在执行分轨关联...";
         
         try {
             const fd = new FormData(); fd.append('file', file); fd.append('purpose', 'file-extract');
-            const up = await fetch("https://dashscope.aliyuncs.com/compatible-mode/v1/files", { method:"POST", headers:{"Authorization":`Bearer ${API_KEY}`}, body:fd });
-            const fid = (await up.json()).id;
-            const ai = await fetch("https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions", {
+            const upRes = await fetch("https://dashscope.aliyuncs.com/compatible-mode/v1/files", { method:"POST", headers:{"Authorization":`Bearer ${API_KEY}`}, body:fd });
+            const fid = (await upRes.json()).id;
+            const aiRes = await fetch("https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions", {
                 method:"POST", headers:{"Content-Type":"application/json", "Authorization":`Bearer ${API_KEY}`},
-                body: JSON.stringify({ model:"qwen-long", messages:[{role:"system", content:`fileid://${fid}`}, {role:"user", content:"提取文件中所有的店铺或项目名称。用逗号分隔。"}]})
+                body: JSON.stringify({ model:"qwen-long", messages:[{role:"system", content:`fileid://${fid}`}, {role:"user", content:"仅返回文件中提到的所有具体地点、项目或店名，用逗号分隔，不要多言。"}]})
             });
-            const names = (await ai.json()).choices[0].message.content.split(/[，,]/).map(n => n.trim()).filter(n => n);
+            const names = (await aiRes.json()).choices[0].message.content.split(/[，,]/).map(n => n.trim()).filter(n => n);
             
-            // 关键：只应用到选中的图层
-            selectedLayers.forEach(ln => layerSpecificKws[ln] = names);
+            // 为每个选中的轨道更新状态
+            selected.forEach(ln => {
+                deepFilterRegistry[ln].kws = names;
+                deepFilterRegistry[ln].isDeep = true;
+                deepFilterRegistry[ln].availableHeaders = [...tempCsvHeaders];
+            });
+
+            // --- 关键：重置输入区 ---
+            document.getElementById('deep-file-in').value = "";
+            document.getElementById('file-name').innerText = "等待下一次筛选...";
+            document.querySelectorAll('.target-cb').forEach(cb => cb.checked = false);
+            tempCsvHeaders = []; tempCsvData = [];
+
             refreshMap();
-            renderHistory();
-            log.innerText = `✅ 已成功对 ${selectedLayers.length} 个图层进行 AI 筛选`;
-        } catch(e) { log.innerText = "❌ 运行失败"; }
+            renderHistoryCards();
+            log.innerText = `✅ 成功建立 ${selected.length} 条关联轨道`;
+        } catch(e) { log.innerText = "❌ 分析失败。"; }
     };
 
-    function renderHistory() {
-        const list = document.getElementById('filter-history-list');
-        list.innerHTML = '';
-        let count = 0;
-        for(let ln in layerSpecificKws) {
-            // 如果该图层不再是原始 keywords（说明被 AI 改写了）
-            if(JSON.stringify(layerSpecificKws[ln]) !== JSON.stringify(state.keywords)) {
-                count++;
-                const div = document.createElement('div'); div.className = 'history-item';
-                div.innerHTML = `<div class="history-info"><div class="history-target">${ln}</div><div class="history-count">AI 筛选中 (${layerSpecificKws[ln].length}个点)</div></div><button class="btn-undo" onclick="undoFilter('${ln}')">撤销</button>`;
-                list.appendChild(div);
-            }
+    // 渲染历史卡片 (带独立字段开关)
+    function renderHistoryCards() {
+        const container = document.getElementById('filter-history-container');
+        container.innerHTML = '';
+        let hasDeep = false;
+
+        for(let ln in deepFilterRegistry) {
+            const reg = deepFilterRegistry[ln];
+            if(!reg.isDeep) continue;
+            hasDeep = true;
+
+            const card = document.createElement('div'); card.className = 'history-card';
+            let html = `
+                <div class="history-head">
+                    <div>
+                        <div class="history-title">${ln}</div>
+                        <div class="history-meta">AI 筛选: ${reg.kws.length} 类目标点位</div>
+                    </div>
+                </div>
+                <div class="group-label" style="font-size:9px;">显示关联字段</div>
+                <div class="history-fields">`;
+            
+            reg.availableHeaders.forEach(h => {
+                html += `
+                    <label class="field-tag">
+                        <input type="checkbox" ${reg.activeFields.has(h)?'checked':''} onchange="toggleField('${ln}', '${h}', this.checked)">
+                        ${h}
+                    </label>`;
+            });
+            
+            html += `</div><button class="btn-undo-action" onclick="undoDeep('${ln}')">撤销此筛选并还原数据</button>`;
+            card.innerHTML = html;
+            container.appendChild(card);
         }
-        if(count === 0) list.innerHTML = '<div style="font-size:12px; color:#cbd5e1; text-align:center;">暂无活动筛选</div>';
+        if(!hasDeep) container.innerHTML = '<div style="padding:30px; text-align:center; color:#cbd5e1; font-size:13px; font-weight:600;">暂无活动分析轨道</div>';
     }
 
-    window.undoFilter = (ln) => {
-        layerSpecificKws[ln] = [...state.keywords]; // 恢复该图层在首页的初始筛选
-        refreshMap(); renderHistory();
+    // 开关特定的关联字段
+    window.toggleField = (layerName, field, show) => {
+        if(show) deepFilterRegistry[layerName].activeFields.add(field);
+        else deepFilterRegistry[layerName].activeFields.delete(field);
+        refreshMap();
     };
 
-    // 8. 其他逻辑 (命名/拖拽)
+    // 撤销深度筛选
+    window.undoDeep = (ln) => {
+        deepFilterRegistry[ln].kws = [...state.keywords]; // 还原回首页状态
+        deepFilterRegistry[ln].isDeep = false;
+        deepFilterRegistry[ln].activeFields.clear();
+        deepFilterRegistry[ln].availableHeaders = [];
+        refreshMap();
+        renderHistoryCards();
+    };
+
+    // 8. 其他组件逻辑
     let curM = null;
     map.on('pm:create', (e) => { if(e.shape === 'Marker') { curM = e.layer; document.getElementById('naming-ui').style.display='block'; } });
-    document.getElementById('m-save').onclick = () => { curM.bindPopup(`<b>${document.getElementById('m-name').value}</b>`).openPopup(); deactivateAll(); };
+    document.getElementById('m-save').onclick = () => { if(curM) curM.bindPopup(`<b>${document.getElementById('m-name').value}</b>`).openPopup(); deactivateAll(); };
+
     document.querySelectorAll('.win-header').forEach(h => {
-        let drag=false, off=[0,0], win=h.parentElement;
-        h.onmousedown=(e)=>{ drag=true; off=[win.offsetLeft-e.clientX, win.offsetTop-e.clientY]; };
-        document.onmousemove=(e)=>{ if(!drag) return; win.style.left=(e.clientX+off[0])+'px'; win.style.top=(e.clientY+off[1])+'px'; win.style.bottom='auto'; win.style.right='auto'; };
-        document.onmouseup=()=>drag=false;
+        let dragging = false, offset = [0,0], win = h.parentElement;
+        h.onmousedown = (e) => { dragging = true; offset = [win.offsetLeft - e.clientX, win.offsetTop - e.clientY]; };
+        document.onmousemove = (e) => { if(!dragging) return; win.style.left = (e.clientX + offset[0]) + 'px'; win.style.top = (e.clientY + offset[1]) + 'px'; win.style.bottom = 'auto'; win.style.right = 'auto'; };
+        document.onmouseup = () => dragging = false;
     });
+
     fetch('xuhui.json').then(r => r.json()).then(data => L.geoJSON(data, { style: { color: "#2BB5BE", weight: 1.5, fillOpacity: 0.05 }}).addTo(map));
 </script>
 </body>
