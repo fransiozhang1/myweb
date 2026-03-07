@@ -52,13 +52,11 @@
 </div>
 
 <div id="layer-menu" class="floating-window">
-    <div class="win-header"><span>分析控制面板</span><span class="close-win">×</span></div>
+    <div class="win-header"><span>分析控制面板</span><span class="close-win" onclick="deactivateAll()">×</span></div>
     <div style="padding:20px; overflow-y:auto; flex:1;">
-        <div class="group-label">活跃数据大类开关</div>
+        <div class="group-label">当前分析数据类</div>
         <div id="active-category-list"></div>
-        <div class="group-label">关键词微调开关</div>
-        <div id="active-keyword-list"></div>
-    </div>
+        </div>
 </div>
 
 <div id="naming-ui">
@@ -122,33 +120,44 @@
     document.querySelectorAll('.close-win').forEach(c => c.onclick = deactivateAll);
 
     // 3. 核心渲染函数：集成 CSV 动态数据
-    function refreshMap() {
-        for(let name in displayLayers) {
-            const conf = displayLayers[name].conf;
-            map.removeLayer(displayLayers[name].layer);
-            if(conf.visible) {
-                displayLayers[name].layer = L.geoJSON(pool[name], {
-                    filter: (f) => currentKeywords.length === 0 || currentKeywords.some(kw => (f.properties.name || "").includes(kw) && keywordVisibility[kw]),
-                    pointToLayer: (f, latlng) => L.circleMarker(latlng, { radius: 7, weight: 2.0, fillColor: conf.c, color: "#fff", fillOpacity: 0.9 }),
-                    onEachFeature: (f, l) => {
-                        const p = f.properties;
-                        let h = `<div class="popup-header ${name.includes('房产')?'house':''}"><h3>${p.name}</h3></div><div style="padding:15px; font-size:12px;">`;
-                        h += `<div><b>原始地址:</b> ${p.address || '-'}</div>`;
-                        
-                        // 关联 CSV 逻辑
-                        const matchKey = normalize(p.name);
-                        if(csvDataMap[matchKey]) {
-                            const row = csvDataMap[matchKey];
-                            activeCsvFields.forEach(field => {
-                                if(row[field]) h += `<div style="margin-top:8px; color:var(--primary); border-top:1px dashed #eee; padding-top:5px;"><b>${field}:</b> ${row[field]}</div>`;
-                            });
-                        }
-                        l.bindPopup(h + `</div>`, { maxWidth: 280 });
+    // --- 简化后的渲染逻辑 ---
+
+// 1. 过滤逻辑：只检查名称是否包含在 currentKeywords 中即可
+function refreshMap() {
+    for(let name in displayLayers) {
+        const conf = displayLayers[name].conf;
+        map.removeLayer(displayLayers[name].layer);
+        
+        if(conf.visible) {
+            displayLayers[name].layer = L.geoJSON(pool[name], {
+                filter: (f) => {
+                    // 如果没有关键词，显示全部；如果有，则匹配关键词
+                    if(currentKeywords.length === 0) return true;
+                    return currentKeywords.some(kw => (f.properties.name || "").includes(kw));
+                },
+                pointToLayer: (f, latlng) => L.circleMarker(latlng, { radius: 7, weight: 2.0, fillColor: conf.c, color: "#fff", fillOpacity: 0.9 }),
+                onEachFeature: (f, l) => { 
+                    const p = f.properties;
+                    let h = `<div class="popup-header ${name.includes('房产')?'house':''}"><h3>${p.name}</h3></div><div style="padding:15px; font-size:12px;">`;
+                    h += `<div><b>原始地址:</b> ${p.address || '-'}</div>`;
+                    
+                    // 深度关联 CSV 逻辑保持不变
+                    const matchKey = normalize(p.name);
+                    if(csvDataMap[matchKey]) {
+                        activeCsvFields.forEach(field => {
+                            if(csvDataMap[matchKey][field]) {
+                                h += `<div style="margin-top:8px; color:var(--primary); border-top:1px dashed #eee; padding-top:5px;"><b>${field}:</b> ${csvDataMap[matchKey][field]}</div>`;
+                            }
+                        });
                     }
-                }).addTo(map);
-            }
+                    l.bindPopup(h + `</div>`, { maxWidth: 280 });
+                }
+            }).addTo(map);
         }
     }
+}
+
+
 
     // 4. CSV 本地预处理逻辑
     document.getElementById('deep-file-in').onchange = (e) => {
@@ -223,19 +232,25 @@
     }
     window.toggleKw = (kw, show) => { keywordVisibility[kw] = show; refreshMap(); };
 
-    state.activeLayers.forEach(name => {
-        const isH = name.includes('房产');
-        const color = isH ? '#FF7E5F' : `hsl(${(state.activeLayers.indexOf(name)*137)%360},65%,50%)`;
-        fetch(isH ? 'houses.json' : `data_poi/${name}.json`).then(r => r.json()).then(data => {
-            pool[name] = data;
-            displayLayers[name] = { layer: L.layerGroup(), conf: { c: color, visible: true } };
-            const div = document.createElement('div'); div.className = 'layer-item';
-            div.innerHTML = `<input type="checkbox" checked><div class="legend-dot" style="background:${color}"></div><span>${name}</span>`;
-            div.querySelector('input').onchange = (e) => { displayLayers[name].conf.visible = e.target.checked; refreshMap(); };
-            document.getElementById('active-category-list').appendChild(div);
-            refreshMap();
-        });
+// 2. 数据加载逻辑 (删除了 initToggles 调用)
+state.activeLayers.forEach(name => {
+    const isH = name.includes('房产');
+    const color = isH ? '#FF7E5F' : `hsl(${(state.activeLayers.indexOf(name)*137)%360},65%,50%)`;
+    fetch(isH ? 'houses.json' : `data_poi/${name}.json`).then(r => r.json()).then(data => {
+        pool[name] = data;
+        displayLayers[name] = { layer: L.layerGroup(), conf: { c: color, visible: true } };
+        
+        const div = document.createElement('div'); 
+        div.className = 'layer-item';
+        div.innerHTML = `<input type="checkbox" checked><div class="legend-dot" style="background:${color}"></div><span>${name}</span>`;
+        div.querySelector('input').onchange = (e) => { 
+            displayLayers[name].conf.visible = e.target.checked; 
+            refreshMap(); 
+        };
+        document.getElementById('active-category-list').appendChild(div);
+        refreshMap();
     });
+});
 
     document.getElementById('btn-restore-deep').onclick = () => { currentKeywords = [...originalStateKeywords]; initToggles(); refreshMap(); deactivateAll(); };
     let curM = null;
