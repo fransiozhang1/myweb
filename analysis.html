@@ -111,16 +111,20 @@
 <script>
 const API_KEY = "sk-953b1a97918949d2a18c9a07a14729d0";
 
-// --- 1. 指标运算配置中心 ---
+// --- 1. 指标运算配置 ---
 const INDICATOR_CONFIG = {
     "demand_density": {
         name: "小区配送需求密度",
-        formula_desc: "需求指数 = 目标数据项 × 系数",
+        formula_desc: "需求指数 = 目标项 × 系数",
         params: [
-            { id: "base_col", name: "目标数据列 (如:总套数)", type: "field_selector" },
+            { id: "base_col", name: "目标数据列", type: "field_selector" },
             { id: "coeff", name: "配送系数", type: "manual_input", default: "1.0" }
         ],
-        calc: (data, params) => (parseFloat(data[params.base_col]) || 0) * parseFloat(params.coeff)
+        calc: (data, params) => {
+            const val = parseFloat(data[params.base_col]) || 0;
+            const co = parseFloat(params.coeff) || 0;
+            return val * co;
+        }
     }
 };
 
@@ -132,26 +136,36 @@ map.pm.addControls({ drawControls: false, editControls: false });
 
 // --- 3. 状态管理中心 ---
 const state = JSON.parse(localStorage.getItem('analysis_state')) || { keywords: [], activeLayers: [] };
-const pool = {};             // 原始 JSON 数据池
-const displayLayers = {};    // Leaflet 实时图层组
-let csvGlobalMap = {};       // 清洗后的 CSV 数据映射表
-let activeCalculations = []; // 活跃指标任务列表
+const pool = {};             
+const displayLayers = {};    
+let csvGlobalMap = {};       
+let activeCalculations = []; 
 
-// 深度筛选分轨注册表
 let deepFilterRegistry = {};
 state.activeLayers.forEach(name => {
     deepFilterRegistry[name] = { 
-        kws: state.keywords.length > 0 ? [...state.keywords] : [], // 初始继承首页关键词
+        kws: state.keywords.length > 0 ? [...state.keywords] : [],
         activeFields: new Set(), 
         availableHeaders: [], 
         isDeep: false 
     };
 });
 
-// 名称清洗器：提高 AI 匹配成功率
-const normalize = (n) => (n||"").toString().replace(/\(.*\)|（.*）/g, "").replace(/有限公司|责任公司|分店|社区|商铺|超市|驿站/g, "").trim().toLowerCase();
+// --- 4. 增强版名称清洗函数 (解决对应不上的 Bug 核心) ---
+const normalize = (n) => {
+    if (!n) return "";
+    return n.toString()
+        .replace(/[\uff01-\uff5e]/g, (s) => String.fromCharCode(s.charCodeAt(0) - 0xfee0)) // 全角转半角
+        .replace(/\s+/g, "") // 去空格
+        .replace(/\(.*\)|（.*）/g, "") // 去掉括号内容
+        .replace(/有限责任公司|有限公司|责任公司|分公司|办事处/g, "") // 去掉公司后缀
+        .replace(/分店|分部|分局|社区|商铺|超市|驿站|项目/g, "") // 去掉常见噪音词
+        .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, "") // 去掉所有标点
+        .trim()
+        .toLowerCase();
+};
 
-// --- 4. 交互排他逻辑 ---
+// --- 5. 交互逻辑 ---
 function deactivateAll() {
     document.querySelectorAll('.floating-window').forEach(w => w.style.display = 'none');
     document.querySelectorAll('.tool-btn, .big-action-btn').forEach(b => b.classList.remove('active'));
@@ -177,7 +191,7 @@ setupBtn('btn-marker', () => map.pm.enableDraw('Marker'));
 document.getElementById('tool-eraser').onclick = () => map.pm.toggleGlobalRemovalMode();
 document.querySelectorAll('.close-win').forEach(c => c.onclick = deactivateAll);
 
-// --- 5. 渲染引擎：分轨筛选 + CSV 注入 + 计算注入 ---
+// --- 6. 渲染引擎 (核心改进：多级模糊匹配机制) ---
 function refreshMap() {
     for(let name in displayLayers) {
         const reg = deepFilterRegistry[name];
@@ -185,15 +199,16 @@ function refreshMap() {
         const color = displayLayers[name].conf.c;
         const visible = displayLayers[name].conf.visible;
 
-        layerGroup.clearLayers(); // 物理清理旧数据
+        layerGroup.clearLayers(); 
         
         if(visible && pool[name]) {
             const geoJsonLayer = L.geoJSON(pool[name], {
                 filter: (f) => {
-                    const featureName = normalize(f.properties.name);
-                    // 核心匹配逻辑：如果没有深度筛选关键词，则显示全部；否则执行模糊匹配
+                    const rawName = f.properties.name || "";
+                    const cleanedName = normalize(rawName);
                     if(reg.kws.length === 0) return true;
-                    return reg.kws.some(kw => featureName.includes(normalize(kw)));
+                    // 匹配逻辑：清洗后匹配，确保 AI 结果能命中地图点
+                    return reg.kws.some(kw => cleanedName.includes(normalize(kw)));
                 },
                 pointToLayer: (f, latlng) => L.circleMarker(latlng, { radius: 7, weight: 2.0, fillColor: color, color: "#fff", fillOpacity: 0.9 }),
                 onEachFeature: (f, l) => {
@@ -201,24 +216,36 @@ function refreshMap() {
                     let popup = `<div class="popup-header ${name.includes('房产')?'house':''}"><h3>${p.name}</h3></div><div style="padding:15px; font-size:12px;">`;
                     popup += `<div><b>原始地址:</b> ${p.address || '-'}</div>`;
                     
-                    const mKey = normalize(p.name);
-                    const csvRow = csvGlobalMap[mKey] || {};
+                    const cleanedMapName = normalize(p.name);
+                    
+                    // --- 核心修复：多级查找 CSV 关联数据 ---
+                    let csvRow = csvGlobalMap[cleanedMapName] || null;
+                    
+                    // 如果没匹配上，尝试模糊前缀查找 (防止 CSV 里写得太长)
+                    if (!csvRow) {
+                        const possibleKey = Object.keys(csvGlobalMap).find(k => cleanedMapName.includes(k) || k.includes(cleanedMapName));
+                        if (possibleKey) csvRow = csvGlobalMap[possibleKey];
+                    }
 
-                    // 注入选中的 CSV 关联字段
-                    reg.activeFields.forEach(field => {
-                        if(csvRow[field]) popup += `<div style="margin-top:8px; color:var(--primary); font-weight:700;">${field}: ${csvRow[field]}</div>`;
-                    });
-
-                    // 注入指标计算结果
-                    activeCalculations.forEach(calc => {
-                        if(calc.layerNames.includes(name)) {
-                            const res = INDICATOR_CONFIG[calc.configKey].calc({...p, ...csvRow}, calc.params);
-                            popup += `<div style="margin-top:10px; padding:10px; background:#fff8f6; border:1px solid var(--accent); border-radius:12px; color:var(--accent);">
-                                        <b style="font-size:10px; display:block;">${calc.name}</b>
-                                        <span style="font-size:18px; font-weight:800;">${res.toFixed(2)}</span>
-                                      </div>`;
-                        }
-                    });
+                    if (csvRow) {
+                        reg.activeFields.forEach(field => {
+                            if(csvRow[field]) popup += `<div style="margin-top:8px; color:var(--primary); font-weight:700;">${field}: ${csvRow[field]}</div>`;
+                        });
+                        
+                        // 计算注入
+                        activeCalculations.forEach(calc => {
+                            if(calc.layerNames.includes(name)) {
+                                const res = INDICATOR_CONFIG[calc.configKey].calc({...p, ...csvRow}, calc.params);
+                                popup += `<div style="margin-top:10px; padding:10px; background:#fff8f6; border:1px solid var(--accent); border-radius:12px; color:var(--accent);">
+                                            <b style="font-size:10px; display:block;">${calc.name}</b>
+                                            <span style="font-size:18px; font-weight:800;">${res.toFixed(2)}</span>
+                                          </div>`;
+                            }
+                        });
+                    } else {
+                        popup += `<div style="margin-top:8px; color:#ccc; font-style:italic;">(未匹配到关联数据)</div>`;
+                    }
+                    
                     l.bindPopup(popup + `</div>`, { maxWidth: 280 });
                 }
             });
@@ -227,12 +254,11 @@ function refreshMap() {
     }
 }
 
-// --- 6. AI 深度筛选与分轨逻辑 ---
+// --- 7. 深度筛选 UI 逻辑 ---
 let sessionHeaders = [];
 
 function renderDeepUI() {
-    const targetCon = document.getElementById('deep-layer-targets');
-    targetCon.innerHTML = state.activeLayers.map(n => 
+    document.getElementById('deep-layer-targets').innerHTML = state.activeLayers.map(n => 
         `<div class="layer-item" style="padding:6px 10px; margin-bottom:5px;"><input type="checkbox" class="target-cb" value="${n}" checked><span>${n}</span></div>`
     ).join('');
     renderHistoryCards();
@@ -245,13 +271,14 @@ document.getElementById('deep-file-in').onchange = (e) => {
     reader.onload = (ev) => {
         const lines = ev.target.result.split('\n').filter(l => l.trim());
         sessionHeaders = lines[0].split(',').map(h => h.trim());
-        const nameIdx = sessionHeaders.findIndex(h => /名称|店名|Name|项目/i.test(h)) || 0;
+        const nameIdx = sessionHeaders.findIndex(h => /名称|店名|Name|小区|项目/i.test(h)) || 0;
         
         lines.slice(1).forEach(line => {
             const vals = line.split(',').map(v => v.trim());
             const obj = {}; sessionHeaders.forEach((h, i) => obj[h] = vals[i]);
+            // 建立映射时也进行深度清洗
             const key = normalize(obj[sessionHeaders[nameIdx]]);
-            if(key) csvGlobalMap[key] = {...(csvGlobalMap[key] || {}), ...obj}; // 合并新属性
+            if(key) csvGlobalMap[key] = obj; 
         });
     };
     reader.readAsText(file);
@@ -260,48 +287,43 @@ document.getElementById('deep-file-in').onchange = (e) => {
 document.getElementById('btn-run-deep').onclick = async () => {
     const selected = Array.from(document.querySelectorAll('.target-cb:checked')).map(cb => cb.value);
     const file = document.getElementById('deep-file-in').files[0];
-    if(!selected.length || !file) return alert("请配置目标图层并上传文件");
+    if(!selected.length || !file) return alert("配置错误");
     
-    document.getElementById('deep-log').innerText = "⏳ AI 正在深度清洗与匹配...";
+    document.getElementById('deep-log').innerText = "⏳ AI 正在同步时空关联...";
     try {
         const fd = new FormData(); fd.append('file', file); fd.append('purpose', 'file-extract');
         const upRes = await fetch("https://dashscope.aliyuncs.com/compatible-mode/v1/files", { method:"POST", headers:{"Authorization":`Bearer ${API_KEY}`}, body:fd });
         const fid = (await upRes.json()).id;
         const aiRes = await fetch("https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions", {
             method:"POST", headers:{"Content-Type":"application/json", "Authorization":`Bearer ${API_KEY}`},
-            body: JSON.stringify({ model:"qwen-long", messages:[{role:"system", content:`fileid://${fid}`}, {role:"user", content:"仅提取店名列表，用逗号分隔，不要有任何多余文字。"}]})
+            body: JSON.stringify({ model:"qwen-long", messages:[{role:"system", content:`fileid://${fid}`}, {role:"user", content:"仅返回所有具体的地点名称，逗号分隔，不要解释。"}]})
         });
         const names = (await aiRes.json()).choices[0].message.content.split(/[，,]/).map(n => n.trim()).filter(n => n);
         
-        // 应用到选定轨道
         selected.forEach(ln => {
             deepFilterRegistry[ln].kws = names;
             deepFilterRegistry[ln].isDeep = true;
             deepFilterRegistry[ln].availableHeaders = [...sessionHeaders];
         });
 
-        // 自动复位 UI
         document.getElementById('deep-file-in').value = "";
-        document.getElementById('file-name').innerText = "匹配成功，可上传新文件";
+        document.getElementById('file-name').innerText = "关联成功，可操作卡片或继续";
         document.querySelectorAll('.target-cb').forEach(cb => cb.checked = false);
 
         refreshMap(); 
         renderHistoryCards();
-        document.getElementById('deep-log').innerText = `✅ 已成功关联 ${names.length} 类目标`;
-    } catch(e) { document.getElementById('deep-log').innerText = "❌ AI 匹配异常"; }
+        document.getElementById('deep-log').innerText = "✅ 关联匹配完成";
+    } catch(e) { document.getElementById('deep-log').innerText = "❌ 运行异常"; }
 };
 
-// 重构：带字段勾选的筛选卡片
 function renderHistoryCards() {
     const container = document.getElementById('filter-history-container');
     container.innerHTML = '';
-    let hasActive = false;
-
+    let active = false;
     for(let ln in deepFilterRegistry) {
         const reg = deepFilterRegistry[ln];
         if(!reg.isDeep) continue;
-        hasActive = true;
-
+        active = true;
         const card = document.createElement('div'); card.className = 'history-card';
         const fieldTags = reg.availableHeaders.map(h => `
             <label class="field-checkbox-item">
@@ -311,12 +333,12 @@ function renderHistoryCards() {
 
         card.innerHTML = `
             <div class="calc-title"><b>${ln}</b> <button class="btn-del-calc" onclick="undoDeep('${ln}')">撤销</button></div>
-            <div class="calc-details">AI 匹配范围: ${reg.kws.length}类点位</div>
-            <div class="group-label" style="margin-top:10px; font-size:9px;">显示关联列</div>
-            <div class="history-field-zone">${fieldTags || '无属性列'}</div>`;
+            <div class="calc-details">匹配点数: ${reg.kws.length} | CSV表列数: ${reg.availableHeaders.length}</div>
+            <div class="group-label" style="margin-top:10px; font-size:9px;">勾选显示关联数据</div>
+            <div class="history-field-zone">${fieldTags || '无属性'}</div>`;
         container.appendChild(card);
     }
-    if(!hasActive) container.innerHTML = '<div style="padding:20px; text-align:center; color:#ccc;">暂无活动分析轨道</div>';
+    if(!active) container.innerHTML = '<div style="padding:20px; text-align:center; color:#ccc;">暂无活跃轨道</div>';
 }
 
 window.toggleCardField = (ln, f, check) => {
@@ -332,10 +354,10 @@ window.undoDeep = (ln) => {
     refreshMap(); renderHistoryCards();
 };
 
-// --- 7. 数据交互：层级化下拉菜单 ---
+// --- 8. 指标计算 UI ---
 function initInteractUI() {
     const select = document.getElementById('select-indicator');
-    select.innerHTML = '<option value="">-- 请选择计算指标 --</option>';
+    select.innerHTML = '<option value="">-- 选择指标 --</option>';
     for(let key in INDICATOR_CONFIG) select.innerHTML += `<option value="${key}">${INDICATOR_CONFIG[key].name}</option>`;
     
     select.onchange = (e) => {
@@ -344,22 +366,21 @@ function initInteractUI() {
         document.getElementById('calc-param-zone').style.display='block';
         document.getElementById('formula-box').innerText = config.formula_desc;
         
-        let originalFields = new Set();
-        let deepFields = new Set();
+        let origFields = new Set(), deepFields = new Set();
         state.activeLayers.forEach(ln => {
             deepFilterRegistry[ln].availableHeaders.forEach(h => deepFields.add(h));
-            if(pool[ln]?.features[0]) Object.keys(pool[ln].features[0].properties).forEach(k => originalFields.add(k));
+            if(pool[ln]?.features[0]) Object.keys(pool[ln].features[0].properties).forEach(k => origFields.add(k));
         });
 
         const paramCon = document.getElementById('param-inputs-container');
         paramCon.innerHTML = config.params.map(p => `
             <div style="margin-bottom:12px;">
-                <label style="font-size:11px; font-weight:700; color:#64748b;">${p.name}</label>
+                <label style="font-size:11px; font-weight:700;">${p.name}</label>
                 ${p.type === 'field_selector' ? 
                     `<select class="param-input" data-pid="${p.id}">
-                        <option value="">-- 请选择数据源 --</option>
-                        <optgroup label="1级：图层原始基础属性">${Array.from(originalFields).map(f=>`<option value="${f}">${f}</option>`).join('')}</optgroup>
-                        <optgroup label="2级：AI 关联外部表字段">${Array.from(deepFields).map(f=>`<option value="${f}">${f}</option>`).join('')}</optgroup>
+                        <option value="">-- 选择源 --</option>
+                        <optgroup label="基础属性">${Array.from(origFields).map(f=>`<option value="${f}">${f}</option>`).join('')}</optgroup>
+                        <optgroup label="关联表字段">${Array.from(deepFields).map(f=>`<option value="${f}">${f}</option>`).join('')}</optgroup>
                     </select>` : 
                     `<input type="text" class="param-input input-coeff" data-pid="${p.id}" value="${p.default}">`
                 }
@@ -372,10 +393,10 @@ function initInteractUI() {
 
 document.getElementById('btn-execute-calc').onclick = () => {
     const configKey = document.getElementById('select-indicator').value;
-    const selectedLayers = Array.from(document.querySelectorAll('.calc-target-cb:checked')).map(cb => cb.value);
-    if(!configKey || !selectedLayers.length) return alert("配置项缺失");
+    const selected = Array.from(document.querySelectorAll('.calc-target-cb:checked')).map(cb => cb.value);
+    if(!configKey || !selected.length) return alert("参数未填满");
     const params = {}; document.querySelectorAll('.param-input').forEach(i => params[i.dataset.pid] = i.value);
-    activeCalculations.push({ id: Date.now(), name: INDICATOR_CONFIG[configKey].name, configKey, layerNames: selectedLayers, params });
+    activeCalculations.push({ id: Date.now(), name: INDICATOR_CONFIG[configKey].name, configKey, layerNames: selected, params });
     refreshMap(); renderCalcHistory();
 };
 
@@ -384,12 +405,12 @@ function renderCalcHistory() {
     list.innerHTML = activeCalculations.map(c => `
         <div class="calc-card">
             <div class="calc-title"><span>${c.name}</span><button class="btn-del-calc" onclick="deleteCalc(${c.id})">删除</button></div>
-            <div class="calc-details">范围: ${c.layerNames.join(', ')}</div>
+            <div class="calc-details">应用轨道: ${c.layerNames.join(', ')}</div>
         </div>`).join('');
 }
 window.deleteCalc = (id) => { activeCalculations = activeCalculations.filter(c => c.id !== id); refreshMap(); renderCalcHistory(); };
 
-// --- 8. 启动与基础边界 ---
+// --- 9. 启动加载 ---
 state.activeLayers.forEach(name => {
     const isH = name.includes('房产');
     const color = isH ? '#FF7E5F' : `hsl(${(state.activeLayers.indexOf(name)*137)%360},65%,50%)`;
@@ -405,9 +426,9 @@ state.activeLayers.forEach(name => {
     });
 });
 
-let curMarker = null;
-map.on('pm:create', (e) => { if(e.shape === 'Marker') { curMarker = e.layer; document.getElementById('naming-ui').style.display='block'; } });
-document.getElementById('m-save').onclick = () => { if(curMarker) curMarker.bindPopup(`<b>${document.getElementById('m-name').value}</b>`).openPopup(); deactivateAll(); };
+let curM = null;
+map.on('pm:create', (e) => { if(e.shape === 'Marker') { curM = e.layer; document.getElementById('naming-ui').style.display='block'; } });
+document.getElementById('m-save').onclick = () => { if(curM) curM.bindPopup(`<b>${document.getElementById('m-name').value}</b>`).openPopup(); deactivateAll(); };
 
 document.querySelectorAll('.win-header').forEach(h => {
     let dragging = false, offset = [0,0], win = h.parentElement;
