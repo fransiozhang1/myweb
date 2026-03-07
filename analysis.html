@@ -37,22 +37,23 @@
             <div id="deep-layer-targets" style="background:#f8fafc; padding:12px; border-radius:16px; border:1px solid #eef2f7; max-height: 120px; overflow-y: auto;"></div>
 
             <div class="group-label">2. 上传参考数据 (CSV)</div>
-            <div style="border:2px dashed #cbd5e1; padding:20px; border-radius:18px; text-align:center; background:#fff; transition: 0.3s;" id="upload-box">
+            <div style="border:2px dashed #cbd5e1; padding:20px; border-radius:18px; text-align:center; background:#fff;" id="upload-box">
                 <input type="file" id="deep-file-in" style="display:none;" accept=".csv,.txt">
-                <label for="deep-file-in" style="cursor:pointer; color:var(--primary); font-weight:800; font-size:14px;">点击或拖拽 CSV 文件</label>
-                <div id="file-name" style="font-size:11px; color:#94a3b8; margin-top:6px;">支持全品类数据匹配关联</div>
+                <label for="deep-file-in" style="cursor:pointer; color:var(--primary); font-weight:800; font-size:14px;">点击上传 CSV 文件</label>
+                <div id="file-name" style="font-size:11px; color:#94a3b8; margin-top:6px;">关联成功后可勾选字段显示</div>
             </div>
 
-            <button id="btn-run-deep" style="background:var(--primary); color:white; border:none; padding:16px; border-radius:16px; font-weight:800; cursor:pointer; width:100%; margin-top:15px; font-size:15px;">执行 AI 智能提取</button>
+            <div id="csv-fields-ui" style="display:none;">
+                <div class="group-label">3. 勾选要显示的关联字段</div>
+                <div id="csv-col-container"></div>
+            </div>
+
+            <button id="btn-run-deep" style="background:var(--primary); color:white; border:none; padding:16px; border-radius:16px; font-weight:800; cursor:pointer; width:100%; margin-top:15px; font-size:15px;">开始独立提取并分析</button>
         </div>
 
         <hr style="border:0; border-top:1px solid #f1f5f9; margin:10px 0;">
-
-        <div class="group-label">当前生效的独立分析轨道</div>
-        <div id="filter-history-container">
-            <div style="padding:30px; text-align:center; color:#cbd5e1; font-size:13px; font-weight:600;">暂无活动分析轨道</div>
-        </div>
-        
+        <div class="group-label">已生成的独立分析轨道</div>
+        <div id="filter-history-container"></div>
         <div id="deep-log" style="font-size:11px; color:var(--primary); text-align:center; font-weight:700;"></div>
     </div>
 </div>
@@ -117,77 +118,61 @@
 <script>
 const API_KEY = "sk-953b1a97918949d2a18c9a07a14729d0";
 
-    // --- 1. 指标运算配置中心 (易于扩展新公式) ---
     const INDICATOR_CONFIG = {
         "demand_density": {
             name: "小区配送需求密度",
-            formula_desc: "需求指数 = 目标数据列 × 系数",
-            // LaTeX 表达: $DemandIndex = TotalSuites \times Coefficient$
+            formula_desc: "需求指数 = 选定数据项 × 系数",
             params: [
-                { id: "base_col", name: "小区总套数/规模数据列", type: "field_selector" },
-                { id: "coeff", name: "配送需求系数", type: "manual_input", default: "1.0" }
+                { id: "base_col", name: "目标套数数据列", type: "field_selector" },
+                { id: "coeff", name: "配送系数", type: "manual_input", default: "1.0" }
             ],
             calc: (data, params) => (parseFloat(data[params.base_col]) || 0) * parseFloat(params.coeff)
         }
     };
 
-    // --- 2. 地图初始化 ---
     var map = L.map('map', { zoomControl: false, renderer: L.canvas() }).setView([31.15, 121.43], 13);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { crossOrigin: true }).addTo(map);
     map.pm.setLang('zh');
     map.pm.addControls({ drawControls: false, editControls: false });
 
-    // --- 3. 状态管理 ---
     const state = JSON.parse(localStorage.getItem('analysis_state')) || { keywords: [], activeLayers: [] };
     const pool = {}, displayLayers = {};
-    
-    // 深度筛选注册表：记录每个图层的独立关键词、关联字段等
-    let deepFilterRegistry = {};
-    let csvGlobalMap = {};      // 全局 CSV 数据映射表
-    let activeCalculations = []; // 当前生效的运算指标
+    let deepFilterRegistry = {}; // { layerName: { kws, activeFields, availableHeaders, isDeep } }
+    let csvGlobalMap = {};      // { normalizedName: { fullRowData } }
+    let activeCalculations = [];
 
     state.activeLayers.forEach(name => {
-        deepFilterRegistry[name] = {
-            kws: [...state.keywords], 
-            activeFields: new Set(),
-            availableHeaders: [],
-            isDeep: false 
-        };
+        deepFilterRegistry[name] = { kws: [...state.keywords], activeFields: new Set(), availableHeaders: [], isDeep: false };
     });
 
     const normalize = (n) => (n||"").toString().replace(/\(.*\)|（.*）/g, "").replace(/公司|店|分店|超市|社区|驿站/g, "").trim().toLowerCase();
 
-    // --- 4. 交互逻辑 (排他性与 ESC) ---
     function deactivateAll() {
         document.querySelectorAll('.floating-window').forEach(w => w.style.display = 'none');
         document.querySelectorAll('.tool-btn, .big-action-btn').forEach(b => b.classList.remove('active'));
         document.getElementById('naming-ui').style.display = 'none';
         map.pm.disableDraw();
-        map.pm.disableGlobalRemovalMode();
     }
     window.addEventListener('keydown', (e) => { if(e.key === 'Escape') deactivateAll(); });
 
     const setupBtn = (id, action) => {
-        const btn = document.getElementById(id);
-        btn.onclick = () => {
-            const was = btn.classList.contains('active');
+        document.getElementById(id).onclick = () => {
+            const was = document.getElementById(id).classList.contains('active');
             deactivateAll();
-            if(!was) { action(); btn.classList.add('active'); }
+            if(!was) { action(); document.getElementById(id).classList.add('active'); }
         };
     };
 
     setupBtn('btn-layer-t', () => document.getElementById('layer-menu').style.display = 'flex');
     setupBtn('btn-deep-filter', () => { renderDeepUI(); document.getElementById('deep-filter-win').style.display = 'flex'; });
     setupBtn('btn-data-interact', () => { initInteractUI(); document.getElementById('data-interact-win').style.display = 'flex'; });
-    
-    // 测绘工具
     setupBtn('btn-ruler', () => map.pm.enableDraw('Line', { measurements: { showLength: true } }));
     setupBtn('btn-poly', () => map.pm.enableDraw('Polygon', { measurements: { showArea: true } }));
     setupBtn('btn-marker', () => map.pm.enableDraw('Marker'));
     document.getElementById('tool-eraser').onclick = () => map.pm.toggleGlobalRemovalMode();
     document.querySelectorAll('.close-win').forEach(c => c.onclick = deactivateAll);
 
-    // --- 5. 渲染引擎 (核心注入逻辑) ---
+    // 核心渲染：整合 CSV 与 计算结果
     function refreshMap() {
         for(let name in displayLayers) {
             const conf = displayLayers[name].conf;
@@ -206,18 +191,17 @@ const API_KEY = "sk-953b1a97918949d2a18c9a07a14729d0";
                         const mKey = normalize(p.name);
                         const csvRow = csvGlobalMap[mKey] || {};
 
-                        // 注入关联显示的 CSV 字段
+                        // 1. 恢复：显示选中的 CSV 关联字段
                         reg.activeFields.forEach(field => {
                             if(csvRow[field]) h += `<div style="margin-top:5px; color:var(--primary); font-weight:700;">${field}: ${csvRow[field]}</div>`;
                         });
 
-                        // 注入计算指标结果
+                        // 2. 显示指标计算结果
                         activeCalculations.forEach(calc => {
                             if(calc.layerNames.includes(name)) {
-                                const combined = {...p, ...csvRow};
-                                const result = INDICATOR_CONFIG[calc.configKey].calc(combined, calc.params);
+                                const result = INDICATOR_CONFIG[calc.configKey].calc({...p, ...csvRow}, calc.params);
                                 h += `<div style="margin-top:10px; padding:10px; background:#fff8f6; border:1px solid var(--accent); border-radius:12px; color:var(--accent);">
-                                        <b style="font-size:10px; display:block; text-transform:uppercase;">${calc.name}</b>
+                                        <b style="font-size:10px; display:block;">${calc.name}</b>
                                         <span style="font-size:18px; font-weight:800;">${result.toFixed(2)}</span>
                                       </div>`;
                             }
@@ -229,65 +213,7 @@ const API_KEY = "sk-953b1a97918949d2a18c9a07a14729d0";
         }
     }
 
-    // --- 6. 数据交互计算逻辑 (指标引擎) ---
-    function initInteractUI() {
-        const select = document.getElementById('select-indicator');
-        select.innerHTML = '<option value="">-- 请选择计算指标 --</option>';
-        for(let key in INDICATOR_CONFIG) select.innerHTML += `<option value="${key}">${INDICATOR_CONFIG[key].name}</option>`;
-        
-        select.onchange = (e) => {
-            const config = INDICATOR_CONFIG[e.target.value];
-            if(!config) { document.getElementById('calc-param-zone').style.display='none'; return; }
-            document.getElementById('calc-param-zone').style.display='block';
-            document.getElementById('formula-box').innerText = config.formula_desc;
-            
-            // 汇总所有可用字段 (CSV + 原始数据)
-            let allFields = new Set();
-            state.activeLayers.forEach(ln => {
-                deepFilterRegistry[ln].availableHeaders.forEach(h => allFields.add(h));
-                if(pool[ln]?.features[0]) Object.keys(pool[ln].features[0].properties).forEach(k => allFields.add(k));
-            });
-
-            const paramCon = document.getElementById('param-inputs-container');
-            paramCon.innerHTML = config.params.map(p => `
-                <div style="margin-bottom:12px;">
-                    <label style="font-size:11px; font-weight:700; color:#64748b;">${p.name}</label>
-                    ${p.type === 'field_selector' ? 
-                        `<select class="param-input" data-pid="${p.id}"><option value="">-- 选择数据项 --</option>${Array.from(allFields).map(f=>`<option value="${f}">${f}</option>`).join('')}</select>` : 
-                        `<input type="text" class="param-input input-coeff" data-pid="${p.id}" value="${p.default}">`
-                    }
-                </div>
-            `).join('');
-
-            document.getElementById('calc-layer-targets').innerHTML = state.activeLayers.map(n => 
-                `<div class="layer-item" style="padding:6px 10px;"><input type="checkbox" class="calc-target-cb" value="${n}" checked><span>${n}</span></div>`
-            ).join('');
-        };
-    }
-
-    document.getElementById('btn-execute-calc').onclick = () => {
-        const configKey = document.getElementById('select-indicator').value;
-        const selectedLayers = Array.from(document.querySelectorAll('.calc-target-cb:checked')).map(cb => cb.value);
-        if(!configKey || !selectedLayers.length) return alert("请完整配置指标参数与范围");
-
-        const params = {};
-        document.querySelectorAll('.param-input').forEach(i => params[i.dataset.pid] = i.value);
-
-        activeCalculations.push({ id: Date.now(), name: INDICATOR_CONFIG[configKey].name, configKey, layerNames: selectedLayers, params });
-        renderCalcHistory(); refreshMap();
-    };
-
-    function renderCalcHistory() {
-        const list = document.getElementById('calc-history-list');
-        list.innerHTML = activeCalculations.map(c => `
-            <div class="calc-card">
-                <div class="calc-title"><span>${c.name}</span><button class="btn-del-calc" onclick="deleteCalc(${c.id})">删除</button></div>
-                <div class="calc-details">作用范围: ${c.layerNames.join(', ')}<br>计算参数: ${Object.values(c.params).join(' | ')}</div>
-            </div>`).join('');
-    }
-    window.deleteCalc = (id) => { activeCalculations = activeCalculations.filter(c => c.id !== id); renderCalcHistory(); refreshMap(); };
-
-    // --- 7. 深度筛选逻辑 (AI + CSV) ---
+    // 独立轨道 UI 渲染
     function renderDeepUI() {
         document.getElementById('deep-layer-targets').innerHTML = state.activeLayers.map(n => 
             `<div class="layer-item" style="padding:6px 10px;"><input type="checkbox" class="target-cb" value="${n}" checked><span>${n}</span></div>`
@@ -295,6 +221,7 @@ const API_KEY = "sk-953b1a97918949d2a18c9a07a14729d0";
         renderHistoryCards();
     }
 
+    // 深度筛选文件处理：立即刷出字段勾选
     document.getElementById('deep-file-in').onchange = (e) => {
         const file = e.target.files[0]; if(!file) return;
         document.getElementById('file-name').innerText = file.name;
@@ -303,12 +230,15 @@ const API_KEY = "sk-953b1a97918949d2a18c9a07a14729d0";
             const lines = ev.target.result.split('\n').filter(l => l.trim());
             const headers = lines[0].split(',').map(h => h.trim());
             const nameIdx = headers.findIndex(h => /名称|店名|Name/i.test(h)) || 0;
+            
             lines.slice(1).forEach(line => {
                 const vals = line.split(',').map(v => v.trim());
                 const obj = {}; headers.forEach((h, i) => obj[h] = vals[i]);
                 const key = normalize(obj[headers[nameIdx]]);
                 if(key) csvGlobalMap[key] = {...(csvGlobalMap[key] || {}), ...obj};
             });
+
+            // 渲染字段勾选框
             const fieldCon = document.getElementById('csv-col-container');
             fieldCon.innerHTML = ''; document.getElementById('csv-fields-ui').style.display = 'block';
             headers.forEach(h => {
@@ -324,7 +254,7 @@ const API_KEY = "sk-953b1a97918949d2a18c9a07a14729d0";
                 };
                 fieldCon.appendChild(div);
             });
-            // 存入当前会话 Headers
+            // 存入当前全局 Headers 以供计算引擎使用
             state.activeLayers.forEach(ln => deepFilterRegistry[ln].availableHeaders = headers);
         };
         reader.readAsText(file);
@@ -333,26 +263,27 @@ const API_KEY = "sk-953b1a97918949d2a18c9a07a14729d0";
     document.getElementById('btn-run-deep').onclick = async () => {
         const selected = Array.from(document.querySelectorAll('.target-cb:checked')).map(cb => cb.value);
         const file = document.getElementById('deep-file-in').files[0];
-        if(!selected.length || !file) return alert("请选择范围及文件");
-        document.getElementById('deep-log').innerText = "⏳ AI 正在跨轨分析...";
+        if(!selected.length || !file) return alert("请配置范围及文件");
+        document.getElementById('deep-log').innerText = "⏳ AI 正在深度分析提取...";
         try {
             const fd = new FormData(); fd.append('file', file); fd.append('purpose', 'file-extract');
             const upRes = await fetch("https://dashscope.aliyuncs.com/compatible-mode/v1/files", { method:"POST", headers:{"Authorization":`Bearer ${API_KEY}`}, body:fd });
             const fid = (await upRes.json()).id;
             const aiRes = await fetch("https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions", {
                 method:"POST", headers:{"Content-Type":"application/json", "Authorization":`Bearer ${API_KEY}`},
-                body: JSON.stringify({ model:"qwen-long", messages:[{role:"system", content:`fileid://${fid}`}, {role:"user", content:"仅返回店名列表，逗号分隔。"}]})
+                body: JSON.stringify({ model:"qwen-long", messages:[{role:"system", content:`fileid://${fid}`}, {role:"user", content:"仅返回地名列表，逗号分隔。"}]})
             });
             const names = (await aiRes.json()).choices[0].message.content.split(/[，,]/).map(n => n.trim()).filter(n => n);
             selected.forEach(ln => { deepFilterRegistry[ln].kws = names; deepFilterRegistry[ln].isDeep = true; });
             
-            // 复位输入
+            // 复位：方便第二次筛选
             document.getElementById('deep-file-in').value = "";
-            document.getElementById('file-name').innerText = "等待下一次筛选...";
+            document.getElementById('file-name').innerText = "提取成功，可继续上传新文件";
             document.querySelectorAll('.target-cb').forEach(cb => cb.checked = false);
+            document.getElementById('csv-fields-ui').style.display = 'none';
 
             refreshMap(); renderHistoryCards();
-            document.getElementById('deep-log').innerText = "✅ 提取成功";
+            document.getElementById('deep-log').innerText = "✅ 关联成功";
         } catch(e) { document.getElementById('deep-log').innerText = "❌ 失败"; }
     };
 
@@ -362,13 +293,76 @@ const API_KEY = "sk-953b1a97918949d2a18c9a07a14729d0";
         for(let ln in deepFilterRegistry) {
             if(!deepFilterRegistry[ln].isDeep) continue;
             const card = document.createElement('div'); card.className = 'history-card';
-            card.innerHTML = `<div class="calc-title">${ln} <button class="btn-del-calc" onclick="undoDeep('${ln}')">撤销</button></div><div class="calc-details">AI 提取了 ${deepFilterRegistry[ln].kws.length} 个点位</div>`;
+            card.innerHTML = `<div class="calc-title">${ln} <button class="btn-del-calc" onclick="undoDeep('${ln}')">撤销</button></div><div class="calc-details">AI 提取了 ${deepFilterRegistry[ln].kws.length} 个点</div>`;
             con.appendChild(card);
         }
     }
     window.undoDeep = (ln) => { deepFilterRegistry[ln].isDeep = false; deepFilterRegistry[ln].kws = [...state.keywords]; refreshMap(); renderHistoryCards(); };
 
-    // --- 8. 基础加载逻辑 ---
+    // 数据交互：层级选择器实现
+    function initInteractUI() {
+        const select = document.getElementById('select-indicator');
+        select.innerHTML = '<option value="">-- 请选择计算指标 --</option>';
+        for(let key in INDICATOR_CONFIG) select.innerHTML += `<option value="${key}">${INDICATOR_CONFIG[key].name}</option>`;
+        
+        select.onchange = (e) => {
+            const config = INDICATOR_CONFIG[e.target.value];
+            if(!config) { document.getElementById('calc-param-zone').style.display='none'; return; }
+            document.getElementById('calc-param-zone').style.display='block';
+            document.getElementById('formula-box').innerText = config.formula_desc;
+            
+            // 分层级搜集字段
+            let originalFields = new Set();
+            let deepFields = new Set();
+            state.activeLayers.forEach(ln => {
+                deepFilterRegistry[ln].availableHeaders.forEach(h => deepFields.add(h));
+                if(pool[ln]?.features[0]) Object.keys(pool[ln].features[0].properties).forEach(k => originalFields.add(k));
+            });
+
+            const paramCon = document.getElementById('param-inputs-container');
+            paramCon.innerHTML = config.params.map(p => `
+                <div style="margin-bottom:12px;">
+                    <label style="font-size:11px; font-weight:700; color:#64748b;">${p.name}</label>
+                    ${p.type === 'field_selector' ? 
+                        `<select class="param-input" data-pid="${p.id}">
+                            <option value="">-- 请选择数据源 --</option>
+                            <optgroup label="图层原始属性">
+                                ${Array.from(originalFields).map(f=>`<option value="${f}">${f}</option>`).join('')}
+                            </optgroup>
+                            <optgroup label="深度筛选关联表属性">
+                                ${Array.from(deepFields).map(f=>`<option value="${f}">${f}</option>`).join('')}
+                            </optgroup>
+                        </select>` : 
+                        `<input type="text" class="param-input input-coeff" data-pid="${p.id}" value="${p.default}">`
+                    }
+                </div>
+            `).join('');
+
+            document.getElementById('calc-layer-targets').innerHTML = state.activeLayers.map(n => 
+                `<div class="layer-item" style="padding:6px 10px;"><input type="checkbox" class="calc-target-cb" value="${n}" checked><span>${n}</span></div>`
+            ).join('');
+        };
+    }
+
+    document.getElementById('btn-execute-calc').onclick = () => {
+        const configKey = document.getElementById('select-indicator').value;
+        const selectedLayers = Array.from(document.querySelectorAll('.calc-target-cb:checked')).map(cb => cb.value);
+        if(!configKey || !selectedLayers.length) return alert("配置不完整");
+        const params = {}; document.querySelectorAll('.param-input').forEach(i => params[i.dataset.pid] = i.value);
+        activeCalculations.push({ id: Date.now(), name: INDICATOR_CONFIG[configKey].name, configKey, layerNames: selectedLayers, params });
+        renderCalcHistory(); refreshMap();
+    };
+
+    function renderCalcHistory() {
+        const list = document.getElementById('calc-history-list');
+        list.innerHTML = activeCalculations.map(c => `
+            <div class="calc-card">
+                <div class="calc-title"><span>${c.name}</span><button class="btn-del-calc" onclick="deleteCalc(${c.id})">删除</button></div>
+                <div class="calc-details">范围: ${c.layerNames.join(', ')} | 参数: ${Object.values(c.params).join(' | ')}</div>
+            </div>`).join('');
+    }
+    window.deleteCalc = (id) => { activeCalculations = activeCalculations.filter(c => c.id !== id); renderCalcHistory(); refreshMap(); };
+
     state.activeLayers.forEach(name => {
         const isH = name.includes('房产');
         const color = isH ? '#FF7E5F' : `hsl(${(state.activeLayers.indexOf(name)*137)%360},65%,50%)`;
@@ -383,10 +377,9 @@ const API_KEY = "sk-953b1a97918949d2a18c9a07a14729d0";
         });
     });
 
-    // 标注与拖拽
-    let curM = null;
-    map.on('pm:create', (e) => { if(e.shape === 'Marker') { curM = e.layer; document.getElementById('naming-ui').style.display='block'; } });
-    document.getElementById('m-save').onclick = () => { if(curM) curM.bindPopup(`<b>${document.getElementById('m-name').value}</b>`).openPopup(); deactivateAll(); };
+    let lastMarker = null;
+    map.on('pm:create', (e) => { if(e.shape === 'Marker') { lastMarker = e.layer; document.getElementById('naming-ui').style.display='block'; } });
+    document.getElementById('m-save').onclick = () => { if(lastMarker) lastMarker.bindPopup(`<b>${document.getElementById('m-name').value}</b>`).openPopup(); deactivateAll(); };
 
     document.querySelectorAll('.win-header').forEach(h => {
         let dragging = false, offset = [0,0], win = h.parentElement;
