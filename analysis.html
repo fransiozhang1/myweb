@@ -353,48 +353,120 @@ window.undoDeep = (ln) => {
 };
 
 // --- 8. 数据计算 UI ---
+// --- [数据交互：指标运算引擎逻辑修复版] ---
+
 function initInteractUI() {
     const select = document.getElementById('select-indicator');
-    select.innerHTML = '<option value="">-- 选择指标 --</option>';
-    for(let key in INDICATOR_CONFIG) select.innerHTML += `<option value="${key}">${INDICATOR_CONFIG[key].name}</option>`;
+    // 1. 初始化指标下拉菜单
+    select.innerHTML = '<option value="">-- 请选择计算指标 --</option>';
+    for (let key in INDICATOR_CONFIG) {
+        select.innerHTML += `<option value="${key}">${INDICATOR_CONFIG[key].name}</option>`;
+    }
     
     select.onchange = (e) => {
-        const config = INDICATOR_CONFIG[e.target.value];
-        if(!config) { document.getElementById('calc-param-zone').style.display='none'; return; }
-        document.getElementById('calc-param-zone').style.display='block';
+        const configKey = e.target.value;
+        const config = INDICATOR_CONFIG[configKey];
+        
+        // 如果未选择，则隐藏后续步骤
+        if (!config) {
+            document.getElementById('calc-param-zone').style.display = 'none';
+            return;
+        }
+        
+        // 显示参数设定和范围选择区域
+        document.getElementById('calc-param-zone').style.display = 'block';
         document.getElementById('formula-box').innerText = config.formula_desc;
         
-        let oFields = new Set(), dFields = new Set();
+        // 2. 动态搜集并整理数据字段 (分层级)
+        let originalFields = new Set(); // 存储图层自带字段
+        let deepFields = new Set();     // 存储关联 CSV 的字段
+
         state.activeLayers.forEach(ln => {
-            deepFilterRegistry[ln].availableHeaders.forEach(h => dFields.add(h));
-            if(pool[ln]?.features[0]) Object.keys(pool[ln].features[0].properties).forEach(k => oFields.add(k));
+            // 搜集该轨道已有的 CSV 表头
+            if (deepFilterRegistry[ln] && deepFilterRegistry[ln].availableHeaders) {
+                deepFilterRegistry[ln].availableHeaders.forEach(h => deepFields.add(h));
+            }
+            // 搜集该图层原始 GeoJSON 中的属性
+            if (pool[ln] && pool[ln].features && pool[ln].features[0]) {
+                Object.keys(pool[ln].features[0].properties).forEach(k => originalFields.add(k));
+            }
         });
 
-        document.getElementById('param-inputs-container').innerHTML = config.params.map(p => `
-            <div style="margin-bottom:12px;">
-                <label style="font-size:11px; font-weight:700;">${p.name}</label>
-                ${p.type === 'field_selector' ? 
-                    `<select class="param-input" data-pid="${p.id}">
-                        <option value="">-- 选择源 --</option>
-                        <optgroup label="图层原始属性">${Array.from(origFields).map(f=>`<option value="${f}">${f}</option>`).join('')}</optgroup>
-                        <optgroup label="关联表字段">${Array.from(deepFields).map(f=>`<option value="${f}">${f}</option>`).join('')}</optgroup>
-                    </select>` : 
-                    `<input type="text" class="param-input input-coeff" data-pid="${p.id}" value="${p.default}">`
-                }
-            </div>`).join('');
+        // 3. 渲染参数输入/选择框 (步骤 2)
+        const paramContainer = document.getElementById('param-inputs-container');
+        paramContainer.innerHTML = config.params.map(p => {
+            let inputHtml = '';
+            if (p.type === 'field_selector') {
+                // 生成带层级的下拉菜单
+                inputHtml = `
+                    <select class="param-input" data-pid="${p.id}">
+                        <option value="">-- 请选择数据源 --</option>
+                        <optgroup label="1级：图层原始基础属性">
+                            ${Array.from(originalFields).map(f => `<option value="${f}">${f}</option>`).join('')}
+                        </optgroup>
+                        <optgroup label="2级：AI 关联外部表字段">
+                            ${Array.from(deepFields).map(f => `<option value="${f}">${f}</option>`).join('')}
+                        </optgroup>
+                    </select>`;
+            } else {
+                // 生成系数输入框
+                inputHtml = `<input type="text" class="param-input input-coeff" data-pid="${p.id}" value="${p.default}" placeholder="请输入数值...">`;
+            }
+            
+            return `
+                <div style="margin-bottom:15px;">
+                    <label style="font-size:12px; font-weight:700; color:#64748b; display:block; margin-bottom:5px;">${p.name}</label>
+                    ${inputHtml}
+                </div>`;
+        }).join('');
 
-        document.getElementById('calc-layer-targets').innerHTML = state.activeLayers.map(n => 
-            `<div class="layer-item" style="padding:6px 10px;"><input type="checkbox" class="calc-target-cb" value="${n}" checked><span>${n}</span></div>`).join('');
+        // 4. 渲染目标图层勾选 (步骤 3)
+        const targetContainer = document.getElementById('calc-layer-targets');
+        targetContainer.innerHTML = state.activeLayers.map(n => `
+            <div class="layer-item" style="padding:8px 12px; margin-bottom:5px; border-radius:10px;">
+                <input type="checkbox" class="calc-target-cb" value="${n}" checked>
+                <span>${n}</span>
+            </div>`).join('');
     };
 }
 
+// 绑定执行按钮
 document.getElementById('btn-execute-calc').onclick = () => {
     const configKey = document.getElementById('select-indicator').value;
-    const selected = Array.from(document.querySelectorAll('.calc-target-cb:checked')).map(cb => cb.value);
-    if(!configKey || !selected.length) return alert("参数缺失");
-    const params = {}; document.querySelectorAll('.param-input').forEach(i => params[i.dataset.pid] = i.value);
-    activeCalculations.push({ id: Date.now(), name: INDICATOR_CONFIG[configKey].name, configKey, layerNames: selected, params });
-    refreshMap(); renderCalcHistory();
+    const selectedLayers = Array.from(document.querySelectorAll('.calc-target-cb:checked')).map(cb => cb.value);
+    
+    if (!configKey || selectedLayers.length === 0) {
+        alert("请完整配置指标参数并选择图层范围！");
+        return;
+    }
+
+    // 获取用户输入的参数值
+    const params = {};
+    const inputElements = document.querySelectorAll('.param-input');
+    let allFilled = true;
+    
+    inputElements.forEach(input => {
+        if (!input.value) allFilled = false;
+        params[input.dataset.pid] = input.value;
+    });
+
+    if (!allFilled) {
+        alert("请确保所有参数源已选择或输入！");
+        return;
+    }
+
+    // 将计算任务推入活跃列表
+    activeCalculations.push({
+        id: Date.now(),
+        name: INDICATOR_CONFIG[configKey].name,
+        configKey: configKey,
+        layerNames: selectedLayers,
+        params: params
+    });
+
+    refreshMap();       // 刷新地图以显示计算结果
+    renderCalcHistory(); // 更新下方历史列表
+    alert(`指标 [${INDICATOR_CONFIG[configKey].name}] 已成功应用于选定图层！`);
 };
 
 function renderCalcHistory() {
