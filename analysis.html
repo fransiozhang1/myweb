@@ -16,8 +16,28 @@
     </div>
     <button id="btn-deep-filter" class="big-action-btn">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15.5 19l-7-7 7-7"/><path d="M8.5 12h13"/></svg>
-        AI 深度筛选
+        AI 深度关联分析
     </button>
+</div>
+
+<div id="deep-filter-win" class="floating-window">
+    <div class="win-header"><span>AI 语义提取与数据关联</span><span class="close-win">×</span></div>
+    <div style="padding:25px; display:flex; flex-direction:column; gap:15px;">
+        <div style="border:2px dashed #e2e8f0; padding:20px; border-radius:16px; text-align:center; background:#fafafa;">
+            <input type="file" id="deep-file-in" style="display:none;" accept=".csv,.txt">
+            <label for="deep-file-in" style="cursor:pointer; color:var(--primary); font-weight:800;">点击上传 CSV 数据文件</label>
+            <div id="file-name" style="font-size:11px; color:#94a3b8; margin-top:10px;">上传后将自动解析表头</div>
+        </div>
+
+        <div id="csv-fields-ui" style="display:none;">
+            <div class="group-label">关联显示字段 (勾选后同步至地图)</div>
+            <div id="csv-col-container"></div>
+        </div>
+
+        <button id="btn-run-deep" style="background:var(--primary); color:white; border:none; padding:14px; border-radius:12px; font-weight:800; cursor:pointer;">开始提取并分析</button>
+        <button id="btn-restore-deep" style="background:#f1f5f9; color:#64748b; border:none; padding:12px; border-radius:12px; display:none; cursor:pointer;">取消并还原原始图层</button>
+        <div id="deep-log" style="font-size:11px; color:var(--primary); text-align:center; font-weight:600;"></div>
+    </div>
 </div>
 
 <div id="analysis-tools" class="toolbar-group">
@@ -27,37 +47,16 @@
 <div id="editor-tools" class="toolbar-group">
     <div class="tool-btn" id="btn-ruler" title="测距"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M19 20L5 6M9 6l3 3M12 9l3 3M15 12l3 3"/></svg></div>
     <div class="tool-btn" id="btn-poly" title="绘面"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z"/></svg></div>
-    <div class="tool-btn" id="btn-marker" title="点标注"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div>
+    <div class="tool-btn" id="btn-marker" title="标注点"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div>
     <div class="tool-btn danger" id="btn-eraser" title="橡皮擦"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20H7L3 16C2 15 2 13 3 12L13 2L22 11L20 20Z"/><path d="M17 17l-10-10"/></svg></div>
 </div>
 
-<div id="deep-filter-win" class="floating-window">
-    <div class="win-header"><span>AI 深度语义筛选</span><span class="close-win">×</span></div>
-    <div style="padding:25px; display:flex; flex-direction:column; gap:15px;">
-        <div style="border:2px dashed #e2e8f0; padding:20px; border-radius:16px; text-align:center; background:#fafafa;">
-            <input type="file" id="deep-file-in" style="display:none;" accept=".csv,.txt">
-            <label for="deep-file-in" style="cursor:pointer; color:var(--primary); font-weight:800;">点击上传 CSV 参考文件</label>
-            <div id="file-name" style="font-size:11px; color:#94a3b8; margin-top:10px;">支持带数据的 CSV 格式</div>
-        </div>
-
-        <div id="csv-columns-section" style="display:none;">
-            <div class="group-label" style="margin-top:0;">检测到数据列 (勾选以显示在弹窗)</div>
-            <div id="csv-column-list" style="max-height:120px; overflow-y:auto; background:#fff; border:1px solid #f1f5f9; border-radius:10px; padding:5px;">
-                </div>
-        </div>
-
-        <button id="btn-run-deep" style="background:var(--primary); color:white; border:none; padding:12px; border-radius:12px; font-weight:800; cursor:pointer;">开始提取并分析</button>
-        <button id="btn-restore-deep" style="background:#f1f5f9; color:#64748b; border:none; padding:10px; border-radius:12px; display:none; cursor:pointer;">取消提取还原</button>
-        <div id="deep-log" style="font-size:11px; color:var(--primary); text-align:center;"></div>
-    </div>
-</div>
-
 <div id="layer-menu" class="floating-window">
-    <div class="win-header"><span>分析控制面板</span><span class="close-win" onclick="deactivateAll()">×</span></div>
+    <div class="win-header"><span>分析控制面板</span><span class="close-win">×</span></div>
     <div style="padding:20px; overflow-y:auto; flex:1;">
         <div class="group-label">活跃数据大类开关</div>
         <div id="active-category-list"></div>
-        <div class="group-label">筛选关键词微调</div>
+        <div class="group-label">关键词微调开关</div>
         <div id="active-keyword-list"></div>
     </div>
 </div>
@@ -74,334 +73,182 @@
 <script src="https://unpkg.com/@geoman-io/leaflet-geoman-free@latest/dist/leaflet-geoman.min.js"></script>
 
 <script>
-const API_KEY = "sk-953b1a97918949d2a18c9a07a14729d0";
+    const API_KEY = "sk-953b1a97918949d2a18c9a07a14729d0";
 
-    // 1. 地图初始化
+    // 1. 初始化
     var map = L.map('map', { zoomControl: false, renderer: L.canvas() }).setView([31.15, 121.43], 13);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { crossOrigin: true }).addTo(map);
     map.pm.setLang('zh');
-    // 禁用 Geoman 默认工具条，我们使用自定义按钮控制
     map.pm.addControls({ drawControls: false, editControls: false });
 
-    // 2. 状态读取与备份
     const state = JSON.parse(localStorage.getItem('analysis_state')) || { keywords: [], activeLayers: [] };
     let currentKeywords = [...state.keywords];
-    let originalStateKeywords = [...state.keywords]; // 用于 AI 还原
+    let originalStateKeywords = [...state.keywords];
     const pool = {}, displayLayers = {};
     const keywordVisibility = {};
     currentKeywords.forEach(kw => keywordVisibility[kw] = true);
 
-    // 3. 核心交互逻辑：排他性与状态重置
+    // --- CSV 数据关联状态 ---
+    let csvDataMap = {}; // 结构: { "清洗后名称": { fullRowData } }
+    let activeCsvFields = new Set(); 
+
+    // 辅助：清洗名称以实现高成功率匹配
+    const normalize = (str) => (str || "").replace(/\(.*\)|（.*）/g, "").replace(/社区|商铺|分店|酒店|超市/g, "").trim().toLowerCase();
+
+    // 2. 交互逻辑：排他性与 ESC
     function deactivateAll() {
-        // 隐藏所有浮动窗口
         document.querySelectorAll('.floating-window').forEach(w => w.style.display = 'none');
-        // 移除所有按钮（包括侧边大按钮和右侧工具按钮）的激活样式
         document.querySelectorAll('.tool-btn, .big-action-btn').forEach(b => b.classList.remove('active'));
-        // 隐藏命名 UI
         document.getElementById('naming-ui').style.display = 'none';
-        // 停止 Geoman 绘图模式
         map.pm.disableDraw();
-        map.pm.disableGlobalRemovalMode();
     }
+    window.addEventListener('keydown', (e) => { if(e.key === 'Escape') deactivateAll(); });
 
-    // 全局 ESC 键监听：一键清场
-    window.addEventListener('keydown', (e) => { 
-        if(e.key === 'Escape') deactivateAll(); 
-    });
-
-    // 通用按钮绑定函数（处理开启/关闭切换）
     const setupBtn = (id, action) => {
-        const btn = document.getElementById(id);
-        btn.onclick = () => {
-            const wasActive = btn.classList.contains('active');
-            deactivateAll(); // 开启任何功能前先关闭其他所有功能
-            if(!wasActive) { 
-                action(); 
-                btn.classList.add('active'); 
-            }
+        document.getElementById(id).onclick = () => {
+            const was = document.getElementById(id).classList.contains('active');
+            deactivateAll();
+            if(!was) { action(); document.getElementById(id).classList.add('active'); }
         };
     };
 
-    // 绑定左侧深度筛选
-    setupBtn('btn-deep-filter', () => document.getElementById('deep-filter-win').style.display = 'flex');
-    
-    // 绑定右侧分析工具
     setupBtn('btn-layer-t', () => document.getElementById('layer-menu').style.display = 'flex');
-    setupBtn('btn-ruler', () => map.pm.enableDraw('Line', { measurements: { displayUnit: 'metric', showLength: true } }));
-    setupBtn('btn-poly', () => map.pm.enableDraw('Polygon', { measurements: { displayUnit: 'metric', showArea: true } }));
+    setupBtn('btn-deep-filter', () => document.getElementById('deep-filter-win').style.display = 'flex');
+    setupBtn('btn-ruler', () => map.pm.enableDraw('Line', { measurements: { showLength: true } }));
+    setupBtn('btn-poly', () => map.pm.enableDraw('Polygon', { measurements: { showArea: true } }));
     setupBtn('btn-marker', () => map.pm.enableDraw('Marker'));
     setupBtn('btn-eraser', () => map.pm.toggleGlobalRemovalMode());
 
-    // 统一处理所有窗口的关闭按钮（×）
-    document.querySelectorAll('.close-win').forEach(closeBtn => {
-        closeBtn.onclick = (e) => {
-            e.stopPropagation();
-            deactivateAll();
-        };
-    });
+    document.querySelectorAll('.close-win').forEach(c => c.onclick = deactivateAll);
 
-    // 4. 双重开关渲染引擎
+    // 3. 核心渲染函数：集成 CSV 动态数据
     function refreshMap() {
         for(let name in displayLayers) {
             const conf = displayLayers[name].conf;
             map.removeLayer(displayLayers[name].layer);
-            
             if(conf.visible) {
                 displayLayers[name].layer = L.geoJSON(pool[name], {
-                    filter: (f) => {
-                        if(currentKeywords.length === 0) return true;
-                        // 逻辑：检查点名称是否包含当前“勾选为可见”的任何关键词
-                        return currentKeywords.some(kw => (f.properties.name || "").includes(kw) && keywordVisibility[kw]);
-                    },
-                    pointToLayer: (f, latlng) => L.circleMarker(latlng, { radius: 6, weight: 2.0, fillColor: conf.c, color: "#fff", fillOpacity: 0.9 }),
-                    onEachFeature: (f, l) => { 
-                        l.bindPopup(`<b>${f.properties.name}</b><br>${f.properties.address || '-'}`); 
+                    filter: (f) => currentKeywords.length === 0 || currentKeywords.some(kw => (f.properties.name || "").includes(kw) && keywordVisibility[kw]),
+                    pointToLayer: (f, latlng) => L.circleMarker(latlng, { radius: 7, weight: 2.0, fillColor: conf.c, color: "#fff", fillOpacity: 0.9 }),
+                    onEachFeature: (f, l) => {
+                        const p = f.properties;
+                        let h = `<div class="popup-header ${name.includes('房产')?'house':''}"><h3>${p.name}</h3></div><div style="padding:15px; font-size:12px;">`;
+                        h += `<div><b>原始地址:</b> ${p.address || '-'}</div>`;
+                        
+                        // 关联 CSV 逻辑
+                        const matchKey = normalize(p.name);
+                        if(csvDataMap[matchKey]) {
+                            const row = csvDataMap[matchKey];
+                            activeCsvFields.forEach(field => {
+                                if(row[field]) h += `<div style="margin-top:8px; color:var(--primary); border-top:1px dashed #eee; padding-top:5px;"><b>${field}:</b> ${row[field]}</div>`;
+                            });
+                        }
+                        l.bindPopup(h + `</div>`, { maxWidth: 280 });
                     }
                 }).addTo(map);
             }
         }
     }
 
-    // 初始化/刷新关键词微调列表 UI
-    function initToggles() {
-        const listContainer = document.getElementById('active-keyword-list');
-        listContainer.innerHTML = '';
-        currentKeywords.forEach(kw => {
-            if (!(kw in keywordVisibility)) keywordVisibility[kw] = true;
-            const div = document.createElement('div'); 
-            div.className = 'layer-item';
-            div.innerHTML = `<input type="checkbox" ${keywordVisibility[kw]?'checked':''}><span>${kw}</span>`;
-            div.querySelector('input').onchange = (e) => { 
-                keywordVisibility[kw] = e.target.checked; 
-                refreshMap(); 
-            };
-            listContainer.appendChild(div);
-        });
-    }
+    // 4. CSV 本地预处理逻辑
+    document.getElementById('deep-file-in').onchange = (e) => {
+        const file = e.target.files[0];
+        if(!file) return;
+        document.getElementById('file-name').innerText = file.name;
+        
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const lines = event.target.result.split('\n').filter(l => l.trim());
+            if(lines.length < 2) return;
+            const headers = lines[0].split(',').map(h => h.trim());
+            
+            // 自动侦测名称列
+            const nameIdx = headers.findIndex(h => /名称|店名|商铺|项目|Name/i.test(h)) || 0;
+            
+            // 构建映射表
+            csvDataMap = {};
+            lines.slice(1).forEach(line => {
+                const vals = line.split(',').map(v => v.trim());
+                const row = {};
+                headers.forEach((h, i) => row[h] = vals[i]);
+                const key = normalize(row[headers[nameIdx]]);
+                if(key) csvDataMap[key] = row;
+            });
 
-    // 加载数据大类逻辑
+            // 生成 UI
+            const container = document.getElementById('csv-col-container');
+            container.innerHTML = '';
+            document.getElementById('csv-fields-ui').style.display = 'block';
+            headers.forEach(h => {
+                const div = document.createElement('div'); div.className = 'layer-item';
+                div.style = "padding:5px 10px; font-size:12px;";
+                div.innerHTML = `<input type="checkbox"><span>${h}</span>`;
+                div.querySelector('input').onchange = (ev) => {
+                    if(ev.target.checked) activeCsvFields.add(h); else activeCsvFields.delete(h);
+                    refreshMap();
+                };
+                container.appendChild(div);
+            });
+        };
+        reader.readAsText(file);
+    };
+
+    // 5. AI 提取逻辑
+    document.getElementById('btn-run-deep').onclick = async () => {
+        const file = document.getElementById('deep-file-in').files[0];
+        if(!file) return alert("请上传文件");
+        const log = document.getElementById('deep-log'); log.innerText = "⏳ AI 正在执行语义提取...";
+        try {
+            const fd = new FormData(); fd.append('file', file); fd.append('purpose', 'file-extract');
+            const up = await fetch("https://dashscope.aliyuncs.com/compatible-mode/v1/files", { method:"POST", headers:{"Authorization":`Bearer ${API_KEY}`}, body:fd });
+            const fid = (await up.json()).id;
+            const ai = await fetch("https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions", {
+                method:"POST", headers:{"Content-Type":"application/json", "Authorization":`Bearer ${API_KEY}`},
+                body: JSON.stringify({ model:"qwen-long", messages:[{role:"system", content:`fileid://${fid}`}, {role:"user", content:"提取文件中提到的所有地点名称，用逗号分隔，仅返回名称。"}]})
+            });
+            const names = (await ai.json()).choices[0].message.content.split(/[，,]/).map(n => n.trim()).filter(n => n);
+            currentKeywords = names;
+            initToggles(); refreshMap();
+            log.innerText = `✅ 成功提取 ${names.length} 个关联点`;
+            document.getElementById('btn-restore-deep').style.display = 'block';
+        } catch(e) { log.innerText = "❌ 提取失败"; }
+    };
+
+    // 6. 其他基础逻辑 (图层加载、窗口拖拽等)
+    function initToggles() {
+        document.getElementById('active-keyword-list').innerHTML = currentKeywords.map(kw => {
+            if (!(kw in keywordVisibility)) keywordVisibility[kw] = true;
+            return `<div class="layer-item"><input type="checkbox" ${keywordVisibility[kw]?'checked':''} onchange="toggleKw('${kw}', this.checked)"><span>${kw}</span></div>`;
+        }).join('');
+    }
+    window.toggleKw = (kw, show) => { keywordVisibility[kw] = show; refreshMap(); };
+
     state.activeLayers.forEach(name => {
         const isH = name.includes('房产');
         const color = isH ? '#FF7E5F' : `hsl(${(state.activeLayers.indexOf(name)*137)%360},65%,50%)`;
-        const path = isH ? 'houses.json' : `data_poi/${name}.json`;
-        
-        fetch(path).then(r => r.json()).then(data => {
+        fetch(isH ? 'houses.json' : `data_poi/${name}.json`).then(r => r.json()).then(data => {
             pool[name] = data;
             displayLayers[name] = { layer: L.layerGroup(), conf: { c: color, visible: true } };
-            
-            const div = document.createElement('div'); 
-            div.className = 'layer-item';
+            const div = document.createElement('div'); div.className = 'layer-item';
             div.innerHTML = `<input type="checkbox" checked><div class="legend-dot" style="background:${color}"></div><span>${name}</span>`;
-            div.querySelector('input').onchange = (e) => { 
-                displayLayers[name].conf.visible = e.target.checked; 
-                refreshMap(); 
-            };
+            div.querySelector('input').onchange = (e) => { displayLayers[name].conf.visible = e.target.checked; refreshMap(); };
             document.getElementById('active-category-list').appendChild(div);
             refreshMap();
         });
     });
-    initToggles();
 
-    // 5. AI 深度提取逻辑 (分析模式专用)
-    document.getElementById('deep-file-in').onchange = (e) => { 
-        document.getElementById('file-name').innerText = e.target.files[0]?.name || "未选择"; 
-    };
-
-    document.getElementById('btn-run-deep').onclick = async () => {
-        const file = document.getElementById('deep-file-in').files[0];
-        const log = document.getElementById('deep-log');
-        if(!file) return alert("请上传文件");
-        
-        log.innerText = "⏳ AI 正在深度分析提取...";
-        try {
-            const fd = new FormData(); 
-            fd.append('file', file); 
-            fd.append('purpose', 'file-extract');
-            
-            // 第一步：上传
-            const upRes = await fetch("https://dashscope.aliyuncs.com/compatible-mode/v1/files", { 
-                method:"POST", 
-                headers:{"Authorization":`Bearer ${API_KEY}`}, 
-                body:fd 
-            });
-            const fid = (await upRes.json()).id;
-
-            // 第二步：提取店名/点位
-            const aiRes = await fetch("https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions", {
-                method:"POST", 
-                headers:{"Content-Type":"application/json", "Authorization":`Bearer ${API_KEY}`},
-                body: JSON.stringify({ 
-                    model:"qwen-long", 
-                    messages:[
-                        {role:"system", content:`fileid://${fid}`}, 
-                        {role:"user", content:"提取文件中提到的地点、店名或商户名称，用逗号分隔，仅返回名称列表。"}
-                    ]
-                })
-            });
-            
-            const content = (await aiRes.json()).choices[0].message.content;
-            const names = content.split(/[，,]/).map(n => n.trim()).filter(n => n);
-            
-            // 更新当前关键词列表并刷新地图
-            currentKeywords = names;
-            initToggles(); 
-            refreshMap();
-            
-            log.innerText = `✅ 已成功提取 ${names.length} 个目标`;
-            document.getElementById('btn-restore-deep').style.display = 'block';
-        } catch(e) { 
-            log.innerText = "❌ 提取失败，请重试"; 
-        }
-    };
-
-    // 深度筛选还原逻辑
-    document.getElementById('btn-restore-deep').onclick = () => { 
-        currentKeywords = [...originalStateKeywords]; 
-        initToggles(); 
-        refreshMap(); 
-        document.getElementById('btn-restore-deep').style.display = 'none'; 
-        document.getElementById('deep-log').innerText = ''; 
-        deactivateAll(); // 关闭窗口并重置按钮状态
-    };
-
-    // 6. 标注点 UI 与 窗口拖拽
+    document.getElementById('btn-restore-deep').onclick = () => { currentKeywords = [...originalStateKeywords]; initToggles(); refreshMap(); deactivateAll(); };
     let curM = null;
-    map.on('pm:create', (e) => { 
-        if(e.shape === 'Marker') { 
-            curM = e.layer; 
-            document.getElementById('naming-ui').style.display = 'block'; 
-            document.getElementById('m-name').focus(); 
-        } 
-    });
+    map.on('pm:create', (e) => { if(e.shape === 'Marker') { curM = e.layer; document.getElementById('naming-ui').style.display='block'; } });
+    document.getElementById('m-save').onclick = () => { curM.bindPopup(`<b>${document.getElementById('m-name').value}</b>`).openPopup(); deactivateAll(); };
 
-    document.getElementById('m-save').onclick = () => { 
-        const nameValue = document.getElementById('m-name').value || "未命名点位";
-        if(curM) curM.bindPopup(`<b>${nameValue}</b>`).openPopup(); 
-        deactivateAll(); 
-        document.getElementById('m-name').value = "";
-    };
-
-    // 实现窗口自由拖拽
     document.querySelectorAll('.win-header').forEach(h => {
-        let dragging = false, offset = [0,0], win = h.parentElement;
-        h.onmousedown = (e) => { 
-            dragging = true; 
-            offset = [win.offsetLeft - e.clientX, win.offsetTop - e.clientY]; 
-        };
-        document.onmousemove = (e) => { 
-            if(!dragging) return; 
-            win.style.left = (e.clientX + offset[0]) + 'px'; 
-            win.style.top = (e.clientY + offset[1]) + 'px'; 
-            win.style.bottom = 'auto'; 
-            win.style.right = 'auto'; 
-        };
-        document.onmouseup = () => dragging = false;
+        let d=false, o=[0,0], w=h.parentElement;
+        h.onmousedown=(e)=>{ d=true; o=[w.offsetLeft-e.clientX, w.offsetTop-e.clientY]; };
+        document.onmousemove=(e)=>{ if(!d) return; w.style.left=(e.clientX+o[0])+'px'; w.style.top=(e.clientY+o[1])+'px'; w.style.bottom='auto'; w.style.right='auto'; };
+        document.onmouseup=()=>d=false;
     });
-
-    // 7. 加载基础边界
-    fetch('xuhui.json')
-        .then(r => r.json())
-        .then(data => L.geoJSON(data, { style: { color: "#2BB5BE", weight: 1.5, fillOpacity: 0.05 }}).addTo(map));
-        
-     // --- 新增状态变量 ---
-let csvFullData = [];      // 存储 CSV 完整的行对象数组
-let csvHeaders = [];       // 存储 CSV 的所有列名
-let activeCsvCols = new Set(); // 记录当前勾选了哪些列
-let csvDataLookup = {};    // 以“名称”为 key 的快速查询表
-
-// --- 修改文件选择逻辑：增加本地解析 ---
-document.getElementById('deep-file-in').onchange = (e) => {
-    const file = e.target.files[0];
-    if(!file) return;
-    document.getElementById('file-name').innerText = file.name;
-
-    // 本地解析 CSV 表头
-    const reader = new FileReader();
-    reader.onload = function(f) {
-        const text = f.target.result;
-        const lines = text.split('\n').filter(l => l.trim());
-        if(lines.length > 0) {
-            // 提取表头 (假设第一行是标题)
-            csvHeaders = lines[0].split(',').map(h => h.trim());
-            // 填充数据查询表
-            csvFullData = [];
-            csvDataLookup = {};
-            for(let i=1; i<lines.length; i++) {
-                const values = lines[i].split(',').map(v => v.trim());
-                const row = {};
-                csvHeaders.forEach((h, idx) => row[h] = values[idx]);
-                if(row[csvHeaders[0]]) { // 假设第一列通常是名称
-                    csvDataLookup[row[csvHeaders[0]]] = row; 
-                }
-                csvFullData.push(row);
-            }
-            renderColumnSelectors(); // 显示列勾选 UI
-        }
-    };
-    reader.readAsText(file);
-};
-
-// --- 新增：渲染列勾选 UI ---
-function renderColumnSelectors() {
-    const container = document.getElementById('csv-column-list');
-    document.getElementById('csv-columns-section').style.display = 'block';
-    container.innerHTML = '';
-    
-    csvHeaders.forEach(header => {
-        const div = document.createElement('div');
-        div.className = 'layer-item';
-        div.style = "padding: 6px 10px; margin-bottom: 4px; font-size: 12px;";
-        div.innerHTML = `<input type="checkbox" data-col="${header}"><span>${header}</span>`;
-        div.querySelector('input').onchange = (e) => {
-            if(e.target.checked) activeCsvCols.add(header);
-            else activeCsvCols.delete(header);
-            refreshMap(); // 勾选后立即刷新地图弹窗内容
-        };
-        container.appendChild(div);
-    });
-}
-
-// --- 修改：地图弹窗渲染逻辑 (核心) ---
-// 找到你代码中的 refreshMap 里的 onEachFeature 部分，进行如下修改：
-function refreshMap() {
-    for(let name in displayLayers) {
-        const conf = displayLayers[name].conf;
-        map.removeLayer(displayLayers[name].layer);
-        if(conf.visible) {
-            displayLayers[name].layer = L.geoJSON(pool[name], {
-                filter: (f) => {
-                    if(currentKeywords.length === 0) return true;
-                    return currentKeywords.some(kw => (f.properties.name || "").includes(kw) && keywordVisibility[kw]);
-                },
-                pointToLayer: (f, latlng) => L.circleMarker(latlng, { radius: 6, weight: 2.0, fillColor: conf.c, color: "#fff", fillOpacity: 0.9 }),
-                onEachFeature: (f, l) => { 
-                    const p = f.properties;
-                    let popupHtml = `<div class="popup-header ${name.includes('房产')?'house':''}"><h3>${p.name}</h3></div>`;
-                    popupHtml += `<div style="padding:15px; font-size:12px;">`;
-                    popupHtml += `<div><b>原始地址:</b> ${p.address || '-'}</div>`;
-                    
-                    // --- 动态注入 CSV 额外数据 ---
-                    if (csvDataLookup[p.name]) {
-                        const extraData = csvDataLookup[p.name];
-                        activeCsvCols.forEach(col => {
-                            if(extraData[col]) {
-                                popupHtml += `<div style="margin-top:5px; padding-top:5px; border-top:1px dashed #eee;">
-                                                <b style="color:var(--primary)">${col}:</b> ${extraData[col]}
-                                              </div>`;
-                            }
-                        });
-                    }
-                    
-                    l.bindPopup(popupHtml + `</div>`); 
-                }
-            }).addTo(map);
-        }
-    }
-}   
-        
+    fetch('xuhui.json').then(r => r.json()).then(data => L.geoJSON(data, { style: { color: "#2BB5BE", weight: 1.5, fillOpacity: 0.05 }}).addTo(map));
 </script>
-
-    
-
 </body>
 </html>
