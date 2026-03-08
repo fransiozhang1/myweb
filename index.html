@@ -2,245 +2,447 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>身份验证 | 大徐家汇数智化平台</title>
+    <title>大徐家汇数智化平台-数据筛选</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/@geoman-io/leaflet-geoman-free@latest/dist/leaflet-geoman.css" />
     <style>
         :root {
-            --bg-color: #f0f2f5;
-            --text-main: #1e293b;
-            --text-sub: #64748b;
-            --accent: #94a3b8;
-            --card-bg: rgba(255, 255, 255, 0.8);
-            --error: #ef4444;
+            --primary: #2BB5BE;
+            --accent: #FF7E5F;
+            --glass: rgba(255, 255, 255, 0.98);
+            --shadow: 0 12px 45px rgba(0,0,0,0.15);
+            --btn-size: 54px;   /* 增大 20% */
+            --icon-size: 22px;  /* 增大 20% */
+            --stroke-w: 2.0;    /* 线条粗细 2.0 */
         }
 
-        body, html {
-            margin: 0;
-            padding: 0;
-            height: 100%;
-            width: 100%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            background-color: var(--bg-color);
-            font-family: -apple-system, "SF Pro SC", "PingFang SC", sans-serif;
-            overflow: hidden;
-        }
+        body, html { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; font-family: -apple-system, sans-serif; background: #f0f2f5; }
+        #map { width: 100vw; height: 100vh; z-index: 1; }
 
-        /* --- 海浪背景动画 --- */
-        .ocean {
-            height: 100%;
-            width: 100%;
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            background: #f8fafc;
-            z-index: -1;
+        /* --- 左上角 HUD 与 分析入口 --- */
+        #header-hud { position: absolute; top: 30px; left: 35px; z-index: 2000; display: flex; flex-direction: column; gap: 20px; pointer-events: none; }
+        #header-hud * { pointer-events: auto; }
+        #header h1 { margin: 0; font-size: 28px; font-weight: 800; color: #1e293b; letter-spacing: -1px; }
+        #header p { margin: 4px 0 0; font-size: 11px; color: #94a3b8; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; }
+        
+        #btn-analysis-entry { 
+            background: var(--primary); color: white; border: none; padding: 14px 28px; 
+            border-radius: 16px; font-weight: 800; cursor: pointer; box-shadow: var(--shadow); 
+            transition: 0.3s; display: flex; align-items: center; gap: 12px; font-size: 15px;
         }
+        #btn-analysis-entry:hover { transform: translateY(-3px); filter: brightness(1.1); }
 
-        .wave {
-            background: url('https://s3-us-west-2.amazonaws.com/s.cdpn.io/85486/wave.svg') repeat-x;
-            position: absolute;
-            top: -198px;
-            width: 6400px;
-            height: 198px;
-            animation: wave 15s cubic-bezier(0.36, 0.45, 0.63, 0.53) infinite;
-            transform: translate3d(0, 0, 0);
-            opacity: 0.1; /* 灰白色调的关键：低透明度 */
-        }
+        /* --- 右侧功能工具栏 (分组) --- */
+        .toolbar-group { position: absolute; right: 30px; z-index: 2000; display: flex; flex-direction: column; gap: 15px; }
+        #analysis-tools { top: 30px; } 
+        #editor-tools { top: 340px; }
 
-        .wave:nth-of-type(2) {
-            top: -175px;
-            animation: wave 12s cubic-bezier(0.36, 0.45, 0.63, 0.53) -.125s infinite, swell 10s ease -1.25s infinite;
-            opacity: 0.05;
+        .tool-btn {
+            width: var(--btn-size); height: var(--btn-size); background: white; border-radius: 15px;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: var(--shadow); cursor: pointer; border: 1px solid #fff; 
+            transition: 0.2s; color: #64748b;
         }
+        .tool-btn:hover, .tool-btn.active { color: var(--primary); transform: scale(1.08); border-color: var(--primary); }
+        .tool-btn.danger:hover { color: #ff4757; border-color: #ff4757; }
+        .tool-btn svg { width: var(--icon-size); height: var(--icon-size); stroke-width: var(--stroke-w); }
 
-        @keyframes wave {
-            0% { margin-left: 0; }
-            100% { margin-left: -1600px; }
+        /* --- 浮动窗口通用 --- */
+        .floating-window {
+            position: absolute; z-index: 2000; background: var(--glass);
+            backdrop-filter: blur(15px); border-radius: 24px; border: 1px solid #fff;
+            box-shadow: var(--shadow); display: none; flex-direction: column; overflow: hidden;
         }
+        .win-header { padding: 18px 22px; background: #fff; border-bottom: 1px solid #f1f5f9; cursor: move; display: flex; justify-content: space-between; align-items: center; font-weight: 700; font-size: 15px; }
+        .close-win { cursor: pointer; font-size: 24px; color: #cbd5e1; }
 
-        @keyframes swell {
-            0%, 100% { transform: translate3d(0, -25px, 0); }
-            50% { transform: translate3d(0, 5px, 0); }
-        }
+        #layer-menu { top: 30px; right: 100px; width: 320px; max-height: 70vh; }
+        #filter-manager { top: 110px; right: 100px; width: 340px; height: 420px; }
+        #chat-window { bottom: 40px; right: 100px; width: 380px; height: 500px; }
 
-        /* --- 验证卡片设计 --- */
-        .login-card {
-            background: var(--card-bg);
-            backdrop-filter: blur(15px);
-            -webkit-backdrop-filter: blur(15px);
-            border: 1px solid rgba(255, 255, 255, 0.5);
-            padding: 60px;
-            border-radius: 32px;
-            text-align: center;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.05);
-            width: 420px;
-            z-index: 10;
-        }
+        /* --- 确认 Modal & 命名 UI --- */
+        #confirm-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(5px); z-index: 9999; display: none; align-items: center; justify-content: center; }
+        #naming-ui { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 280px; z-index: 3000; display: none; background: white; padding: 30px; border-radius: 24px; box-shadow: var(--shadow); text-align: center; }
+        #naming-ui input { width: 100%; border: 1px solid #e2e8f0; padding: 12px; border-radius: 12px; margin-bottom: 15px; outline: none; }
+        #naming-ui button { background: var(--primary); color: white; border: none; padding: 12px; border-radius: 12px; cursor: pointer; width: 100%; font-weight: 700; }
 
-        h1 {
-            color: var(--text-main);
-            margin: 0;
-            font-size: 32px;
-            font-weight: 800;
-            letter-spacing: -0.5px;
-        }
+        /* --- 筛选器表格 --- */
+        .filter-body { padding: 20px; flex: 1; display: flex; flex-direction: column; gap: 15px; }
+        .f-input-group { display: flex; gap: 10px; }
+        .f-input-group input { flex: 1; border: 1px solid #e2e8f0; padding: 10px; border-radius: 10px; }
+        .f-input-group button { background: var(--primary); color: white; border: none; padding: 0 15px; border-radius: 10px; cursor: pointer; }
+        .f-table { flex: 1; overflow-y: auto; background: white; border-radius: 12px; border: 1px solid #f1f5f9; font-size: 13px; }
+        td, th { padding: 12px; text-align: left; border-bottom: 1px solid #f1f5f9; }
 
-        .subtitle {
-            color: var(--text-sub);
-            font-size: 13px;
-            letter-spacing: 3px;
-            margin-top: 10px;
-            text-transform: uppercase;
-            font-weight: 500;
-        }
-
-        .input-group {
-            margin-top: 50px;
-        }
-
-        input {
-            width: 100%;
-            background: rgba(255, 255, 255, 0.9);
-            border: 1.5px solid #e2e8f0;
-            padding: 16px 24px;
-            border-radius: 16px;
-            color: var(--text-main);
-            font-size: 16px;
-            box-sizing: border-box;
-            outline: none;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            text-align: center;
-            letter-spacing: 4px;
-        }
-
-        input:focus {
-            border-color: #cbd5e1;
-            background: #fff;
-            box-shadow: 0 0 0 4px rgba(0, 0, 0, 0.03);
-        }
-
-        .btn-enter {
-            width: 100%;
-            margin-top: 30px;
-            background: var(--text-main);
-            color: #fff;
-            border: none;
-            padding: 18px;
-            border-radius: 16px;
-            font-size: 15px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            letter-spacing: 2px;
-        }
-
-        .btn-enter:hover {
-            background: #000;
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
-        }
-
-        #error-msg {
-            color: var(--error);
-            font-size: 12px;
-            margin-top: 18px;
-            height: 18px;
-            opacity: 0;
-            font-weight: 500;
-            transition: opacity 0.3s;
-        }
-
-        .footer {
-            margin-top: 50px;
-            color: var(--text-sub);
-            font-size: 10px;
-            opacity: 0.5;
-            letter-spacing: 1px;
-        }
+        /* --- AI 助手流式 --- */
+        #chat-content { flex: 1; overflow-y: auto; padding: 20px; background: #fdfdfd; display: flex; flex-direction: column; gap: 12px; }
+        #chat-input-area { padding: 18px 22px; background: white; border-top: 1px solid #f1f5f9; display: flex; gap: 10px; }
+        #chat-in { flex: 1; background: #f4f7f9; border: 1px solid #eef2f7; border-radius: 12px; padding: 10px 15px; outline: none; }
+        .msg { padding: 10px 14px; border-radius: 14px; max-width: 85%; font-size: 13px; line-height: 1.5; }
+        .msg.user { background: #f1f5f9; align-self: flex-end; }
+        .msg.ai { background: #e0f7fa; align-self: flex-start; }
+        /* --- 增量样式：图层分类与饼图 --- */
+.group-label { 
+    font-size: 11px; color: #94a3b8; font-weight: 800; text-transform: uppercase; 
+    margin: 18px 0 8px 0; letter-spacing: 1px; border-bottom: 1px solid #f1f5f9; padding-bottom: 4px; 
+}
+.pie-container { width: 220px; height: 220px; margin: 10px auto; position: relative; }
+.popup-info-row { 
+    font-size: 13px; font-weight: 800; color: #1e293b; margin-bottom: 8px; 
+    border-left: 4px solid var(--primary); padding-left: 10px; 
+}
+/* 饼图悬浮提示框 */
+#pie-tip { 
+    position:fixed; display:none; background:rgba(0,0,0,0.9); color:#fff; padding:8px 14px; 
+    border-radius:10px; font-size:12px; pointer-events:none; z-index:9999; 
+    backdrop-filter:blur(10px); border:1px solid rgba(255,255,255,0.1); font-weight:600; 
+}
     </style>
 </head>
 <body>
 
-<div class="ocean">
-    <div class="wave"></div>
-    <div class="wave"></div>
-</div>
-
-<div class="login-card">
-    <h1>大徐家汇数智化平台</h1>
-    <div class="subtitle">Spatial Management Console</div>
-
-    <div class="input-group">
-        <input type="password" id="key-input" placeholder="输入访问密钥" autocomplete="off">
+<div id="header-hud">
+    <div id="header">
+        <h1>大徐家汇数智化平台</h1>
+        <p>Spatial Management Console</p>
     </div>
-
-    <div id="error-msg">密钥无效，请核对后重新输入</div>
-
-    <button class="btn-enter" onclick="verifyKey()">验证并进入系统</button>
-
-    <div class="footer">© 2026 DIGITAL INTELLIGENCE RESEARCH</div>
+    <button id="btn-analysis-entry">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        进入数据分析
+    </button>
 </div>
 
+<div id="confirm-modal">
+    <div style="background:white; padding:40px; border-radius:28px; width:340px; text-align:center;">
+        <h2>进入分析模式</h2>
+        <p style="color:#64748b; font-size:14px;">进入后将锁定当前勾选分类与筛选词，分析期间不可修改数据。确认继续？</p>
+        <div style="display:flex; gap:15px; margin-top:30px;">
+            <button style="flex:1; padding:12px; border-radius:12px; background:#f1f5f9; border:none; cursor:pointer;" onclick="closeModal()">取消</button>
+            <button style="flex:1; padding:12px; border-radius:12px; background:var(--primary); color:white; border:none; cursor:pointer;" onclick="goToAnalysis()">确认进入</button>
+        </div>
+    </div>
+</div>
 
+<div id="analysis-tools" class="toolbar-group">
+    <div class="tool-btn" id="btn-layer" title="图层控制"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
+    <div class="tool-btn" id="btn-filter" title="多项筛选"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg></div>
+    <div class="tool-btn" id="btn-chat" title="AI 助手"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+</div>
+
+<div id="editor-tools" class="toolbar-group">
+    <div class="tool-btn" id="btn-ruler" title="测距 (尺子图标)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M19 20L5 6M9 6l3 3M12 9l3 3M15 12l3 3"/></svg></div>
+    <div class="tool-btn" id="btn-poly" title="绘面/面积"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z"/></svg></div>
+    <div class="tool-btn" id="btn-marker" title="标注点"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div>
+    <div class="tool-btn danger" id="btn-eraser" title="橡皮擦 (点击删除)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20H7L3 16C2 15 2 13 3 12L13 2L22 11L20 20Z"/><path d="M17 17l-10-10"/></svg></div>
+</div>
+
+<div id="layer-menu" class="floating-window">
+    <div class="win-header"><span>图层管理中心</span><span class="close-win">×</span></div>
+    <div style="padding:20px; overflow-y:auto; flex:1;">
+        <div class="group-label">城市空间要素 (AOI)</div>
+        <div id="aoi-list-ui"></div>
+        <div class="group-label">街景语义分析 (Street View)</div>
+        
+        <div id="street-view-list-ui"></div> <div class="group-label">城市 POI 兴趣点</div>
+        <div id="poi-list-ui"></div> <div class="group-label">房产项目数据</div>
+        <div id="house-list-ui"></div> </div>
+</div>
+
+<div id="filter-manager" class="floating-window">
+    <div class="win-header"><span>高级筛选管理器</span><span class="close-win">×</span></div>
+    <div class="filter-body">
+        <div class="f-input-group"><input type="text" id="f-kw-in" placeholder="添加关键词..."><button id="btn-add-kw">添加</button></div>
+        <div class="f-table"><table><tbody id="kw-list-body"></tbody></table></div>
+    </div>
+</div>
+
+<div id="chat-window" class="floating-window">
+    <div class="win-header"><span>AI 数智助理</span><span class="close-win">×</span></div>
+    <div id="chat-content"><div class="msg ai">您好！我是大徐家汇助理。</div></div>
+    <div id="chat-input-area">
+        <input type="text" id="chat-in" placeholder="问我问题...">
+        <button id="btn-chat-send" style="background:var(--primary); color:white; border:none; padding:10px; border-radius:10px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
+    </div>
+</div>
+
+<div id="naming-ui">
+    <h3 style="margin-top:0;">标注点命名</h3>
+    <input type="text" id="marker-name-in" placeholder="输入名称...">
+    <button id="btn-save-marker">保存标注</button>
+</div>
+
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/@geoman-io/leaflet-geoman-free@latest/dist/leaflet-geoman.min.js"></script>
 
 <script>
-    async function verifyKey() {
-        const userInput = document.getElementById('key-input').value;
-        const error = document.getElementById('error-msg');
 
-        if (!userInput) {
-            error.innerText = "请输入密钥";
-            error.style.opacity = 1;
-            return;
-        }
+    // AOI 数据的详细配置
+const aoiConfig = {
+    "buildings_a": { n: "既有建筑底廓", c: "#94a3b8", fields: ["name", "type"] },
+    "water_a":     { n: "水系/河湖区域", c: "#74ccf4", fields: ["name", "fclass"] },
+    "landuse_a":   { n: "土地利用现状", c: "#fcd34d", fields: ["name", "fclass"] },
+    "transport_a": { n: "交通设施范围", c: "#818cf8", fields: ["name", "fclass"] },
+    "traffic_a":   { n: "道路/交通广场", c: "#475569", fields: ["name", "fclass"] },
+    "pois_a":      { n: "公共兴趣面", c: "#f472b6", fields: ["name", "fclass"] },
+    "pofw_a":      { n: "宗教场所区域", c: "#c084fc", fields: ["name", "fclass"] }
+};
+    // 1. 初始化地图
+    var map = L.map('map', { zoomControl: false, renderer: L.canvas() }).setView([31.15, 121.43], 13);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { crossOrigin: true }).addTo(map);
+    L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-        try {
-            // 1. 读取同文件夹下的 key.txt
-            const response = await fetch('key.txt');
-            
-            if (!response.ok) {
-                throw new Error('无法读取密钥文件');
-            }
+    // 街景颜色配置
+const svColors = { "road": "#808080", "sidewalk": "#FF00FF", "vegetation": "#228B22", "sky": "#87CEEB", "building": "#A52A2A", "car": "#0000FF", "person": "#FF0000" };
 
-            const text = await response.text();
-            
-            // 2. 将内容按逗号分割并清洗空格
-            const validKeys = text.split(',').map(k => k.trim());
+// 饼图生成引擎
+function generatePieChart(props) {
+    const data = Object.entries(props).filter(([k, v]) => typeof v === 'number' && v > 0.01 && !['lon', 'lat'].includes(k)).sort((a, b) => b[1] - a[1]).slice(0, 10);
+    if(!data.length) return '<p style="color:#94a3b8;font-size:11px;">无显著数据</p>';
+    const total = data.reduce((s, [_, v]) => s + v, 0);
+    let curA = 0; const r = 80, cx = 110, cy = 110; let paths = "";
+    data.forEach(([label, value], i) => {
+        const angle = (value / total) * 2 * Math.PI;
+        const x1 = cx + r * Math.cos(curA), y1 = cy + r * Math.sin(curA);
+        const x2 = cx + r * Math.cos(curA + angle), y2 = cy + r * Math.sin(curA + angle);
+        const color = svColors[label] || `hsl(${(i * 53) % 360}, 60%, 65%)`;
+        paths += `<path d="M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${angle>Math.PI?1:0} 1 ${x2} ${y2} Z" fill="${color}" stroke="#fff" onmouseover="showTip(event,'${label}','${(value*100).toFixed(1)}%')" onmouseout="hideTip()"></path>`;
+        curA += angle;
+    });
+    return `<div class="pie-container"><svg width="220" height="220">${paths}</svg></div>`;
+}
 
-            // 3. 匹配验证
-            if (validKeys.includes(userInput)) {
-                error.style.opacity = 0;
-                // 验证成功，跳转
-                window.location.href = "main.html"; 
-            } else {
-                throw new Error('密钥错误');
-            }
+window.showTip = (e, l, p) => { const t = document.getElementById('pie-tip'); t.style.display = 'block'; t.innerText = `${l}: ${p}`; t.style.left = (e.clientX + 15) + 'px'; t.style.top = (e.clientY + 15) + 'px'; };
+window.hideTip = () => { document.getElementById('pie-tip').style.display = 'none'; };
 
-        } catch (err) {
-            // 验证失败或文件读取失败的处理
-            error.innerText = err.message === '密钥错误' ? "密钥验证失败，请重新输入" : "系统配置异常，请联系管理员";
-            error.style.opacity = 1;
-            document.getElementById('key-input').value = "";
-            document.getElementById('key-input').focus();
-            
-            // 简单的抖动动画效果
-            const card = document.querySelector('.login-card');
-            card.animate([
-                { transform: 'translateX(0)' },
-                { transform: 'translateX(-10px)' },
-                { transform: 'translateX(10px)' },
-                { transform: 'translateX(0)' }
-            ], { duration: 300 });
-        }
+    // 2. 测绘插件与排他逻辑
+    map.pm.setLang('zh');
+    map.pm.addControls({ drawControls: false, editControls: false });
+
+    function deactivateAll() {
+        document.querySelectorAll('.floating-window').forEach(w => w.style.display = 'none');
+        document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('naming-ui').style.display = 'none';
+        map.pm.disableDraw();
+        map.pm.disableGlobalRemovalMode();
     }
 
-    // 支持回车键触发
-    document.getElementById('key-input').addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') verifyKey();
-    });
-</script>
+    // ESC 键监听
+    window.addEventListener('keydown', (e) => { if(e.key === 'Escape') deactivateAll(); });
 
+    const setupBtn = (id, action) => {
+        document.getElementById(id).onclick = () => {
+            const wasActive = document.getElementById(id).classList.contains('active');
+            deactivateAll();
+            if(!wasActive) { action(); document.getElementById(id).classList.add('active'); }
+        };
+    };
+
+    setupBtn('btn-layer', () => document.getElementById('layer-menu').style.display = 'flex');
+    setupBtn('btn-filter', () => document.getElementById('filter-manager').style.display = 'flex');
+    setupBtn('btn-chat', () => document.getElementById('chat-window').style.display = 'flex');
+    setupBtn('btn-ruler', () => map.pm.enableDraw('Line', { measurements: { displayUnit: 'metric', showLength: true } }));
+    setupBtn('btn-poly', () => map.pm.enableDraw('Polygon', { measurements: { displayUnit: 'metric', showArea: true } }));
+    setupBtn('btn-marker', () => map.pm.enableDraw('Marker'));
+    setupBtn('btn-eraser', () => map.pm.toggleGlobalRemovalMode());
+
+    // 3. 标注点命名 UI
+    let currentMarker = null;
+    map.on('pm:create', (e) => {
+        if(e.shape === 'Marker') {
+            currentMarker = e.layer;
+            document.getElementById('naming-ui').style.display = 'block';
+            document.getElementById('marker-name-in').focus();
+        }
+    });
+    document.getElementById('btn-save-marker').onclick = () => {
+        const n = document.getElementById('marker-name-in').value || "新建点位";
+        if(currentMarker) currentMarker.bindPopup(`<b>标注: ${n}</b>`).openPopup();
+        document.getElementById('naming-ui').style.display = 'none';
+        document.getElementById('marker-name-in').value = "";
+    };
+
+    // 4. 分析跳转逻辑
+    document.getElementById('btn-analysis-entry').onclick = () => document.getElementById('confirm-modal').style.display='flex';
+    function closeModal() { document.getElementById('confirm-modal').style.display='none'; }
+    function goToAnalysis() {
+        const state = { keywords: keywords, activeLayers: Object.keys(activeLayers) };
+        localStorage.setItem('analysis_state', JSON.stringify(state));
+        window.location.href = 'analysis.html';
+    }
+
+    // 5. 数据核心与多重筛选
+    let keywords = []; const activeLayers = {}, pool = {};
+function updateLayers() {
+    for(let n in activeLayers) {
+        const conf = activeLayers[n].conf;
+        map.removeLayer(activeLayers[n].layer);
+        
+        activeLayers[n].layer = L.geoJSON(pool[n], {
+            filter: (f) => {
+                if (conf.t === 'aoi' || conf.t === 'street') return true;
+                return keywords.length === 0 || keywords.some(k => (f.properties.name || "").toLowerCase().includes(k.toLowerCase()));
+            },
+            // 线/面样式
+            style: (f) => {
+                if (conf.t === 'aoi') {
+                    return { color: conf.c, weight: 1, fillColor: conf.c, fillOpacity: 0.4, opacity: 0.8 };
+                }
+            },
+            // 核心修复：将点位渲染为圆点而非默认图标
+            pointToLayer: (f, latlng) => L.circleMarker(latlng, {
+                radius: 5,
+                weight: 1.5,
+                fillColor: conf.c, // 确保使用图层配置的颜色
+                color: "#fff",
+                fillOpacity: 0.9
+            }),
+            onEachFeature: (f, l) => {
+                const p = f.properties;
+                let h = `<div class="popup-header"><h3>${p.name || p.fclass || "街景数据"}</h3></div><div style="padding:15px; font-size:12px;">`;
+                
+                // 根据类型定制弹窗内容
+                if (conf.t === 'aoi') {
+                    const cfg = aoiConfig[n];
+                    if (cfg) {
+                        h += `<div class="popup-info-row">${cfg.n} 空间属性</div>`;
+                        cfg.fields.forEach(field => {
+                            if (p[field]) h += `<div><b>${field}:</b> ${p[field]}</div>`;
+                        });
+                    }
+                } else if (conf.t === 'street') {
+                    h += `<div class="popup-info-row">语义占比分析</div>` + generatePieChart(p);
+                } else {
+                    const its = conf.t === 'house' ? [['address','地址'],['type','类型']] : [['address','地址'],['大类','大类']];
+                    its.forEach(i => {
+                        if (p[i[0]]) h += `<div><b>${i[1]}:</b> ${p[i[0]]}</div>`;
+                    });
+                }
+                l.bindPopup(h + `</div>`, { maxWidth: 280 });
+            }
+        }).addTo(map);
+    }
+}
+
+    document.getElementById('btn-add-kw').onclick = () => {
+        const v = document.getElementById('f-kw-in').value.trim();
+        if(v) { keywords.push(v); document.getElementById('f-kw-in').value=""; renderKws(); updateLayers(); }
+    };
+    function renderKws() {
+        document.getElementById('kw-list-body').innerHTML = keywords.map((k,i) => `<tr><td style="padding:10px;">${k}</td><td style="color:red; cursor:pointer;" onclick="removeKw(${i})">×</td></tr>`).join('');
+    }
+    window.removeKw = (i) => { keywords.splice(i,1); renderKws(); updateLayers(); };
+
+    // 6. 图层与 AI 接口
+    const poiNames = ["餐饮服务", "风景名胜", "公共设施", "公司企业", "购物服务", "交通设施服务", "金融保险服务", "科教文化服务", "摩托车服务", "汽车服务", "汽车维修", "汽车销售", "商务住宅", "生活服务", "室内设施", "体育休闲服务", "通行设施", "虚拟数据", "医疗保健服务", "政府机构及社会团体", "住宿服务"];
+    function toggle(name, color, type, show) {
+    if(show) {
+        let loadPromise;
+        // 1. 适配街景分卷加载
+        if (type === 'street') {
+            const files = ['street_view_data_1.json', 'street_view_data_2.json'];
+            loadPromise = Promise.all(files.map(f => fetch(f).then(r => r.json()))).then(dataArray => ({
+                type: "FeatureCollection",
+                features: dataArray[0].features.concat(dataArray[1].features)
+            }));
+        }
+        // 2. 适配建筑分卷加载
+        else if (name === "buildings_a") {
+            const parts = ['part1', 'part2', 'part3'];
+            loadPromise = Promise.all(parts.map(p => 
+                fetch(`data_aoi/gis_osm_buildings_a_free_1_${p}.json`).then(r => r.json())
+            )).then(dataArray => ({
+                type: "FeatureCollection", 
+                features: dataArray.flatMap(d => d.features)
+            }));
+        } 
+        else if (type === 'aoi') {
+            loadPromise = fetch(`data_aoi/gis_osm_${name}_free_1.json`).then(r => r.json());
+        } else {
+            const path = type === 'house' ? 'houses.json' : `data_poi/${name}.json`;
+            loadPromise = fetch(path).then(r => r.json());
+        }
+
+        loadPromise.then(data => {
+            pool[name] = data;
+            activeLayers[name] = { layer: L.layerGroup().addTo(map), conf: { c: color, t: type } };
+            updateLayers();
+        }).catch(e => console.error("加载失败:", e));
+    } else if(activeLayers[name]) { 
+        map.removeLayer(activeLayers[name].layer); 
+        delete activeLayers[name]; 
+    }
+}
+    // 升级后的 UI 生成函数，支持中文标签显示
+// 修改后的 createUI 函数：增加 displayName 兼容逻辑
+const createUI = (id, color, type, container, label) => {
+    if (!container) return;
+    
+    // 核心修复：如果 label 不存在，就使用 id 作为显示名称
+    const displayName = label || id; 
+
+    const div = document.createElement('div');
+    div.style = "display:flex; align-items:center; padding:10px; cursor:pointer;";
+    
+    // 使用 displayName 替代之前的 label
+    div.innerHTML = `
+        <input type="checkbox" style="margin-right:12px; width:16px; height:16px;">
+        <div style="width:8px; height:8px; border-radius:50%; background:${color}; margin-right:10px;"></div>
+        <span style="font-size:13px; color:#1e293b; font-weight:600;">${displayName}</span>
+    `;
+    
+    div.querySelector('input').onchange = (e) => toggle(id, color, type, e.target.checked);
+    container.appendChild(div);
+};
+    createUI('房产数据', '#FF7E5F', 'house', document.getElementById('house-list-ui'));
+    poiNames.forEach((n,i) => createUI(n, `hsl(${(i * 137.5) % 360}, 65%, 55%)`, 'poi', document.getElementById('poi-list-ui')));
+
+    // AI 流式
+    const API_KEY = "sk-953b1a97918949d2a18c9a07a14729d0";
+    async function chat() {
+        const box = document.getElementById('chat-in'), text = box.value.trim(), con = document.getElementById('chat-content');
+        if(!text) return; con.innerHTML += `<div class="msg user">${text}</div>`; box.value=""; con.scrollTop=con.scrollHeight;
+        const ai = document.createElement('div'); ai.className='msg ai'; ai.innerText="..."; con.appendChild(ai);
+        try {
+            const res = await fetch("https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions", {
+                method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${API_KEY}` },
+                body: JSON.stringify({ model: "qwen-plus", messages: [{ role: "user", content: text }], stream: true })
+            });
+            const reader = res.body.getReader(), dec = new TextDecoder(); let full = "";
+            while(true) {
+                const { done, value } = await reader.read(); if(done) break;
+                dec.decode(value).split("\n").forEach(line => {
+                    if(line.startsWith("data: ") && line !== "data: [DONE]") {
+                        try { full += JSON.parse(line.substring(6)).choices[0].delta.content || ""; ai.innerText = full; con.scrollTop=con.scrollHeight; } catch(e){}
+                    }
+                });
+            }
+        } catch(e) { ai.innerText="助手请求失败。"; }
+    }
+    document.getElementById('btn-chat-send').onclick = chat;
+    document.getElementById('chat-in').onkeypress=(e)=>{if(e.key==='Enter')chat();};
+
+    // 窗口交互
+    document.querySelectorAll('.close-win').forEach(c => c.onclick = deactivateAll);
+    document.querySelectorAll('.win-header').forEach(h => {
+        let drag=false, off=[0,0], win=h.parentElement;
+        h.onmousedown=(e)=>{ drag=true; off=[win.offsetLeft-e.clientX, win.offsetTop-e.clientY]; };
+        document.onmousemove=(e)=>{ if(!drag) return; win.style.left=(e.clientX+off[0])+'px'; win.style.top=(e.clientY+off[1])+'px'; win.style.bottom='auto'; win.style.right='auto'; };
+        document.onmouseup=()=>drag=false;
+    });
+    fetch('xuhui.json').then(r => r.json()).then(data => L.geoJSON(data, { style: { color: "#2BB5BE", weight: 1.5, fillOpacity: 0.05 }}).addTo(map));
+    // --- 新增：加载街景图层 UI ---
+createUI('街景语义分割图点', '#2BB5BE', 'street', document.getElementById('street-view-list-ui'));
+
+// 自动加载翻译后的 AOI 图层管理 UI
+// 确保 AOI 初始化时颜色与配置一致
+Object.keys(aoiConfig).forEach(key => {
+    const config = aoiConfig[key];
+    createUI(key, config.c, 'aoi', document.getElementById('aoi-list-ui'), config.n);
+});
+
+</script>
+<div id="pie-tip"></div>
 </body>
 </html>
