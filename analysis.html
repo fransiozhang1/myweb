@@ -92,9 +92,15 @@
     <div class="tool-btn danger" id="tool-eraser" title="橡皮擦"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20H7L3 16C2 15 2 13 3 12L13 2L22 11L20 20Z"/><path d="M17 17l-10-10"/></svg></div>
 </div>
 
-<div id="layer-menu" class="floating-window">
-    <div class="win-header"><span>数据大类控制</span><span class="close-win">×</span></div>
-    <div style="padding:20px; overflow-y:auto; flex:1;" id="active-category-list"></div>
+<div id="layer-menu" class="floating-window" style="top: 35px; right: 100px; width: 320px;">
+    <div class="win-header"><span>当前分析图层</span><span class="close-win">×</span></div>
+    <div style="padding:20px; overflow-y:auto; flex:1;">
+        <div class="group-label">街景数据分析</div>
+        <div id="street-list-ui"></div>
+        
+        <div class="group-label">POI 与 房产数据</div>
+        <div id="active-category-list"></div> 
+    </div>
 </div>
 
 <div id="naming-ui">
@@ -401,5 +407,6 @@ document.querySelectorAll('.win-header').forEach(h => {
 });
 fetch('xuhui.json').then(r => r.json()).then(data => L.geoJSON(data, { style: { color: "#2BB5BE", weight: 1.5, fillOpacity: 0.05 }}).addTo(map));
 </script>
+<div id="pie-tip"></div>
 </body>
 </html>
