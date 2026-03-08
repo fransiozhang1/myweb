@@ -197,3 +197,9 @@ select option { padding: 10px; color: #1e293b; font-weight: 600; }
     border: 1px solid rgba(255,255,255,0.1); 
     font-weight: 600; 
 }
+
+/* --- 街景饼图与分类增强 --- */
+.group-label { font-size: 11px; color: #94a3b8; font-weight: 800; text-transform: uppercase; margin: 18px 0 8px 0; letter-spacing: 1px; border-bottom: 1px solid #f1f5f9; padding-bottom: 4px; }
+.pie-container { width: 220px; height: 220px; margin: 10px auto; position: relative; }
+.popup-info-row { font-size: 13px; font-weight: 800; color: #1e293b; margin-bottom: 8px; border-left: 4px solid var(--primary); padding-left: 10px; }
+#pie-tip { position:fixed; display:none; background:rgba(0,0,0,0.9); color:#fff; padding:8px 14px; border-radius:10px; font-size:12px; pointer-events:none; z-index:9999; backdrop-filter:blur(10px); border:1px solid rgba(255,255,255,0.1); font-weight:600; }

@@ -95,10 +95,9 @@
 <div id="layer-menu" class="floating-window" style="top: 35px; right: 100px; width: 320px;">
     <div class="win-header"><span>当前分析图层</span><span class="close-win">×</span></div>
     <div style="padding:20px; overflow-y:auto; flex:1;">
-        <div class="group-label">街景数据分析</div>
+        <div class="group-label">街景语义分析轨道</div>
         <div id="street-list-ui"></div>
-        
-        <div class="group-label">POI 与 房产数据</div>
+        <div class="group-label">POI 与 房产轨道</div>
         <div id="active-category-list"></div> 
     </div>
 </div>
@@ -116,7 +115,26 @@
 
 <script>
 const API_KEY = "sk-953b1a97918949d2a18c9a07a14729d0";
+// 街景语义颜色配置
+const svColors = { "road": "#808080", "sidewalk": "#FF00FF", "vegetation": "#228B22", "sky": "#87CEEB", "building": "#A52A2A", "car": "#0000FF", "person": "#FF0000" };
 
+function generatePieChart(props) {
+    const data = Object.entries(props).filter(([k, v]) => typeof v === 'number' && v > 0.01 && !['lon', 'lat'].includes(k)).sort((a, b) => b[1] - a[1]).slice(0, 10);
+    if(!data.length) return '<p style="color:#94a3b8;font-size:11px;">无显著语义数据</p>';
+    const total = data.reduce((s, [_, v]) => s + v, 0);
+    let curA = 0; const r = 80, cx = 110, cy = 110; let paths = "";
+    data.forEach(([label, value], i) => {
+        const angle = (value / total) * 2 * Math.PI;
+        const x1 = cx + r * Math.cos(curA), y1 = cy + r * Math.sin(curA);
+        const x2 = cx + r * Math.cos(curA + angle), y2 = cy + r * Math.sin(curA + angle);
+        const color = svColors[label] || `hsl(${(i * 53) % 360}, 60%, 65%)`;
+        paths += `<path d="M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${angle>Math.PI?1:0} 1 ${x2} ${y2} Z" fill="${color}" stroke="#fff" onmouseover="showTip(event,'${label}','${(value*100).toFixed(1)}%')" onmouseout="hideTip()"></path>`;
+        curA += angle;
+    });
+    return `<div class="pie-container"><svg width="220" height="220">${paths}</svg></div>`;
+}
+window.showTip = (e, l, p) => { const t = document.getElementById('pie-tip'); t.style.display = 'block'; t.innerText = `${l}: ${p}`; t.style.left = (e.clientX + 15) + 'px'; t.style.top = (e.clientY + 15) + 'px'; };
+window.hideTip = () => { const t = document.getElementById('pie-tip'); if(t) t.style.display = 'none'; };
 // --- 1. 指标运算配置 (支持动态扩展) ---
 const INDICATOR_CONFIG = {
     "demand_density": {
@@ -218,40 +236,36 @@ function refreshMap() {
                 },
                 pointToLayer: (f, latlng) => L.circleMarker(latlng, { radius: 7, weight: 2.0, fillColor: color, color: "#fff", fillOpacity: 0.9 }),
                 onEachFeature: (f, l) => {
-                    const p = f.properties;
-                    let popup = `<div class="popup-header ${name.includes('房产')?'house':''}"><h3>${p.name}</h3></div><div style="padding:15px; font-size:12px;">`;
-                    popup += `<div><b>原始地址:</b> ${p.address || '-'}</div>`;
-                    
-                    const cleanedMapName = normalize(p.name);
-                    let csvRow = csvGlobalMap[cleanedMapName] || null;
-                    if (!csvRow) {
-                        const pk = Object.keys(csvGlobalMap).find(k => cleanedMapName.includes(k) || k.includes(cleanedMapName));
-                        if (pk) csvRow = csvGlobalMap[pk];
-                    }
+    const p = f.properties;
+    let h = `<div class="popup-header ${name.includes('房产')?'house':''}"><h3>${p.image || p.name}</h3></div><div style="padding:15px; font-size:12px;">`;
+    
+    // 如果是街景，显示饼图；否则显示地址
+    if(name.includes('街景')) {
+        h += `<div class="popup-info-row">语义环境分析</div>` + generatePieChart(p);
+    } else {
+        h += `<div><b>原始地址:</b> ${p.address || '-'}</div>`;
+    }
+    
+    const mKey = normalize(p.name || p.image);
+    const csvRow = csvGlobalMap[mKey] || {};
 
-                    // 显示选中的 CSV 关联字段 (仅当存在关联数据时)
-                    if (csvRow) {
-                        reg.activeFields.forEach(field => {
-                            if(csvRow[field]) popup += `<div style="margin-top:8px; color:var(--primary); font-weight:700;">${field}: ${csvRow[field]}</div>`;
-                        });
-                    }
+    // 显示 AI 关联的 CSV 字段
+    reg.activeFields.forEach(field => {
+        if(csvRow[field]) h += `<div style="margin-top:5px; color:var(--primary); font-weight:700;">${field}: ${csvRow[field]}</div>`;
+    });
 
-                    // --- 核心修复：计算引擎独立化 ---
-                    // 不再放在 if(csvRow) 内部，而是合并数据源后直接计算
-                    activeCalculations.forEach(calc => {
-                        if(calc.layerNames.includes(name)) {
-                            // 合并 原始属性(p) 和 可能存在的关联数据(csvRow)
-                            const combinedSource = {...p, ...(csvRow || {})};
-                            const res = INDICATOR_CONFIG[calc.configKey].calc(combinedSource, calc.params);
-                            
-                            popup += `<div style="margin-top:10px; padding:10px; background:#fff8f6; border:1px solid var(--accent); border-radius:12px; color:var(--accent);">
-                                        <b style="font-size:10px; display:block;">${calc.name}</b>
-                                        <span style="font-size:18px; font-weight:800;">${res.toFixed(2)}</span>
-                                      </div>`;
-                        }
-                    });
-                    l.bindPopup(popup + `</div>`, { maxWidth: 280 });
-                }
+    // --- 核心：街景也参与指标计算 ---
+    activeCalculations.forEach(calc => {
+        if(calc.layerNames.includes(name)) {
+            const result = INDICATOR_CONFIG[calc.configKey].calc({...p, ...csvRow}, calc.params);
+            h += `<div style="margin-top:10px; padding:10px; background:#fff8f6; border:1px solid var(--accent); border-radius:12px; color:var(--accent);">
+                    <b style="font-size:10px; display:block;">${calc.name}</b>
+                    <span style="font-size:18px; font-weight:800;">${result.toFixed(2)}</span>
+                  </div>`;
+        }
+    });
+    l.bindPopup(h + `</div>`, { maxWidth: 280 });
+}
             });
             layerGroup.addLayer(geoJsonLayer);
         }
@@ -382,18 +396,36 @@ window.deleteCalc = (id) => { activeCalculations = activeCalculations.filter(c =
 // --- 8. 启动加载 ---
 state.activeLayers.forEach(name => {
     const isH = name.includes('房产');
-    const color = isH ? '#FF7E5F' : `hsl(${(state.activeLayers.indexOf(name)*137)%360},65%,50%)`;
-    const path = isH ? 'houses.json' : `data_poi/${name}.json`;
-    fetch(path).then(r => r.json()).then(data => {
-        pool[name] = data;
-        displayLayers[name] = { layer: L.layerGroup().addTo(map), conf: { c: color, visible: true } };
-        const div = document.createElement('div'); div.className = 'layer-item';
-        div.innerHTML = `<input type="checkbox" checked><div class="legend-dot" style="background:${color}"></div><span>${name}</span>`;
-        div.querySelector('input').onchange = (e) => { displayLayers[name].conf.visible = e.target.checked; refreshMap(); };
-        document.getElementById('active-category-list').appendChild(div);
-        refreshMap();
-    });
+    const isS = name.includes('街景');
+    const color = isS ? '#2BB5BE' : (isH ? '#FF7E5F' : `hsl(${(state.activeLayers.indexOf(name)*137)%360},65%,50%)`);
+    
+    // 注册轨道配置
+    deepFilterRegistry[name] = { kws: [...state.keywords], activeFields: new Set(), availableHeaders: [], isDeep: false };
+
+    if(isS) {
+        // 合并加载街景分卷文件
+        const files = ['street_view_data_1.json', 'street_view_data_2.json'];
+        Promise.all(files.map(f => fetch(f).then(r => r.json()))).then(dataArray => {
+            pool[name] = { type: "FeatureCollection", features: dataArray[0].features.concat(dataArray[1].features) };
+            renderLayerControl(name, color, 'street-list-ui');
+        });
+    } else {
+        const path = isH ? 'houses.json' : `data_poi/${name}.json`;
+        fetch(path).then(r => r.json()).then(data => {
+            pool[name] = data;
+            renderLayerControl(name, color, 'active-category-list');
+        });
+    }
 });
+
+function renderLayerControl(name, color, containerId) {
+    displayLayers[name] = { layer: L.layerGroup().addTo(map), conf: { c: color, visible: true } };
+    const div = document.createElement('div'); div.className = 'layer-item';
+    div.innerHTML = `<input type="checkbox" checked><div class="legend-dot" style="background:${color}"></div><span>${name}</span>`;
+    div.querySelector('input').onchange = (e) => { displayLayers[name].conf.visible = e.target.checked; refreshMap(); };
+    document.getElementById(containerId).appendChild(div);
+    refreshMap();
+}
 
 let curM = null;
 map.on('pm:create', (e) => { if(e.shape === 'Marker') { curM = e.layer; document.getElementById('naming-ui').style.display='block'; } });
