@@ -276,58 +276,51 @@ window.hideTip = () => { document.getElementById('pie-tip').style.display = 'non
 
     // 5. 数据核心与多重筛选
     let keywords = []; const activeLayers = {}, pool = {};
-    function updateLayers() {
-    for(let n in activeLayers) { // 循环变量是 n
+function updateLayers() {
+    for(let n in activeLayers) {
         const conf = activeLayers[n].conf;
         map.removeLayer(activeLayers[n].layer);
         
-        // --- 修正点 1: 将所有的 name 改为 n ---
-        activeLayers[n].layer = L.geoJSON(pool[n], { 
+        activeLayers[n].layer = L.geoJSON(pool[n], {
             filter: (f) => {
                 if (conf.t === 'aoi' || conf.t === 'street') return true;
                 return keywords.length === 0 || keywords.some(k => (f.properties.name || "").toLowerCase().includes(k.toLowerCase()));
             },
+            // 线/面样式
             style: (f) => {
                 if (conf.t === 'aoi') {
-                    return {
-                        color: conf.c, 
-                        weight: 1, 
-                        fillColor: conf.c, 
-                        fillOpacity: 0.4, 
-                        opacity: 0.8
-                    };
+                    return { color: conf.c, weight: 1, fillColor: conf.c, fillOpacity: 0.4, opacity: 0.8 };
                 }
             },
+            // 核心修复：将点位渲染为圆点而非默认图标
+            pointToLayer: (f, latlng) => L.circleMarker(latlng, {
+                radius: 5,
+                weight: 1.5,
+                fillColor: conf.c, // 确保使用图层配置的颜色
+                color: "#fff",
+                fillOpacity: 0.9
+            }),
             onEachFeature: (f, l) => {
                 const p = f.properties;
                 let h = `<div class="popup-header"><h3>${p.name || p.fclass || "未命名要素"}</h3></div><div style="padding:15px; font-size:12px;">`;
                 
+                // 根据类型定制弹窗内容
                 if (conf.t === 'aoi') {
-    const cfg = aoiConfig[n];
-    // 1. 安全检查：确保当前图层在 aoiConfig 中有定义
-    if (cfg) {
-        h += `<div class="popup-info-row">${cfg.n} 空间属性</div>`;
-        cfg.fields.forEach(field => {
-            // 2. 仅显示有实际值的属性，防止显示 undefined
-            if (p[field] !== undefined && p[field] !== null && p[field] !== "") {
-                h += `<div><b>${field}:</b> ${p[field]}</div>`;
-            }
-        });
-    }
-} else if (conf.t === 'street') {
-    // 街景语义数据直接调用饼图引擎
-    h += `<div class="popup-info-row">语义占比分析</div>` + generatePieChart(p);
-} else {
-    // 3. 处理房产(house)和 POI 数据，增加值存在性判断
-    const its = conf.t === 'house' ? [['address','地址'],['type','类型']] : [['address','地址'],['大类','大类']];
-    its.forEach(i => {
-        const val = p[i[0]];
-        // 只有当属性存在且不为空时才添加到弹窗内容中
-        if (val) {
-            h += `<div><b>${i[1]}:</b> ${val}</div>`;
-        }
-    });
-}
+                    const cfg = aoiConfig[n];
+                    if (cfg) {
+                        h += `<div class="popup-info-row">${cfg.n} 空间属性</div>`;
+                        cfg.fields.forEach(field => {
+                            if (p[field]) h += `<div><b>${field}:</b> ${p[field]}</div>`;
+                        });
+                    }
+                } else if (conf.t === 'street') {
+                    h += `<div class="popup-info-row">语义占比分析</div>` + generatePieChart(p);
+                } else {
+                    const its = conf.t === 'house' ? [['address','地址'],['type','类型']] : [['address','地址'],['大类','大类']];
+                    its.forEach(i => {
+                        if (p[i[0]]) h += `<div><b>${i[1]}:</b> ${p[i[0]]}</div>`;
+                    });
+                }
                 l.bindPopup(h + `</div>`, { maxWidth: 280 });
             }
         }).addTo(map);
@@ -348,8 +341,16 @@ window.hideTip = () => { document.getElementById('pie-tip').style.display = 'non
     function toggle(name, color, type, show) {
     if(show) {
         let loadPromise;
-        // 1. 处理分卷的建筑数据
-        if (name === "buildings_a") {
+        // 1. 适配街景分卷加载
+        if (type === 'street') {
+            const files = ['street_view_data_1.json', 'street_view_data_2.json'];
+            loadPromise = Promise.all(files.map(f => fetch(f).then(r => r.json()))).then(dataArray => ({
+                type: "FeatureCollection",
+                features: dataArray[0].features.concat(dataArray[1].features)
+            }));
+        }
+        // 2. 适配建筑分卷加载
+        else if (name === "buildings_a") {
             const parts = ['part1', 'part2', 'part3'];
             loadPromise = Promise.all(parts.map(p => 
                 fetch(`data_aoi/gis_osm_buildings_a_free_1_${p}.json`).then(r => r.json())
@@ -358,12 +359,9 @@ window.hideTip = () => { document.getElementById('pie-tip').style.display = 'non
                 features: dataArray.flatMap(d => d.features)
             }));
         } 
-        // 2. 处理常规 AOI 数据
         else if (type === 'aoi') {
             loadPromise = fetch(`data_aoi/gis_osm_${name}_free_1.json`).then(r => r.json());
-        } 
-        // 3. 处理 POI 和房产
-        else {
+        } else {
             const path = type === 'house' ? 'houses.json' : `data_poi/${name}.json`;
             loadPromise = fetch(path).then(r => r.json());
         }
@@ -372,8 +370,11 @@ window.hideTip = () => { document.getElementById('pie-tip').style.display = 'non
             pool[name] = data;
             activeLayers[name] = { layer: L.layerGroup().addTo(map), conf: { c: color, t: type } };
             updateLayers();
-        });
-    } else if(activeLayers[name]) { map.removeLayer(activeLayers[name].layer); delete activeLayers[name]; }
+        }).catch(e => console.error("加载失败:", e));
+    } else if(activeLayers[name]) { 
+        map.removeLayer(activeLayers[name].layer); 
+        delete activeLayers[name]; 
+    }
 }
     // 升级后的 UI 生成函数，支持中文标签显示
 // 修改后的 createUI 函数：增加 displayName 兼容逻辑
@@ -437,9 +438,9 @@ const createUI = (id, color, type, container, label) => {
 createUI('街景语义分割图点', '#2BB5BE', 'street', document.getElementById('street-view-list-ui'));
 
 // 自动加载翻译后的 AOI 图层管理 UI
+// 确保 AOI 初始化时颜色与配置一致
 Object.keys(aoiConfig).forEach(key => {
     const config = aoiConfig[key];
-    // 传入 key 用于数据搜索，传入 config.n 用于中文显示
     createUI(key, config.c, 'aoi', document.getElementById('aoi-list-ui'), config.n);
 });
 
