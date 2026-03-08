@@ -231,39 +231,50 @@ document.getElementById('tool-eraser').onclick = () => map.pm.toggleGlobalRemova
 document.querySelectorAll('.close-win').forEach(c => c.onclick = deactivateAll);
 
 // --- 5. 渲染引擎：核心修复（不再强制依赖 CSV） ---
+// --- 修改后的 refreshMap 过滤逻辑 ---
 function refreshMap() {
     for (let name in displayLayers) {
         const reg = deepFilterRegistry[name];
         const layerGroup = displayLayers[name].layer;
         const color = displayLayers[name].conf.c;
         const visible = displayLayers[name].conf.visible;
-        const isA = aoiConfig[name]; // 判断是否为 AOI 数据
+        const isA = aoiConfig[name];
 
         layerGroup.clearLayers();
 
         if (visible && pool[name]) {
             const geoJsonLayer = L.geoJSON(pool[name], {
                 filter: (f) => {
-                    // AI 深度筛选逻辑增强：支持匹配 AOI 的分类属性
-                    if (reg.isDeep) {
-                        const p = f.properties;
-                        const matchStr = `${p.name || ""} ${p.fclass || ""} ${p.type || ""} ${p.image || ""}`.toLowerCase();
-                        return reg.kws.some(kw => matchStr.includes(normalize(kw)));
+                    // 1. 如果未开启 AI 深度筛选，显示全部首页选中的点
+                    if (!reg.isDeep) return true;
+
+                    const p = f.properties;
+                    const matchStr = `${p.name || ""} ${p.fclass || ""} ${p.type || ""} ${p.image || ""}`.toLowerCase();
+                    
+                    // 2. 第一层拦截：判断是否匹配 AI 提取的关键词
+                    const isKeywordMatch = reg.kws.some(kw => matchStr.includes(normalize(kw)));
+                    if (!isKeywordMatch) return false;
+
+                    // 3. 第二层拦截 (核心修复)：验证是否在 CSV 中存在对应数据行
+                    const mKey = normalize(p.name || p.image);
+                    let hasData = !!csvGlobalMap[mKey]; // 检查精确匹配
+
+                    if (!hasData && mKey) {
+                        // 检查模糊匹配
+                        const fallbackKey = Object.keys(csvGlobalMap).find(k => {
+                            if (!k || k.length < 2) return false;
+                            return k.includes(mKey) || mKey.includes(k);
+                        });
+                        hasData = !!fallbackKey;
                     }
-                    return true;
+
+                    // 只有既符合 AI 关键词，又能找到 CSV 数据的点才会被渲染
+                    return hasData;
                 },
                 style: (f) => {
-                    // AOI 面状地块样式适配
-                    if (isA) {
-                        return {
-                            color: color,
-                            weight: 1.5,
-                            fillColor: color,
-                            fillOpacity: 0.35, // 略微调高透明度增加视觉感
-                            opacity: 0.8
-                        };
-                    }
+                    if (isA) return { color: color, weight: 1.5, fillColor: color, fillOpacity: 0.35, opacity: 0.8 };
                 },
+                // ... 后续 pointToLayer 和 onEachFeature 逻辑保持不变 ...
                 pointToLayer: (f, latlng) => L.circleMarker(latlng, { 
                     radius: 7, 
                     weight: 2.0, 
