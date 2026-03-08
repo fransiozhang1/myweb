@@ -286,3 +286,19 @@ select option { padding: 10px; color: #1e293b; font-weight: 600; }
     color: #334155;
     margin-left: 8px;
 }
+
+
+
+/* 让下拉菜单的分组标题更显眼 */
+.param-input optgroup {
+    font-style: normal;
+    font-weight: 700;
+    color: #64748b;
+    background: #f8fafc;
+}
+
+.param-input option {
+    padding: 4px;
+    color: #1e293b;
+    background: #fff;
+}

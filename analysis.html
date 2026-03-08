@@ -401,28 +401,44 @@ function initInteractUI() {
         document.getElementById('calc-param-zone').style.display='block';
         document.getElementById('formula-box').innerText = config.formula_desc;
         
-        let origFields = new Set(), deepFields = new Set();
+        // --- 1. 分类提取字段逻辑 ---
+        let deepFields = new Set();
         state.activeLayers.forEach(ln => {
             deepFilterRegistry[ln].availableHeaders.forEach(h => deepFields.add(h));
+        });
+
+        // 构造按图层分类的 HTML 字符串
+        let layerGroupsHtml = "";
+        state.activeLayers.forEach(ln => {
             if(pool[ln] && pool[ln].features && pool[ln].features[0]) {
-                Object.keys(pool[ln].features[0].properties).forEach(k => origFields.add(k));
+                const label = aoiConfig[ln] ? aoiConfig[ln].n : (ln.includes('街景') ? '街景语义分割图' : ln);
+                const fields = Object.keys(pool[ln].features[0].properties);
+                
+                // 为每个图层创建一个独立的 optgroup
+                layerGroupsHtml += `<optgroup label="[图层] ${label}">`;
+                fields.forEach(f => {
+                    layerGroupsHtml += `<option value="${f}">${f}</option>`;
+                });
+                layerGroupsHtml += `</optgroup>`;
             }
         });
 
+        // --- 2. 渲染 UI ---
         document.getElementById('param-inputs-container').innerHTML = config.params.map(p => `
             <div style="margin-bottom:12px;">
-                <label style="font-size:11px; font-weight:700;">${p.name}</label>
+                <label style="font-size:11px; font-weight:700; color:var(--primary);">${p.name}</label>
                 ${p.type === 'field_selector' ? 
                     `<select class="param-input" data-pid="${p.id}">
-                        <option value="">-- 选择源 --</option>
-                        <optgroup label="1级：图层属性">${Array.from(origFields).map(f=>`<option value="${f}">${f}</option>`).join('')}</optgroup>
-                        <optgroup label="2级：外部关联">${Array.from(deepFields).map(f=>`<option value="${f}">${f}</option>`).join('')}</optgroup>
+                        <option value="">-- 请选择数据源 --</option>
+                        ${layerGroupsHtml}  <optgroup label="[外部关联] CSV 关联字段">
+                            ${Array.from(deepFields).map(f => `<option value="${f}">${f}</option>`).join('')}
+                        </optgroup>
                     </select>` : 
                     `<input type="text" class="param-input input-coeff" data-pid="${p.id}" value="${p.default}">`
                 }
             </div>`).join('');
 
-        // 关键修复：目标图层显示中文名
+        // 目标图层勾选列表 (保持中文名)
         document.getElementById('calc-layer-targets').innerHTML = state.activeLayers.map(n => {
             const label = aoiConfig[n] ? aoiConfig[n].n : (n.includes('街景') ? '街景语义分割图' : n);
             return `<div class="layer-item" style="padding:6px 10px;">
