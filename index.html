@@ -81,6 +81,22 @@
         .msg { padding: 10px 14px; border-radius: 14px; max-width: 85%; font-size: 13px; line-height: 1.5; }
         .msg.user { background: #f1f5f9; align-self: flex-end; }
         .msg.ai { background: #e0f7fa; align-self: flex-start; }
+        /* --- 增量样式：图层分类与饼图 --- */
+.group-label { 
+    font-size: 11px; color: #94a3b8; font-weight: 800; text-transform: uppercase; 
+    margin: 18px 0 8px 0; letter-spacing: 1px; border-bottom: 1px solid #f1f5f9; padding-bottom: 4px; 
+}
+.pie-container { width: 220px; height: 220px; margin: 10px auto; position: relative; }
+.popup-info-row { 
+    font-size: 13px; font-weight: 800; color: #1e293b; margin-bottom: 8px; 
+    border-left: 4px solid var(--primary); padding-left: 10px; 
+}
+/* 饼图悬浮提示框 */
+#pie-tip { 
+    position:fixed; display:none; background:rgba(0,0,0,0.9); color:#fff; padding:8px 14px; 
+    border-radius:10px; font-size:12px; pointer-events:none; z-index:9999; 
+    backdrop-filter:blur(10px); border:1px solid rgba(255,255,255,0.1); font-weight:600; 
+}
     </style>
 </head>
 <body>
@@ -121,10 +137,12 @@
 </div>
 
 <div id="layer-menu" class="floating-window">
-    <div class="win-header"><span>图层管理</span><span class="close-win">×</span></div>
-    <div style="padding:20px; overflow-y:auto; flex:1;" id="layer-box">
-        <div id="house-list-ui"></div><hr style="border:0; border-top:1px solid #eee; margin:15px 0;"><div id="poi-list-ui"></div>
-    </div>
+    <div class="win-header"><span>图层管理中心</span><span class="close-win">×</span></div>
+    <div style="padding:20px; overflow-y:auto; flex:1;">
+        <div class="group-label">街景语义分析 (Street View)</div>
+        <div id="street-view-list-ui"></div> <div class="group-label">城市 POI 兴趣点</div>
+        <div id="poi-list-ui"></div> <div class="group-label">房产项目数据</div>
+        <div id="house-list-ui"></div> </div>
 </div>
 
 <div id="filter-manager" class="floating-window">
@@ -160,6 +178,29 @@
     var map = L.map('map', { zoomControl: false, renderer: L.canvas() }).setView([31.15, 121.43], 13);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { crossOrigin: true }).addTo(map);
     L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+    // 街景颜色配置
+const svColors = { "road": "#808080", "sidewalk": "#FF00FF", "vegetation": "#228B22", "sky": "#87CEEB", "building": "#A52A2A", "car": "#0000FF", "person": "#FF0000" };
+
+// 饼图生成引擎
+function generatePieChart(props) {
+    const data = Object.entries(props).filter(([k, v]) => typeof v === 'number' && v > 0.01 && !['lon', 'lat'].includes(k)).sort((a, b) => b[1] - a[1]).slice(0, 10);
+    if(!data.length) return '<p style="color:#94a3b8;font-size:11px;">无显著数据</p>';
+    const total = data.reduce((s, [_, v]) => s + v, 0);
+    let curA = 0; const r = 80, cx = 110, cy = 110; let paths = "";
+    data.forEach(([label, value], i) => {
+        const angle = (value / total) * 2 * Math.PI;
+        const x1 = cx + r * Math.cos(curA), y1 = cy + r * Math.sin(curA);
+        const x2 = cx + r * Math.cos(curA + angle), y2 = cy + r * Math.sin(curA + angle);
+        const color = svColors[label] || `hsl(${(i * 53) % 360}, 60%, 65%)`;
+        paths += `<path d="M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${angle>Math.PI?1:0} 1 ${x2} ${y2} Z" fill="${color}" stroke="#fff" onmouseover="showTip(event,'${label}','${(value*100).toFixed(1)}%')" onmouseout="hideTip()"></path>`;
+        curA += angle;
+    });
+    return `<div class="pie-container"><svg width="220" height="220">${paths}</svg></div>`;
+}
+
+window.showTip = (e, l, p) => { const t = document.getElementById('pie-tip'); t.style.display = 'block'; t.innerText = `${l}: ${p}`; t.style.left = (e.clientX + 15) + 'px'; t.style.top = (e.clientY + 15) + 'px'; };
+window.hideTip = () => { document.getElementById('pie-tip').style.display = 'none'; };
 
     // 2. 测绘插件与排他逻辑
     map.pm.setLang('zh');
@@ -227,12 +268,18 @@
                 filter: (f) => keywords.length === 0 || keywords.some(k => (f.properties.name || "").toLowerCase().includes(k.toLowerCase())),
                 pointToLayer: (f, latlng) => L.circleMarker(latlng, { radius: 5, weight: 1.5, fillColor: conf.c, color: "#fff", fillOpacity: 0.9 }),
                 onEachFeature: (f, l) => {
-                    const p = f.properties;
-                    let h = `<div class="popup-header ${conf.t==='house'?'house':''}"><h3>${p.name}</h3></div><div style="padding:15px; font-size:12px;">`;
-                    const its = conf.t === 'house' ? [['address','地址'],['type','类型']] : [['id','id'],['address','地址'],['大类','大类'],['中类','中类'],['小类','小类']];
-                    its.forEach(i => h += `<div><b>${i[1]}:</b> ${p[i[0]] || '-'}</div>`);
-                    l.bindPopup(h + `</div>`, { className: 'custom-popup', maxWidth: 280 });
-                }
+    const p = f.properties;
+    let h = `<div class="popup-header ${conf.t==='house'?'house':''}"><h3>${p.image || p.name}</h3></div><div style="padding:15px; font-size:12px;">`;
+    
+    // --- 新增：如果是街景数据，显示饼图 ---
+    if(conf.t === 'street') {
+        h += `<div class="popup-info-row">语义占比分析</div>` + generatePieChart(p);
+    } else {
+        const its = conf.t === 'house' ? [['address','地址'],['type','类型']] : [['id','id'],['address','地址'],['大类','大类']];
+        its.forEach(i => h += `<div><b>${i[1]}:</b> ${p[i[0]] || '-'}</div>`);
+    }
+    l.bindPopup(h + `</div>`, { maxWidth: 280 });
+}
             }).addTo(map);
         }
     }
@@ -249,15 +296,34 @@
     // 6. 图层与 AI 接口
     const poiNames = ["餐饮服务", "风景名胜", "公共设施", "公司企业", "购物服务", "交通设施服务", "金融保险服务", "科教文化服务", "摩托车服务", "汽车服务", "汽车维修", "汽车销售", "商务住宅", "生活服务", "室内设施", "体育休闲服务", "通行设施", "虚拟数据", "医疗保健服务", "政府机构及社会团体", "住宿服务"];
     function toggle(name, color, type, show) {
-        if(show) {
+    if(show) {
+        // 如果是街景数据，我们需要加载两个文件并合并
+        if (type === 'street') {
+            const files = ['street_view_data_1.json', 'street_view_data_2.json'];
+            const promises = files.map(file => fetch(file).then(r => r.json()));
+            
+            Promise.all(promises).then(dataArray => {
+                // 合并两个文件的 features
+                const combinedFeatures = dataArray[0].features.concat(dataArray[1].features);
+                pool[name] = { type: "FeatureCollection", features: combinedFeatures };
+                
+                activeLayers[name] = { layer: L.layerGroup().addTo(map), conf: { c: color, t: type } };
+                updateLayers();
+            });
+        } else {
+            // 原有的 POI 和房产加载逻辑
             const path = type === 'house' ? 'houses.json' : `data_poi/${name}.json`;
             fetch(path).then(r => r.json()).then(data => {
                 pool[name] = data;
                 activeLayers[name] = { layer: L.layerGroup().addTo(map), conf: { c: color, t: type } };
                 updateLayers();
             });
-        } else if(activeLayers[name]) { map.removeLayer(activeLayers[name].layer); delete activeLayers[name]; }
+        }
+    } else if(activeLayers[name]) { 
+        map.removeLayer(activeLayers[name].layer); 
+        delete activeLayers[name]; 
     }
+}
     const createUI = (n, c, t, con) => {
         const d = document.createElement('div'); d.style="display:flex; align-items:center; padding:10px; cursor:pointer;";
         d.innerHTML = `<input type="checkbox" style="margin-right:12px; width:16px; height:16px;"><div style="width:8px; height:8px; border-radius:50%; background:${c}; margin-right:10px;"></div><span>${n}</span>`;
@@ -301,6 +367,10 @@
         document.onmouseup=()=>drag=false;
     });
     fetch('xuhui.json').then(r => r.json()).then(data => L.geoJSON(data, { style: { color: "#2BB5BE", weight: 1.5, fillOpacity: 0.05 }}).addTo(map));
+    // --- 新增：加载街景图层 UI ---
+createUI('街景语义分割图点', '#2BB5BE', 'street', document.getElementById('street-view-list-ui'));
+
 </script>
+<div id="pie-tip"></div>
 </body>
 </html>
