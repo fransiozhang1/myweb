@@ -182,12 +182,10 @@
 const aoiConfig = {
     "buildings_a": { n: "既有建筑底廓", c: "#94a3b8", fields: ["name", "type"] },
     "water_a":     { n: "水系/河湖区域", c: "#74ccf4", fields: ["name", "fclass"] },
-    "natural_a":   { n: "自然植被/绿地", c: "#91cf60", fields: ["name", "fclass"] },
     "landuse_a":   { n: "土地利用现状", c: "#fcd34d", fields: ["name", "fclass"] },
     "transport_a": { n: "交通设施范围", c: "#818cf8", fields: ["name", "fclass"] },
     "traffic_a":   { n: "道路/交通广场", c: "#475569", fields: ["name", "fclass"] },
     "pois_a":      { n: "公共兴趣面", c: "#f472b6", fields: ["name", "fclass"] },
-    "places_a":    { n: "居民点/广场", c: "#fb7185", fields: ["name", "fclass"] },
     "pofw_a":      { n: "宗教场所区域", c: "#c084fc", fields: ["name", "fclass"] }
 };
     // 1. 初始化地图
@@ -302,7 +300,7 @@ function updateLayers() {
             }),
             onEachFeature: (f, l) => {
                 const p = f.properties;
-                let h = `<div class="popup-header"><h3>${p.name || p.fclass || "未命名要素"}</h3></div><div style="padding:15px; font-size:12px;">`;
+                let h = `<div class="popup-header"><h3>${p.name || p.fclass || "街景数据"}</h3></div><div style="padding:15px; font-size:12px;">`;
                 
                 // 根据类型定制弹窗内容
                 if (conf.t === 'aoi') {
