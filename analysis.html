@@ -331,22 +331,26 @@ function renderDeepUI() {
     renderHistoryCards();
 }
 
+// --- 修改后的文件读取逻辑 ---
 document.getElementById('deep-file-in').onchange = (e) => {
     const file = e.target.files[0]; if(!file) return;
     document.getElementById('file-name').innerText = file.name;
     const reader = new FileReader();
     reader.onload = (ev) => {
         const lines = ev.target.result.split('\n').filter(l => l.trim());
+        // 仅更新当前的全局 sessionHeaders 变量
         sessionHeaders = lines[0].split(',').map(h => h.trim());
+        
         const nameIdx = sessionHeaders.findIndex(h => /名称|店名|Name|小区|项目/i.test(h)) || 0;
+        // 清理旧的全局 Map 数据，防止数据交叉污染
+        csvGlobalMap = {}; 
         lines.slice(1).forEach(line => {
             const vals = line.split(',').map(v => v.trim());
             const obj = {}; sessionHeaders.forEach((h, i) => obj[h] = vals[i]);
             const key = normalize(obj[sessionHeaders[nameIdx]]);
             if(key) csvGlobalMap[key] = obj; 
         });
-        // 上传文件后立即更新表头缓存，即便不点“开始分析”
-        state.activeLayers.forEach(ln => deepFilterRegistry[ln].availableHeaders = sessionHeaders);
+        // 核心修改：删除原本在此处的 state.activeLayers.forEach 循环
     };
     reader.readAsText(file);
 };
@@ -366,7 +370,17 @@ document.getElementById('btn-run-deep').onclick = async () => {
         });
         const rawContent = (await aiRes.json()).choices[0].message.content;
         const names = rawContent.replace(/\n/g, ",").split(/[，,]/).map(n => n.replace(/^[0-9]+[.\u3001\s]+/g, "").trim()).filter(n => n && n.length > 1);
-        selected.forEach(ln => { deepFilterRegistry[ln].kws = names; deepFilterRegistry[ln].isDeep = true; deepFilterRegistry[ln].availableHeaders = [...sessionHeaders]; });
+        // --- 修改后的执行分析循环 ---
+selected.forEach(ln => {
+    deepFilterRegistry[ln].kws = names;
+    deepFilterRegistry[ln].isDeep = true;
+    
+    // 核心修复 1：将当前文件的表头精准同步给选中的图层
+    deepFilterRegistry[ln].availableHeaders = [...sessionHeaders]; 
+    
+    // 核心修复 2：重置该图层之前的勾选状态，防止显示旧文件的字段
+    deepFilterRegistry[ln].activeFields = new Set(); 
+});
         document.getElementById('deep-file-in').value = ""; document.getElementById('file-name').innerText = "关联成功";
         refreshMap(); renderHistoryCards(); document.getElementById('deep-log').innerText = `✅ 成功定位 ${names.length} 类目标`;
     } catch(e) { document.getElementById('deep-log').innerText = "❌ AI 匹配异常"; }
