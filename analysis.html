@@ -229,70 +229,87 @@ document.querySelectorAll('.close-win').forEach(c => c.onclick = deactivateAll);
 
 // --- 5. 渲染引擎：核心修复（不再强制依赖 CSV） ---
 function refreshMap() {
-    for(let name in displayLayers) {
+    for (let name in displayLayers) {
         const reg = deepFilterRegistry[name];
         const layerGroup = displayLayers[name].layer;
         const color = displayLayers[name].conf.c;
         const visible = displayLayers[name].conf.visible;
+        const isA = aoiConfig[name]; // 判断是否为 AOI 数据
 
-        layerGroup.clearLayers(); 
-        
-        if(visible && pool[name]) {
+        layerGroup.clearLayers();
+
+        if (visible && pool[name]) {
             const geoJsonLayer = L.geoJSON(pool[name], {
                 filter: (f) => {
-                    // 如果处于 AI 深度筛选模式，则按关键词过滤；否则显示首页筛选结果
-                    if(reg.isDeep) {
-                        const cleanedMapName = normalize(f.properties.name);
-                        return reg.kws.some(kw => {
-                            const cleanedKw = normalize(kw);
-                            return cleanedMapName.includes(cleanedKw) || cleanedKw.includes(cleanedMapName);
-                        });
+                    // AI 深度筛选逻辑增强：支持匹配 AOI 的分类属性
+                    if (reg.isDeep) {
+                        const p = f.properties;
+                        const matchStr = `${p.name || ""} ${p.fclass || ""} ${p.type || ""} ${p.image || ""}`.toLowerCase();
+                        return reg.kws.some(kw => matchStr.includes(normalize(kw)));
                     }
-                    return true; // 非 AI 模式显示全部（即首页选中的类别）
+                    return true;
                 },
                 style: (f) => {
-        if (aoiConfig[name]) {
-            return {
-                color: color, 
-                weight: 1.5, 
-                fillColor: color, 
-                fillOpacity: 0.3, 
-                opacity: 0.8
-            };
-        }
-    },
-                pointToLayer: (f, latlng) => L.circleMarker(latlng, { radius: 7, weight: 2.0, fillColor: color, color: "#fff", fillOpacity: 0.9 }),
+                    // AOI 面状地块样式适配
+                    if (isA) {
+                        return {
+                            color: color,
+                            weight: 1.5,
+                            fillColor: color,
+                            fillOpacity: 0.35, // 略微调高透明度增加视觉感
+                            opacity: 0.8
+                        };
+                    }
+                },
+                pointToLayer: (f, latlng) => L.circleMarker(latlng, { 
+                    radius: 7, 
+                    weight: 2.0, 
+                    fillColor: color, 
+                    color: "#fff", 
+                    fillOpacity: 0.9 
+                }),
                 onEachFeature: (f, l) => {
-    const p = f.properties;
-    // 修正 refreshMap 中的弹窗字符串
-    let h = `<div class="popup-header ${name.includes('房产')?'house':''}"><h3>${p.image || p.name || "空间要素"}</h3></div><div style="padding:15px; font-size:12px;">`;
-    // 如果是街景，显示饼图；否则显示地址
-    if(name.includes('街景')) {
-        h += `<div class="popup-info-row">语义环境分析</div>` + generatePieChart(p);
-    } else {
-        h += `<div><b>原始地址:</b> ${p.address || '-'}</div>`;
-    }
-    
-    const mKey = normalize(p.name || p.image);
-    const csvRow = csvGlobalMap[mKey] || {};
+                    const p = f.properties;
+                    // 弹窗标题修复：优先显示名称，无名称则显示分类或中文图层名
+                    const title = p.name || p.image || (isA ? isA.n : "空间要素");
+                    let h = `<div class="popup-header ${name.includes('房产') ? 'house' : ''}"><h3>${title}</h3></div><div style="padding:15px; font-size:12px;">`;
 
-    // 显示 AI 关联的 CSV 字段
-    reg.activeFields.forEach(field => {
-        if(csvRow[field]) h += `<div style="margin-top:5px; color:var(--primary); font-weight:700;">${field}: ${csvRow[field]}</div>`;
-    });
+                    // 1. 根据数据轨道显示核心内容
+                    if (isA) {
+                        // AOI 专用信息展示：显示配置中定义的字段
+                        h += `<div class="popup-info-row">${isA.n} 属性详情</div>`;
+                        isA.fields.forEach(field => {
+                            if (p[field]) h += `<div style="margin-bottom:4px;"><b>${field}:</b> ${p[field]}</div>`;
+                        });
+                    } else if (name.includes('街景')) {
+                        h += `<div class="popup-info-row">语义环境分析</div>` + generatePieChart(p);
+                    } else {
+                        // POI 与 房产轨道
+                        h += `<div style="margin-bottom:4px;"><b>原始地址:</b> ${p.address || '-'}</div>`;
+                    }
 
-    // --- 核心：街景也参与指标计算 ---
-    activeCalculations.forEach(calc => {
-        if(calc.layerNames.includes(name)) {
-            const result = INDICATOR_CONFIG[calc.configKey].calc({...p, ...csvRow}, calc.params);
-            h += `<div style="margin-top:10px; padding:10px; background:#fff8f6; border:1px solid var(--accent); border-radius:12px; color:var(--accent);">
-                    <b style="font-size:10px; display:block;">${calc.name}</b>
-                    <span style="font-size:18px; font-weight:800;">${result.toFixed(2)}</span>
-                  </div>`;
-        }
-    });
-    l.bindPopup(h + `</div>`, { maxWidth: 280 });
-}
+                    // 2. 关联外部 CSV 数据字段展示
+                    const mKey = normalize(p.name || p.image);
+                    const csvRow = csvGlobalMap[mKey] || {};
+                    reg.activeFields.forEach(field => {
+                        if (csvRow[field]) {
+                            h += `<div style="margin-top:8px; color:var(--primary); font-weight:700; border-top:1px dashed #eee; padding-top:4px;">${field}: ${csvRow[field]}</div>`;
+                        }
+                    });
+
+                    // 3. 动态指标计算结果展示
+                    activeCalculations.forEach(calc => {
+                        if (calc.layerNames.includes(name)) {
+                            const result = INDICATOR_CONFIG[calc.configKey].calc({ ...p, ...csvRow }, calc.params);
+                            h += `<div class="calc-box">
+                                    <b>${calc.name}</b>
+                                    <span>${result.toFixed(2)}</span>
+                                  </div>`;
+                        }
+                    });
+
+                    l.bindPopup(h + `</div>`, { maxWidth: 280 });
+                }
             });
             layerGroup.addLayer(geoJsonLayer);
         }
@@ -303,9 +320,14 @@ function refreshMap() {
 // --- 6. AI 筛选逻辑 (保持不变) ---
 let sessionHeaders = [];
 function renderDeepUI() {
-    document.getElementById('deep-layer-targets').innerHTML = state.activeLayers.map(n => 
-        `<div class="layer-item" style="padding:6px 10px; margin-bottom:5px;"><input type="checkbox" class="target-cb" value="${n}" checked><span>${n}</span></div>`
-    ).join('');
+    document.getElementById('deep-layer-targets').innerHTML = state.activeLayers.map(n => {
+        // 关键转换：尝试匹配 AOI 中文名
+        const label = aoiConfig[n] ? aoiConfig[n].n : (n.includes('街景') ? '街景语义分割图' : n);
+        return `<div class="layer-item" style="padding:6px 10px; margin-bottom:5px;">
+            <input type="checkbox" class="target-cb" value="${n}" checked>
+            <span>${label}</span>
+        </div>`;
+    }).join('');
     renderHistoryCards();
 }
 
@@ -356,9 +378,11 @@ function renderHistoryCards() {
     for(let ln in deepFilterRegistry) {
         if(!deepFilterRegistry[ln].isDeep) continue;
         const reg = deepFilterRegistry[ln];
+        // 关键转换：卡片标题中文化
+        const label = aoiConfig[ln] ? aoiConfig[ln].n : (ln.includes('街景') ? '街景语义分割图' : ln);
         const card = document.createElement('div'); card.className = 'history-card';
         const fieldTags = reg.availableHeaders.map(h => `<label class="field-checkbox-item"><input type="checkbox" ${reg.activeFields.has(h)?'checked':''} onchange="toggleCardField('${ln}', '${h}', this.checked)">${h}</label>`).join('');
-        card.innerHTML = `<div class="calc-title"><b>${ln}</b> <button class="btn-del-calc" onclick="undoDeep('${ln}')">撤销</button></div><div class="calc-details">已匹配: ${reg.kws.length}类</div><div class="history-field-zone">${fieldTags || '无属性'}</div>`;
+        card.innerHTML = `<div class="calc-title"><b>${label}</b> <button class="btn-del-calc" onclick="undoDeep('${ln}')">撤销</button></div><div class="calc-details">已匹配: ${reg.kws.length}类</div><div class="history-field-zone">${fieldTags || '无属性'}</div>`;
         container.appendChild(card);
     }
 }
@@ -379,9 +403,7 @@ function initInteractUI() {
         
         let origFields = new Set(), deepFields = new Set();
         state.activeLayers.forEach(ln => {
-            // 即便没点 AI 筛选，只要上传过文件，这里就能拿到表头
             deepFilterRegistry[ln].availableHeaders.forEach(h => deepFields.add(h));
-            // 这里的 pool 是图层原始数据
             if(pool[ln] && pool[ln].features && pool[ln].features[0]) {
                 Object.keys(pool[ln].features[0].properties).forEach(k => origFields.add(k));
             }
@@ -393,15 +415,21 @@ function initInteractUI() {
                 ${p.type === 'field_selector' ? 
                     `<select class="param-input" data-pid="${p.id}">
                         <option value="">-- 选择源 --</option>
-                        <optgroup label="1级：图层原始基础属性">${Array.from(origFields).map(f=>`<option value="${f}">${f}</option>`).join('')}</optgroup>
-                        <optgroup label="2级：外部 CSV 关联字段">${Array.from(deepFields).map(f=>`<option value="${f}">${f}</option>`).join('')}</optgroup>
+                        <optgroup label="1级：图层属性">${Array.from(origFields).map(f=>`<option value="${f}">${f}</option>`).join('')}</optgroup>
+                        <optgroup label="2级：外部关联">${Array.from(deepFields).map(f=>`<option value="${f}">${f}</option>`).join('')}</optgroup>
                     </select>` : 
                     `<input type="text" class="param-input input-coeff" data-pid="${p.id}" value="${p.default}">`
                 }
             </div>`).join('');
 
-        document.getElementById('calc-layer-targets').innerHTML = state.activeLayers.map(n => 
-            `<div class="layer-item" style="padding:6px 10px;"><input type="checkbox" class="calc-target-cb" value="${n}" checked><span>${n}</span></div>`).join('');
+        // 关键修复：目标图层显示中文名
+        document.getElementById('calc-layer-targets').innerHTML = state.activeLayers.map(n => {
+            const label = aoiConfig[n] ? aoiConfig[n].n : (n.includes('街景') ? '街景语义分割图' : n);
+            return `<div class="layer-item" style="padding:6px 10px;">
+                <input type="checkbox" class="calc-target-cb" value="${n}" checked>
+                <span>${label}</span>
+            </div>`;
+        }).join('');
     };
 }
 

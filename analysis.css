@@ -244,38 +244,45 @@ select option { padding: 10px; color: #1e293b; font-weight: 600; }
 
 
 /* AOI 弹窗内的属性行 */
+/* 弹窗内的 AOI 属性标题 */
 .popup-info-row {
     font-size: 13px;
     font-weight: 800;
     color: var(--primary);
     margin: 12px 0 8px 0;
     padding-bottom: 4px;
-    border-bottom: 1.5px solid #f1f5f9;
+    border-bottom: 2px solid #f1f5f9;
 }
 
-/* 计算结果魔方卡片 */
+/* 数据计算结果卡片美化 */
 .calc-box {
     margin-top: 10px;
     padding: 12px;
-    background: linear-gradient(135deg, #fff8f6 0%, #fff 100%);
+    background: linear-gradient(135deg, #fffcfb 0%, #fff 100%);
     border: 1px solid rgba(255, 126, 95, 0.2);
     border-radius: 12px;
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    box-shadow: 0 4px 12px rgba(255, 126, 95, 0.05);
 }
 
 .calc-box b {
     font-size: 10px;
     color: var(--accent);
     text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: 0.5px;
 }
 
 .calc-box span {
-    font-size: 20px;
+    font-size: 22px;
     font-weight: 900;
     color: #1e293b;
-    font-family: 'DIN Alternate', sans-serif;
+    margin-top: 4px;
+}
+
+/* 筛选列表中的中文文字对齐 */
+.layer-item span {
+    font-size: 13px;
+    font-weight: 600;
+    color: #334155;
+    margin-left: 8px;
 }
