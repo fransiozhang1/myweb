@@ -95,9 +95,13 @@
 <div id="layer-menu" class="floating-window" style="top: 35px; right: 100px; width: 320px;">
     <div class="win-header"><span>当前分析图层</span><span class="close-win">×</span></div>
     <div style="padding:20px; overflow-y:auto; flex:1;">
-        <div class="group-label">街景语义分析轨道</div>
+        <div class="group-label">城市空间要素 (AOI)</div>
+        <div id="aoi-list-ui"></div> 
+
+        <div class="group-label" style="margin-top: 20px;">街景语义分析轨道</div>
         <div id="street-list-ui"></div>
-        <div class="group-label">POI 与 房产轨道</div>
+        
+        <div class="group-label" style="margin-top: 20px;">POI 与 房产轨道</div>
         <div id="active-category-list"></div> 
     </div>
 </div>
@@ -114,6 +118,18 @@
 <script src="https://unpkg.com/@geoman-io/leaflet-geoman-free@latest/dist/leaflet-geoman.min.js"></script>
 
 <script>
+// AOI 分析配置：同步 index.html 的翻译逻辑
+const aoiConfig = {
+    "buildings_a": { n: "既有建筑底廓", c: "#94a3b8", fields: ["name", "type"] },
+    "water_a":     { n: "城市水体/湖泊", c: "#74ccf4", fields: ["name", "fclass"] },
+    "landuse_a":   { n: "土地利用现状", c: "#fcd34d", fields: ["name", "fclass"] },
+    "transport_a": { n: "交通枢纽范围", c: "#818cf8", fields: ["name", "fclass"] },
+    "traffic_a":   { n: "道路交通广场", c: "#475569", fields: ["name", "fclass"] },
+    "pois_a":      { n: "公共服务设施面", c: "#f472b6", fields: ["name", "fclass"] },
+    "pofw_a":      { n: "宗教文化场所", c: "#c084fc", fields: ["name", "fclass"] }
+};
+
+
 const API_KEY = "sk-953b1a97918949d2a18c9a07a14729d0";
 // 街景语义颜色配置
 const svColors = { "road": "#808080", "sidewalk": "#FF00FF", "vegetation": "#228B22", "sky": "#87CEEB", "building": "#A52A2A", "car": "#0000FF", "person": "#FF0000" };
@@ -234,11 +250,22 @@ function refreshMap() {
                     }
                     return true; // 非 AI 模式显示全部（即首页选中的类别）
                 },
+                style: (f) => {
+        if (aoiConfig[name]) {
+            return {
+                color: color, 
+                weight: 1.5, 
+                fillColor: color, 
+                fillOpacity: 0.3, 
+                opacity: 0.8
+            };
+        }
+    },
                 pointToLayer: (f, latlng) => L.circleMarker(latlng, { radius: 7, weight: 2.0, fillColor: color, color: "#fff", fillOpacity: 0.9 }),
                 onEachFeature: (f, l) => {
     const p = f.properties;
-    let h = `<div class="popup-header ${name.includes('房产')?'house':''}"><h3>${p.image || p.name}</h3></div><div style="padding:15px; font-size:12px;">`;
-    
+    // 修正 refreshMap 中的弹窗字符串
+    let h = `<div class="popup-header ${name.includes('房产')?'house':''}"><h3>${p.image || p.name || "空间要素"}</h3></div><div style="padding:15px; font-size:12px;">`;
     // 如果是街景，显示饼图；否则显示地址
     if(name.includes('街景')) {
         h += `<div class="popup-info-row">语义环境分析</div>` + generatePieChart(p);
@@ -397,33 +424,79 @@ window.deleteCalc = (id) => { activeCalculations = activeCalculations.filter(c =
 state.activeLayers.forEach(name => {
     const isH = name.includes('房产');
     const isS = name.includes('街景');
-    const color = isS ? '#2BB5BE' : (isH ? '#FF7E5F' : `hsl(${(state.activeLayers.indexOf(name)*137)%360},65%,50%)`);
+    const isA = aoiConfig[name]; // 判断是否为 AOI 数据
     
-    // 注册轨道配置
+    // 动态确定颜色：如果是 AOI 使用配置色，否则使用随机/预设色
+    const color = isA ? isA.c : (isS ? '#2BB5BE' : (isH ? '#FF7E5F' : `hsl(${(state.activeLayers.indexOf(name)*137)%360},65%,50%)`));
+    
+    // 初始化深度筛选轨道
     deepFilterRegistry[name] = { kws: [...state.keywords], activeFields: new Set(), availableHeaders: [], isDeep: false };
 
-    if(isS) {
-        // 合并加载街景分卷文件
+    let loadPromise;
+    if (name === "buildings_a") {
+        const parts = ['part1', 'part2', 'part3'];
+        loadPromise = Promise.all(parts.map(p => 
+            fetch(`data_aoi/gis_osm_buildings_a_free_1_${p}.json`).then(r => r.json())
+        )).then(dataArray => ({ type: "FeatureCollection", features: dataArray.flatMap(d => d.features) }));
+    } else if (isA) {
+        loadPromise = fetch(`data_aoi/gis_osm_${name}_free_1.json`).then(r => r.json());
+    } else if (isS) {
         const files = ['street_view_data_1.json', 'street_view_data_2.json'];
-        Promise.all(files.map(f => fetch(f).then(r => r.json()))).then(dataArray => {
-            pool[name] = { type: "FeatureCollection", features: dataArray[0].features.concat(dataArray[1].features) };
-            renderLayerControl(name, color, 'street-list-ui');
-        });
+        loadPromise = Promise.all(files.map(f => fetch(f).then(r => r.json()))).then(dataArray => ({
+            type: "FeatureCollection", features: dataArray[0].features.concat(dataArray[1].features)
+        }));
     } else {
         const path = isH ? 'houses.json' : `data_poi/${name}.json`;
-        fetch(path).then(r => r.json()).then(data => {
-            pool[name] = data;
-            renderLayerControl(name, color, 'active-category-list');
-        });
+        loadPromise = fetch(path).then(r => r.json());
     }
+
+    loadPromise.then(data => {
+        pool[name] = data;
+        
+        // 核心修复：根据类型选择容器和中文标签
+        let targetContainer = 'active-category-list';
+        let chineseLabel = name;
+
+        if (isA) {
+            targetContainer = 'aoi-list-ui'; // AOI 数据进入专用容器
+            chineseLabel = isA.n;           // 使用配置里的中文名
+        } else if (isS) {
+            targetContainer = 'street-list-ui';
+            chineseLabel = '街景语义分割图';
+        }
+
+        // 调用刚才改好的函数
+        initLayerControl(name, color, targetContainer, chineseLabel);
+        
+    }).catch(e => console.error(`加载图层 ${name} 失败:`, e));
 });
 
-function renderLayerControl(name, color, containerId) {
+// 核心修复：重命名为 initLayerControl 并增加 label 参数
+function initLayerControl(name, color, containerId, label) {
     displayLayers[name] = { layer: L.layerGroup().addTo(map), conf: { c: color, visible: true } };
-    const div = document.createElement('div'); div.className = 'layer-item';
-    div.innerHTML = `<input type="checkbox" checked><div class="legend-dot" style="background:${color}"></div><span>${name}</span>`;
-    div.querySelector('input').onchange = (e) => { displayLayers[name].conf.visible = e.target.checked; refreshMap(); };
-    document.getElementById(containerId).appendChild(div);
+    
+    // 如果有传入中文标签则使用，否则用原始 ID
+    const displayName = label || name;
+    
+    const div = document.createElement('div'); 
+    div.className = 'layer-item';
+    div.innerHTML = `
+        <input type="checkbox" checked>
+        <div class="legend-dot" style="background:${color}"></div>
+        <span style="font-weight:600;">${displayName}</span>
+    `;
+    
+    div.querySelector('input').onchange = (e) => { 
+        displayLayers[name].conf.visible = e.target.checked; 
+        refreshMap(); 
+    };
+    
+    const container = document.getElementById(containerId);
+    if(container) {
+        container.appendChild(div);
+    } else {
+        console.warn(`找不到容器: ${containerId}，请检查 HTML 中是否有该 ID`);
+    }
     refreshMap();
 }
 
