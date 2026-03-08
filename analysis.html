@@ -188,16 +188,18 @@ state.activeLayers.forEach(name => {
 });
 
 // 名称清洗函数
+// 升级版名称清洗函数：更强力的标准化逻辑
 const normalize = (n) => {
     if (!n) return "";
     return n.toString()
-        .replace(/^[0-9]+[.\u3001\s]+/g, "") 
-        .replace(/[\uff01-\uff5e]/g, (s) => String.fromCharCode(s.charCodeAt(0) - 0xfee0))
-        .replace(/\s+/g, "") 
-        .replace(/\(.*\)|（.*）/g, "") 
-        .replace(/有限责任公司|有限公司|责任公司|分公司|办事处/g, "") 
-        .replace(/分店|分部|分局|社区|商铺|超市|驿站|项目/g, "") 
-        .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, "") 
+        .replace(/^[0-9]+[.\u3001\s]+/g, "") // 去除开头的序号 (如 "1. " 或 "1、")
+        .replace(/[\uff01-\uff5e]/g, (s) => String.fromCharCode(s.charCodeAt(0) - 0xfee0)) // 全角转半角
+        .replace(/\s+/g, "") // 去除所有空格
+        .replace(/[\(\)（）\[\]【】]/g, "") // 去除各种括号及其内容
+        .replace(/有限责任公司|有限公司|责任公司|分公司|办事处/g, "") // 去除公司后缀
+        .replace(/路店|分店|分部|分局|社区|商铺|超市|驿站|项目|街道/g, "") // 去除业务后缀
+        .replace(/[.,\/#!$%\^&\*;:{}=\-_`~]/g, "") // 去除半角标点
+        .replace(/[\u3002\uff1b\uff0c\uff1a\u201c\u201d\uff08\uff09\u300a\u300b\u3008\u3009\u3010\u3011\uff1f\uff01]/g, "") // 去除全角标点
         .trim().toLowerCase();
 };
 
@@ -289,8 +291,19 @@ function refreshMap() {
                     }
 
                     // 2. 关联外部 CSV 数据字段展示
-                    const mKey = normalize(p.name || p.image);
-const csvRow = csvGlobalMap[mKey] || {};
+                    // 在 onEachFeature 内部，替换原本获取 csvRow 的那两行
+const mKey = normalize(p.name || p.image);
+
+// 核心修复：双层匹配引擎
+let csvRow = csvGlobalMap[mKey]; // 1. 先尝试精确匹配
+
+if (!csvRow && mKey) {
+    // 2. 如果精确匹配失败，在全局库中进行模糊包含搜索
+    const fallbackKey = Object.keys(csvGlobalMap).find(k => k.includes(mKey) || mKey.includes(k));
+    if (fallbackKey) csvRow = csvGlobalMap[fallbackKey];
+}
+
+csvRow = csvRow || {}; // 最终兜底为空对象
 
 // 只有当 csvGlobalMap 中真的找到了这一行数据，且该字段被勾选时才显示
 reg.activeFields.forEach(field => {
@@ -413,57 +426,58 @@ function initInteractUI() {
     for(let key in INDICATOR_CONFIG) select.innerHTML += `<option value="${key}">${INDICATOR_CONFIG[key].name}</option>`;
     
     select.onchange = (e) => {
-        const config = INDICATOR_CONFIG[e.target.value];
-        if(!config) { document.getElementById('calc-param-zone').style.display='none'; return; }
-        document.getElementById('calc-param-zone').style.display='block';
-        document.getElementById('formula-box').innerText = config.formula_desc;
+    const config = INDICATOR_CONFIG[e.target.value];
+    if(!config) { document.getElementById('calc-param-zone').style.display='none'; return; }
+    document.getElementById('calc-param-zone').style.display='block';
+    document.getElementById('formula-box').innerText = config.formula_desc;
+
+    // --- 核心修改：同时生成“原始字段组”和“关联数据组” ---
+    let baseLayersHtml = ""; // 存放图层原始属性
+    let csvLayersHtml = "";  // 存放关联的 CSV 属性
+
+    state.activeLayers.forEach(ln => {
+        const label = aoiConfig[ln] ? aoiConfig[ln].n : (ln.includes('街景') ? '街景语义分割图' : ln);
         
-        // --- 1. 分类提取字段逻辑 ---
-        let deepFields = new Set();
-        state.activeLayers.forEach(ln => {
-            deepFilterRegistry[ln].availableHeaders.forEach(h => deepFields.add(h));
-        });
+        // 1. 生成 1 级数据组：图层原始基础属性
+        if(pool[ln] && pool[ln].features && pool[ln].features[0]) {
+            const fields = Object.keys(pool[ln].features[0].properties);
+            baseLayersHtml += `<optgroup label="[基础图层] ${label}">`;
+            fields.forEach(f => { baseLayersHtml += `<option value="${f}">${f}</option>`; });
+            baseLayersHtml += `</optgroup>`;
+        }
 
-        // 构造按图层分类的 HTML 字符串
-        let layerGroupsHtml = "";
-        state.activeLayers.forEach(ln => {
-            if(pool[ln] && pool[ln].features && pool[ln].features[0]) {
-                const label = aoiConfig[ln] ? aoiConfig[ln].n : (ln.includes('街景') ? '街景语义分割图' : ln);
-                const fields = Object.keys(pool[ln].features[0].properties);
-                
-                // 为每个图层创建一个独立的 optgroup
-                layerGroupsHtml += `<optgroup label="[图层] ${label}">`;
-                fields.forEach(f => {
-                    layerGroupsHtml += `<option value="${f}">${f}</option>`;
-                });
-                layerGroupsHtml += `</optgroup>`;
+        // 2. 生成 2 级数据组：该图层关联的 CSV 字段 (这是新增的人文关怀点)
+        const reg = deepFilterRegistry[ln];
+        if(reg && reg.availableHeaders.length > 0) {
+            csvLayersHtml += `<optgroup label="[关联数据] ${label}">`;
+            reg.availableHeaders.forEach(h => { csvLayersHtml += `<option value="${h}">${h}</option>`; });
+            csvLayersHtml += `</optgroup>`;
+        }
+    });
+
+    // --- 渲染 UI：将两部分 HTML 注入 ---
+    document.getElementById('param-inputs-container').innerHTML = config.params.map(p => `
+        <div style="margin-bottom:12px;">
+            <label style="font-size:11px; font-weight:700; color:var(--primary);">${p.name}</label>
+            ${p.type === 'field_selector' ? 
+                `<select class="param-input" data-pid="${p.id}">
+                    <option value="">-- 请选择数据源 --</option>
+                    ${baseLayersHtml} 
+                    ${csvLayersHtml}
+                </select>` : 
+                `<input type="text" class="param-input input-coeff" data-pid="${p.id}" value="${p.default}">`
             }
-        });
+        </div>`).join('');
 
-        // --- 2. 渲染 UI ---
-        document.getElementById('param-inputs-container').innerHTML = config.params.map(p => `
-            <div style="margin-bottom:12px;">
-                <label style="font-size:11px; font-weight:700; color:var(--primary);">${p.name}</label>
-                ${p.type === 'field_selector' ? 
-                    `<select class="param-input" data-pid="${p.id}">
-                        <option value="">-- 请选择数据源 --</option>
-                        ${layerGroupsHtml}  <optgroup label="[外部关联] CSV 关联字段">
-                            ${Array.from(deepFields).map(f => `<option value="${f}">${f}</option>`).join('')}
-                        </optgroup>
-                    </select>` : 
-                    `<input type="text" class="param-input input-coeff" data-pid="${p.id}" value="${p.default}">`
-                }
-            </div>`).join('');
-
-        // 目标图层勾选列表 (保持中文名)
-        document.getElementById('calc-layer-targets').innerHTML = state.activeLayers.map(n => {
-            const label = aoiConfig[n] ? aoiConfig[n].n : (n.includes('街景') ? '街景语义分割图' : n);
-            return `<div class="layer-item" style="padding:6px 10px;">
-                <input type="checkbox" class="calc-target-cb" value="${n}" checked>
-                <span>${label}</span>
-            </div>`;
-        }).join('');
-    };
+    // 目标图层勾选列表保持不变
+    document.getElementById('calc-layer-targets').innerHTML = state.activeLayers.map(n => {
+        const label = aoiConfig[n] ? aoiConfig[n].n : (n.includes('街景') ? '街景语义分割图' : n);
+        return `<div class="layer-item" style="padding:6px 10px;">
+            <input type="checkbox" class="calc-target-cb" value="${n}" checked>
+            <span>${label}</span>
+        </div>`;
+    }).join('');
+};
 }
 
 document.getElementById('btn-execute-calc').onclick = () => {
