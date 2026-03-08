@@ -290,12 +290,14 @@ function refreshMap() {
 
                     // 2. 关联外部 CSV 数据字段展示
                     const mKey = normalize(p.name || p.image);
-                    const csvRow = csvGlobalMap[mKey] || {};
-                    reg.activeFields.forEach(field => {
-                        if (csvRow[field]) {
-                            h += `<div style="margin-top:8px; color:var(--primary); font-weight:700; border-top:1px dashed #eee; padding-top:4px;">${field}: ${csvRow[field]}</div>`;
-                        }
-                    });
+const csvRow = csvGlobalMap[mKey] || {};
+
+// 只有当 csvGlobalMap 中真的找到了这一行数据，且该字段被勾选时才显示
+reg.activeFields.forEach(field => {
+    if (csvRow[field]) {
+        h += `<div style="margin-top:8px; color:var(--primary); font-weight:700; border-top:1px dashed #eee; padding-top:4px;">${field}: ${csvRow[field]}</div>`;
+    }
+});
 
                     // 3. 动态指标计算结果展示
                     activeCalculations.forEach(calc => {
@@ -338,19 +340,20 @@ document.getElementById('deep-file-in').onchange = (e) => {
     const reader = new FileReader();
     reader.onload = (ev) => {
         const lines = ev.target.result.split('\n').filter(l => l.trim());
-        // 仅更新当前的全局 sessionHeaders 变量
         sessionHeaders = lines[0].split(',').map(h => h.trim());
         
         const nameIdx = sessionHeaders.findIndex(h => /名称|店名|Name|小区|项目/i.test(h)) || 0;
-        // 清理旧的全局 Map 数据，防止数据交叉污染
-        csvGlobalMap = {}; 
+
+        // 核心修复：删除 csvGlobalMap = {}; 这行代码！
+        // 这样新上传的文件数据会与旧数据合并，而不是覆盖。
+        
         lines.slice(1).forEach(line => {
             const vals = line.split(',').map(v => v.trim());
-            const obj = {}; sessionHeaders.forEach((h, i) => obj[h] = vals[i]);
+            const obj = {}; 
+            sessionHeaders.forEach((h, i) => obj[h] = vals[i]);
             const key = normalize(obj[sessionHeaders[nameIdx]]);
             if(key) csvGlobalMap[key] = obj; 
         });
-        // 核心修改：删除原本在此处的 state.activeLayers.forEach 循环
     };
     reader.readAsText(file);
 };
