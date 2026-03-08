@@ -187,19 +187,20 @@ state.activeLayers.forEach(name => {
     };
 });
 
-// 名称清洗函数
-// 升级版名称清洗函数：更强力的标准化逻辑
+// 增强版名称清洗函数：处理括号内容及更多噪音
 const normalize = (n) => {
     if (!n) return "";
     return n.toString()
-        .replace(/^[0-9]+[.\u3001\s]+/g, "") // 去除开头的序号 (如 "1. " 或 "1、")
+        .replace(/^[0-9]+[.\u3001\s]+/g, "") // 去除开头的序号
         .replace(/[\uff01-\uff5e]/g, (s) => String.fromCharCode(s.charCodeAt(0) - 0xfee0)) // 全角转半角
         .replace(/\s+/g, "") // 去除所有空格
-        .replace(/[\(\)（）\[\]【】]/g, "") // 去除各种括号及其内容
-        .replace(/有限责任公司|有限公司|责任公司|分公司|办事处/g, "") // 去除公司后缀
-        .replace(/路店|分店|分部|分局|社区|商铺|超市|驿站|项目|街道/g, "") // 去除业务后缀
-        .replace(/[.,\/#!$%\^&\*;:{}=\-_`~]/g, "") // 去除半角标点
-        .replace(/[\u3002\uff1b\uff0c\uff1a\u201c\u201d\uff08\uff09\u300a\u300b\u3008\u3009\u3010\u3011\uff1f\uff01]/g, "") // 去除全角标点
+        // --- 关键改进：删除括号及其内部的所有文字 ---
+        .replace(/\(.*\)|（.*）|\[.*\]|【.*】/g, "") 
+        .replace(/有限责任公司|有限公司|责任公司|分公司|办事处/g, "") //
+        // --- 关键改进：增加“店”字的过滤 ---
+        .replace(/路店|分店|店|分部|分局|社区|商铺|超市|驿站|项目|街道/g, "") 
+        .replace(/[.,\/#!$%\^&\*;:{}=\-_`~]/g, "") //
+        .replace(/[\u3002\uff1b\uff0c\uff1a\u201c\u201d\uff08\uff09\u300a\u300b\u3008\u3009\u3010\u3011\uff1f\uff01]/g, "") //
         .trim().toLowerCase();
 };
 
@@ -292,20 +293,22 @@ function refreshMap() {
 
                     // 2. 关联外部 CSV 数据字段展示
                     // 在 onEachFeature 内部，替换原本获取 csvRow 的那两行
+// 在 refreshMap 的 onEachFeature 内部，替换原本获取 csvRow 的逻辑
 const mKey = normalize(p.name || p.image);
+let csvRow = null;
 
-// 核心修复：双层匹配引擎
-let csvRow = csvGlobalMap[mKey]; // 1. 先尝试精确匹配
-
-if (!csvRow && mKey) {
-    // 2. 如果精确匹配失败，在全局库中进行模糊包含搜索
+// 1. 尝试精确匹配 (清洗后的键名完全一致)
+if (csvGlobalMap[mKey]) {
+    csvRow = csvGlobalMap[mKey];
+} else if (mKey) {
+    // 2. 尝试模糊匹配：只要 CSV 里的键包含地图键，或者地图键包含 CSV 键
     const fallbackKey = Object.keys(csvGlobalMap).find(k => k.includes(mKey) || mKey.includes(k));
     if (fallbackKey) csvRow = csvGlobalMap[fallbackKey];
 }
 
-csvRow = csvRow || {}; // 最终兜底为空对象
+csvRow = csvRow || {}; // 兜底为空对象
 
-// 只有当 csvGlobalMap 中真的找到了这一行数据，且该字段被勾选时才显示
+// 3. 渲染已勾选的字段
 reg.activeFields.forEach(field => {
     if (csvRow[field]) {
         h += `<div style="margin-top:8px; color:var(--primary); font-weight:700; border-top:1px dashed #eee; padding-top:4px;">${field}: ${csvRow[field]}</div>`;
