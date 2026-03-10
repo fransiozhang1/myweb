@@ -474,25 +474,24 @@ const coordTransform = {
         return [lng + dlng, lat + dlat];
     }
 };
+// --- 1. 手动偏移配置：向西北方向偏移 ---
+// 经度减少 (向西)，纬度增加 (向北)
+const ROAD_OFFSET = { lat: 0.0021, lng: -0.0058 }; 
 
-// --- 2. 样式定义：轻量级、高透明度 ---
 const roadStyles = {
-    "城市主干道": { color: "#475569", weight: 1.2, opacity: 0.18 },
-    "城市次干道": { color: "#94a3b8", weight: 0.8, opacity: 0.12 },
+    "城市主干道": { color: "#475569", weight: 1.2, opacity: 0.15 }, // 极高透明度
+    "城市次干道": { color: "#94a3b8", weight: 0.8, opacity: 0.10 },
     "城市支路":   { color: "#cbd5e1", weight: 0.5, opacity: 0.08 },
     "default":    { color: "#e2e8f0", weight: 0.4, opacity: 0.05 }
 };
 
-// --- 3. 加载引擎：纠偏并规范 UI ---
 async function loadRoadNetwork() {
     const roadFiles = ['road_network_part1.json', 'road_network_part2.json'];
     const container = document.getElementById('road-list-ui');
-    if(!container) return;
-
+    
     try {
         const dataArray = await Promise.all(roadFiles.map(f => fetch(f).then(r => r.json())));
         const allFeatures = dataArray.flatMap(d => d.features);
-
         const groups = {};
         allFeatures.forEach(f => {
             const type = f.properties.type || "其他道路";
@@ -502,39 +501,29 @@ async function loadRoadNetwork() {
 
         Object.keys(groups).forEach(type => {
             const style = roadStyles[type] || roadStyles.default;
-            
-            // 初始不 addTo(map)
             const layerGroup = L.geoJSON(groups[type], {
-                coordsToLatLng: (coords) => {
-                    // 核心纠偏：将 OSM 的 WGS84 坐标实时转为 GCJ-02
-                    const corrected = coordTransform.wgs84togcj02(coords[0], coords[1]);
-                    return L.latLng(corrected[1], corrected[0]);
-                },
+                // 执行西北方向的手动偏移校准
+                coordsToLatLng: (coords) => L.latLng(coords[1] + ROAD_OFFSET.lat, coords[0] + ROAD_OFFSET.lng),
                 style: { color: style.color, weight: style.weight, opacity: style.opacity },
                 onEachFeature: (f, l) => {
-                    if (f.properties.name) {
-                        l.bindPopup(`<div style="font-weight:800; color:#1e293b; padding:5px;">路名：${f.properties.name}</div>`);
-                    }
+                    if (f.properties.name) l.bindPopup(`<b style="color:#1e293b;">路名：${f.properties.name}</b>`);
                 }
             });
 
-            // 统一 UI 样式
+            // 统一 UI 样式：与其他轨道格式完全一致
             const div = document.createElement('div');
             div.className = 'layer-item';
             div.innerHTML = `
-                <input type="checkbox">
-                <div class="legend-dot" style="background:${style.color}; width:12px; height:2px; border-radius:1px;"></div>
+                <input type="checkbox"> <div class="legend-dot" style="background:${style.color}; height:2px; width:12px; border-radius:1px;"></div>
                 <span style="font-weight:600;">${type}</span>
             `;
-            
             div.querySelector('input').onchange = (e) => {
                 if (e.target.checked) layerGroup.addTo(map);
                 else map.removeLayer(layerGroup);
             };
             container.appendChild(div);
         });
-        console.log("✅ 路网纠偏完成并默认隐藏。");
-    } catch (e) { console.error("❌ 加载失败:", e); }
+    } catch (e) { console.error("路网加载异常:", e); }
 }
 
 loadRoadNetwork();
