@@ -387,31 +387,64 @@ document.getElementById('btn-run-deep').onclick = async () => {
     const selected = Array.from(document.querySelectorAll('.target-cb:checked')).map(cb => cb.value);
     const file = document.getElementById('deep-file-in').files[0];
     if(!selected.length || !file) return alert("请配置目标图层并上传文件");
-    document.getElementById('deep-log').innerText = "⏳ AI 正在深度清洗与匹配...";
+    
+    document.getElementById('deep-log').innerText = "⏳ 正在提取本地列并调用低成本 AI...";
+
     try {
-        const fd = new FormData(); fd.append('file', file); fd.append('purpose', 'file-extract');
-        const upRes = await fetch("https://dashscope.aliyuncs.com/compatible-mode/v1/files", { method:"POST", headers:{"Authorization":`Bearer ${API_KEY}`}, body:fd });
-        const fid = (await upRes.json()).id;
-        const aiRes = await fetch("https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions", {
-            method:"POST", headers:{"Content-Type":"application/json", "Authorization":`Bearer ${API_KEY}`},
-            body: JSON.stringify({ model:"qwen-long", messages:[{role:"system", content:`fileid://${fid}`}, {role:"user", content:"仅提取店名或小区名列表，用逗号分隔。"}]})
-        });
-        const rawContent = (await aiRes.json()).choices[0].message.content;
-        const names = rawContent.replace(/\n/g, ",").split(/[，,]/).map(n => n.replace(/^[0-9]+[.\u3001\s]+/g, "").trim()).filter(n => n && n.length > 1);
-        // --- 修改后的执行分析循环 ---
-selected.forEach(ln => {
-    deepFilterRegistry[ln].kws = names;
-    deepFilterRegistry[ln].isDeep = true;
-    
-    // 核心修复 1：将当前文件的表头精准同步给选中的图层
-    deepFilterRegistry[ln].availableHeaders = [...sessionHeaders]; 
-    
-    // 核心修复 2：重置该图层之前的勾选状态，防止显示旧文件的字段
-    deepFilterRegistry[ln].activeFields = new Set(); 
-});
-        document.getElementById('deep-file-in').value = ""; document.getElementById('file-name').innerText = "关联成功";
-        refreshMap(); renderHistoryCards(); document.getElementById('deep-log').innerText = `✅ 成功定位 ${names.length} 类目标`;
-    } catch(e) { document.getElementById('deep-log').innerText = "❌ AI 匹配异常"; }
+        // --- 措施 1：本地读取文件并仅提取第一列 (名称列) ---
+        const reader = new FileReader();
+        reader.onload = async (ev) => {
+            const content = ev.target.result;
+            const lines = content.split('\n').filter(l => l.trim());
+            // 提取第一列数据，并限制条数（如 500 条）以防超出单次 Token 限制
+            const nameList = lines.slice(1, 501).map(line => line.split(',')[0].trim()).join(',');
+
+            // --- 措施 2：调用北京地域低成本模型 Qwen-Doc-Turbo ---
+            const aiRes = await fetch("https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions", {
+                method: "POST", 
+                headers: {
+                    "Content-Type": "application/json", 
+                    "Authorization": `Bearer ${API_KEY}`
+                },
+                body: JSON.stringify({ 
+                    model: "qwen-doc-turbo", //
+                    messages: [
+                        { role: "system", content: "你是一个专业的城市规划助手。请从用户提供的名称列表中，提取出与当前选定分类相关的名称。" },
+                        { role: "user", content: `请从以下列表中提取相关名称，仅返回名称，用英文逗号分隔，严禁输出任何解释性文字或思考过程：${nameList}` }
+                    ],
+                    // --- 措施 3：关闭思考模式，节省 80% 输出费用 ---
+                    extra_body: {
+                        "enable_thinking": false //
+                    }
+                })
+            });
+
+            const result = await aiRes.json();
+            if(result.error) throw new Error(result.error.message);
+
+            const rawContent = result.choices[0].message.content;
+            const names = rawContent.replace(/\n/g, ",").split(/[，,]/)
+                .map(n => n.replace(/^[0-9]+[.\u3001\s]+/g, "").trim())
+                .filter(n => n && n.length > 1);
+
+            // 应用筛选逻辑 (保持你的独立轨道重置逻辑)
+            selected.forEach(ln => {
+                deepFilterRegistry[ln].kws = names;
+                deepFilterRegistry[ln].isDeep = true;
+                deepFilterRegistry[ln].availableHeaders = [...sessionHeaders]; 
+                deepFilterRegistry[ln].activeFields = new Set(); 
+            });
+
+            document.getElementById('deep-file-in').value = ""; 
+            refreshMap(); 
+            renderHistoryCards(); 
+            document.getElementById('deep-log').innerText = `✅ 成功：AI 从 ${lines.length} 行中提取了 ${names.length} 类目标`;
+        };
+        reader.readAsText(file);
+
+    } catch(e) { 
+        document.getElementById('deep-log').innerText = "❌ 运行异常：" + e.message; 
+    }
 };
 
 function renderHistoryCards() {
