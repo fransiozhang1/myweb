@@ -437,35 +437,35 @@ const createUI = (id, color, type, container, label) => {
     // --- 新增：加载街景图层 UI ---
 createUI('街景语义分割图点', '#2BB5BE', 'street', document.getElementById('street-view-list-ui'));
 
-// 自动加载翻译后的 AOI 图层管理 UI
-// 确保 AOI 初始化时颜色与配置一致
-Object.keys(aoiConfig).forEach(key => {
-    const config = aoiConfig[key];
-    createUI(key, config.c, 'aoi', document.getElementById('aoi-list-ui'), config.n);
-});
-// --- 1. 定义手动纠偏参数 (向西北方向拉动) ---
+// --- 1. 坐标纠偏配置：维持确认正确的西北偏移量 ---
 // 纬度增加 (+) 代表向北，经度减少 (-) 代表向西
 const ROAD_OFFSET = { lat: 0.0022, lng: -0.0055 }; 
 
-// --- 2. 定义路网样式 (极致轻量化，保护徐汇轮廓) ---
+// --- 2. 视觉样式：极致轻量化，保护徐汇轮廓 ---
 const roadStyles = {
-    "城市主干道": { color: "#64748b", weight: 1.2, opacity: 0.18 }, // 较淡的深灰
+    "城市主干道": { color: "#64748b", weight: 1.2, opacity: 0.18 }, 
     "城市次干道": { color: "#94a3b8", weight: 0.8, opacity: 0.12 },
     "城市支路":   { color: "#cbd5e1", weight: 0.5, opacity: 0.08 },
     "default":    { color: "#e2e8f0", weight: 0.4, opacity: 0.05 }
 };
 
+// --- 3. 路网加载引擎：适配三等分新文件 ---
 async function loadRoadNetwork() {
-    // 依然读取你之前的两个拆分文件
-    const roadFiles = ['road_network_part1.json', 'road_network_part2.json'];
+    // 更新为新生成的三个文件名
+    const roadFiles = [
+        'shanghai_roads_part1.json', 
+        'shanghai_roads_part2.json', 
+        'shanghai_roads_part3.json'
+    ];
     const container = document.getElementById('road-list-ui');
     if (!container) return;
 
     try {
+        // 并行加载三个数据分片，提升载入速度
         const dataArray = await Promise.all(roadFiles.map(f => fetch(f).then(r => r.json())));
         const allFeatures = dataArray.flatMap(d => d.features);
 
-        // 按 type 属性进行逻辑分组
+        // 按道路等级 (type) 进行逻辑分组
         const groups = {};
         allFeatures.forEach(f => {
             const type = f.properties.type || "其他道路";
@@ -476,11 +476,10 @@ async function loadRoadNetwork() {
         Object.keys(groups).forEach(type => {
             const style = roadStyles[type] || roadStyles.default;
             
-            // 创建图层组，但不默认显示 (不执行 .addTo(map))
+            // 创建图层组，初始不添加到地图 (保证 checkbox 初始未勾选)
             const layerGroup = L.geoJSON(groups[type], {
-                // --- 核心修复：在前端实时执行西北纠偏 ---
+                // 实时执行西北方向纠偏校准
                 coordsToLatLng: (coords) => {
-                    // coords[0]是经度(Lng)，coords[1]是纬度(Lat)
                     return L.latLng(
                         coords[1] + ROAD_OFFSET.lat, 
                         coords[0] + ROAD_OFFSET.lng
@@ -493,14 +492,14 @@ async function loadRoadNetwork() {
                     fill: false 
                 },
                 onEachFeature: (f, l) => {
-                    // 仅显示路名信息
+                    // 仅显示路名，保持极简
                     if (f.properties.name) {
                         l.bindPopup(`<div style="font-weight:700; color:#1e293b; padding:2px;">路名：${f.properties.name}</div>`);
                     }
                 }
             });
 
-            // --- 3. 统一 UI 样式：与其他轨道格式完全一致 ---
+            // 统一 UI 样式：与其他轨道格式完全一致
             const div = document.createElement('div');
             div.className = 'layer-item';
             div.innerHTML = `
@@ -515,13 +514,13 @@ async function loadRoadNetwork() {
             container.appendChild(div);
         });
 
-        console.log("✅ 路网纠偏逻辑(西北向)已载入，初始保持隐藏。");
+        console.log("✅ 三部分路网数据载入完毕，位置已纠偏（西北向）。");
     } catch (e) {
-        console.error("❌ 路网加载失败:", e);
+        console.error("❌ 路网加载失败，请检查文件路径是否正确:", e);
     }
 }
 
-// 执行加载
+// 启动加载程序
 loadRoadNetwork();
 
 </script>
