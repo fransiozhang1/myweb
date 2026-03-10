@@ -443,55 +443,29 @@ Object.keys(aoiConfig).forEach(key => {
     const config = aoiConfig[key];
     createUI(key, config.c, 'aoi', document.getElementById('aoi-list-ui'), config.n);
 });
-// --- 1. WGS84 转 GCJ-02 纠偏算法 (解决向东南偏移问题) ---
-const coordTransform = {
-    PI: 3.1415926535897932384626,
-    ee: 0.00669342162296594323,
-    a: 6378245.0,
-    transformlat: function(lng, lat) {
-        var ret = -100.0 + 2.0 * lng + 3.0 * lat + 0.2 * lat * lat + 0.1 * lng * lat + 0.2 * Math.sqrt(Math.abs(lng));
-        ret += (20.0 * Math.sin(6.0 * lng * this.PI) + 20.0 * Math.sin(2.0 * lng * this.PI)) * 2.0 / 3.0;
-        ret += (20.0 * Math.sin(lat * this.PI) + 40.0 * Math.sin(lat / 3.0 * this.PI)) * 2.0 / 3.0;
-        ret += (160.0 * Math.sin(lat / 12.0 * this.PI) + 320 * Math.sin(lat * this.PI / 30.0)) * 2.0 / 3.0;
-        return ret;
-    },
-    transformlng: function(lng, lat) {
-        var ret = 300.0 + lng + 2.0 * lat + 0.1 * lng * lng + 0.1 * lng * lat + 0.1 * Math.sqrt(Math.abs(lng));
-        ret += (20.0 * Math.sin(6.0 * lng * this.PI) + 20.0 * Math.sin(2.0 * lng * this.PI)) * 2.0 / 3.0;
-        ret += (20.0 * Math.sin(lng * this.PI) + 40.0 * Math.sin(lng / 3.0 * this.PI)) * 2.0 / 3.0;
-        ret += (150.0 * Math.sin(lng / 12.0 * this.PI) + 300.0 * Math.sin(lng / 30.0 * this.PI)) * 2.0 / 3.0;
-        return ret;
-    },
-    wgs84togcj02: function(lng, lat) {
-        var dlat = this.transformlat(lng - 105.0, lat - 35.0);
-        var dlng = this.transformlng(lng - 105.0, lat - 35.0);
-        var radlat = lat / 180.0 * this.PI;
-        var magic = Math.sin(radlat);
-        magic = 1 - this.ee * magic * magic;
-        var sqrtmagic = Math.sqrt(magic);
-        dlat = (dlat * 180.0) / ((this.a * (1 - this.ee)) / (magic * sqrtmagic) * this.PI);
-        dlng = (dlng * 180.0) / (this.a / sqrtmagic * Math.cos(radlat) * this.PI);
-        return [lng + dlng, lat + dlat];
-    }
-};
-// --- 1. 手动偏移配置：向西北方向偏移 ---
-// 经度减少 (向西)，纬度增加 (向北)
-const ROAD_OFFSET = { lat: 0.0021, lng: -0.0058 }; 
+// --- 1. 定义手动纠偏参数 (向西北方向拉动) ---
+// 纬度增加 (+) 代表向北，经度减少 (-) 代表向西
+const ROAD_OFFSET = { lat: 0.0022, lng: -0.0055 }; 
 
+// --- 2. 定义路网样式 (极致轻量化，保护徐汇轮廓) ---
 const roadStyles = {
-    "城市主干道": { color: "#475569", weight: 1.2, opacity: 0.15 }, // 极高透明度
-    "城市次干道": { color: "#94a3b8", weight: 0.8, opacity: 0.10 },
+    "城市主干道": { color: "#64748b", weight: 1.2, opacity: 0.18 }, // 较淡的深灰
+    "城市次干道": { color: "#94a3b8", weight: 0.8, opacity: 0.12 },
     "城市支路":   { color: "#cbd5e1", weight: 0.5, opacity: 0.08 },
     "default":    { color: "#e2e8f0", weight: 0.4, opacity: 0.05 }
 };
 
 async function loadRoadNetwork() {
+    // 依然读取你之前的两个拆分文件
     const roadFiles = ['road_network_part1.json', 'road_network_part2.json'];
     const container = document.getElementById('road-list-ui');
-    
+    if (!container) return;
+
     try {
         const dataArray = await Promise.all(roadFiles.map(f => fetch(f).then(r => r.json())));
         const allFeatures = dataArray.flatMap(d => d.features);
+
+        // 按 type 属性进行逻辑分组
         const groups = {};
         allFeatures.forEach(f => {
             const type = f.properties.type || "其他道路";
@@ -501,31 +475,53 @@ async function loadRoadNetwork() {
 
         Object.keys(groups).forEach(type => {
             const style = roadStyles[type] || roadStyles.default;
+            
+            // 创建图层组，但不默认显示 (不执行 .addTo(map))
             const layerGroup = L.geoJSON(groups[type], {
-                // 执行西北方向的手动偏移校准
-                coordsToLatLng: (coords) => L.latLng(coords[1] + ROAD_OFFSET.lat, coords[0] + ROAD_OFFSET.lng),
-                style: { color: style.color, weight: style.weight, opacity: style.opacity },
+                // --- 核心修复：在前端实时执行西北纠偏 ---
+                coordsToLatLng: (coords) => {
+                    // coords[0]是经度(Lng)，coords[1]是纬度(Lat)
+                    return L.latLng(
+                        coords[1] + ROAD_OFFSET.lat, 
+                        coords[0] + ROAD_OFFSET.lng
+                    );
+                },
+                style: { 
+                    color: style.color, 
+                    weight: style.weight, 
+                    opacity: style.opacity,
+                    fill: false 
+                },
                 onEachFeature: (f, l) => {
-                    if (f.properties.name) l.bindPopup(`<b style="color:#1e293b;">路名：${f.properties.name}</b>`);
+                    // 仅显示路名信息
+                    if (f.properties.name) {
+                        l.bindPopup(`<div style="font-weight:700; color:#1e293b; padding:2px;">路名：${f.properties.name}</div>`);
+                    }
                 }
             });
 
-            // 统一 UI 样式：与其他轨道格式完全一致
+            // --- 3. 统一 UI 样式：与其他轨道格式完全一致 ---
             const div = document.createElement('div');
             div.className = 'layer-item';
             div.innerHTML = `
-                <input type="checkbox"> <div class="legend-dot" style="background:${style.color}; height:2px; width:12px; border-radius:1px;"></div>
+                <input type="checkbox"> <div class="legend-dot" style="background:${style.color}; height:2px; width:14px; border-radius:1px; margin-top:2px;"></div>
                 <span style="font-weight:600;">${type}</span>
             `;
+            
             div.querySelector('input').onchange = (e) => {
                 if (e.target.checked) layerGroup.addTo(map);
                 else map.removeLayer(layerGroup);
             };
             container.appendChild(div);
         });
-    } catch (e) { console.error("路网加载异常:", e); }
+
+        console.log("✅ 路网纠偏逻辑(西北向)已载入，初始保持隐藏。");
+    } catch (e) {
+        console.error("❌ 路网加载失败:", e);
+    }
 }
 
+// 执行加载
 loadRoadNetwork();
 
 </script>
