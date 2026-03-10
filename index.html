@@ -443,28 +443,31 @@ Object.keys(aoiConfig).forEach(key => {
     const config = aoiConfig[key];
     createUI(key, config.c, 'aoi', document.getElementById('aoi-list-ui'), config.n);
 });
-// --- 城市路网数据集成逻辑 ---
 
-// 1. 定义不同等级道路的配色方案
+
+
+
+
+
+
+// --- 1. 定义路网样式（降低饱和度与粗细，增加透明度） ---
 const roadStyles = {
-    "城市主干道": { color: "#ef4444", weight: 3 },
-    "城市次干道": { color: "#f59e0b", weight: 2 },
-    "城市支路":   { color: "#10b981", weight: 1.5 },
-    "default":    { color: "#94a3b8", weight: 1 }
+    "城市主干道": { color: "#64748b", weight: 1.5, opacity: 0.25 },
+    "城市次干道": { color: "#94a3b8", weight: 1.0, opacity: 0.15 },
+    "城市支路":   { color: "#cbd5e1", weight: 0.8, opacity: 0.12 },
+    "default":    { color: "#e2e8f0", weight: 0.5, opacity: 0.1 }
 };
 
-const roadLayerGroups = {}; // 存储不同 type 的图层组
-
+// --- 2. 规范化路网加载函数 ---
 async function loadRoadNetwork() {
     const roadFiles = ['road_network_part1.json', 'road_network_part2.json'];
-    const roadListUI = document.getElementById('road-list-ui');
+    const container = document.getElementById('road-list-ui');
     
     try {
-        // 同时加载两个拆分文件
         const dataArray = await Promise.all(roadFiles.map(f => fetch(f).then(r => r.json())));
         const allFeatures = dataArray.flatMap(d => d.features);
 
-        // 按 type 进行数据分组
+        // 按道路类型分组
         const groups = {};
         allFeatures.forEach(f => {
             const type = f.properties.type || "其他道路";
@@ -472,44 +475,43 @@ async function loadRoadNetwork() {
             groups[type].push(f);
         });
 
-        // 为每个 type 创建图层和 UI 开关
         Object.keys(groups).forEach(type => {
             const style = roadStyles[type] || roadStyles.default;
             
-            // 创建 Leaflet 图层组
-            roadLayerGroups[type] = L.geoJSON(groups[type], {
-                style: { color: style.color, weight: style.weight, opacity: 0.8 },
+            // 创建图层组，但最开始不添加到地图 (addTo(map) 被移除)
+            const layerGroup = L.geoJSON(groups[type], {
+                // 核心修复：确保经纬度投射正确
+                coordsToLatLng: (coords) => L.latLng(coords[1], coords[0]), 
+                style: { color: style.color, weight: style.weight, opacity: style.opacity },
                 onEachFeature: (f, l) => {
-                    // 仅显示路名信息，不显示其他字段
                     if (f.properties.name) {
                         l.bindPopup(`<div style="font-weight:800; color:#1e293b; padding:5px;">路名：${f.properties.name}</div>`);
                     }
                 }
-            }).addTo(map);
+            });
 
-            // 动态生成 UI 勾选框
-            const div = document.createElement('div');
+            // --- 3. 统一 UI 显示格式 (与其他数据类一致) ---
+            const div = document.createElement('div'); 
             div.className = 'layer-item';
             div.innerHTML = `
-                <input type="checkbox" checked>
-                <div class="legend-dot" style="background:${style.color}; border-radius:2px; height:3px; width:15px;"></div>
-                <span style="font-size:12px;">${type}</span>
+                <input type="checkbox"> <div class="legend-dot" style="background:${style.color}; width:12px; height:2px; border-radius:1px;"></div>
+                <span style="font-weight:600;">${type}</span>
             `;
             
-            div.querySelector('input').onchange = (e) => {
-                if (e.target.checked) map.addLayer(roadLayerGroups[type]);
-                else map.removeLayer(roadLayerGroups[type]);
+            div.querySelector('input').onchange = (e) => { 
+                if(e.target.checked) layerGroup.addTo(map);
+                else map.removeLayer(layerGroup);
             };
-            roadListUI.appendChild(div);
+            container.appendChild(div);
         });
-
-        console.log("✅ 城市路网数据加载完成，共计分类: " + Object.keys(groups).length);
+        
+        console.log("✅ 路网数据加载成功，默认隐藏状态。");
     } catch (e) {
-        console.error("❌ 路网数据加载失败:", e);
+        console.error("❌ 路网投射失败:", e);
     }
 }
 
-// 在页面启动时调用
+// 启动加载
 loadRoadNetwork();
 </script>
 <div id="pie-tip"></div>
