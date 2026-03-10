@@ -450,26 +450,25 @@ Object.keys(aoiConfig).forEach(key => {
 
 
 
-// --- 城市路网数据集成优化 ---
-
-// 1. 定义路网样式（极致轻量化，保护徐汇区轮廓）
+// --- 1. 样式定义：极致轻量化与高透明度 ---
 const roadStyles = {
-    "城市主干道": { color: "#475569", weight: 1.2, opacity: 0.2 }, // 深灰，低透明度
-    "城市次干道": { color: "#94a3b8", weight: 0.8, opacity: 0.15 },
-    "城市支路":   { color: "#cbd5e1", weight: 0.5, opacity: 0.1 },
-    "default":    { color: "#e2e8f0", weight: 0.4, opacity: 0.08 }
+    "城市主干道": { color: "#475569", weight: 1.2, opacity: 0.18 },
+    "城市次干道": { color: "#94a3b8", weight: 0.8, opacity: 0.12 },
+    "城市支路":   { color: "#cbd5e1", weight: 0.5, opacity: 0.08 },
+    "default":    { color: "#e2e8f0", weight: 0.4, opacity: 0.05 }
 };
 
+// --- 2. 路网加载引擎：解决投影与 UI 统一问题 ---
 async function loadRoadNetwork() {
     const roadFiles = ['road_network_part1.json', 'road_network_part2.json'];
     const roadListUI = document.getElementById('road-list-ui');
     
     try {
-        // 同时获取两份数据
+        // 并行加载拆分后的 JSON 文件
         const dataArray = await Promise.all(roadFiles.map(f => fetch(f).then(r => r.json())));
         const allFeatures = dataArray.flatMap(d => d.features);
 
-        // 按道路等级（type）分组
+        // 按道路 type 属性进行逻辑分组
         const groups = {};
         allFeatures.forEach(f => {
             const type = f.properties.type || "其他道路";
@@ -477,33 +476,36 @@ async function loadRoadNetwork() {
             groups[type].push(f);
         });
 
-        // 为每个道路等级创建图层与 UI
+        // 遍历分组，构建图层与 UI 开关
         Object.keys(groups).forEach(type => {
             const style = roadStyles[type] || roadStyles.default;
             
-            // 创建 GeoJSON 图层，但不默认 addTo(map)
+            // 创建 GeoJSON 图层，但不默认显示 (不执行 .addTo(map))
             const layerGroup = L.geoJSON(groups[type], {
-                // 核心修复：强制检查经纬度顺序并校准投影
-                coordsToLatLng: (coords) => L.latLng(coords[1], coords[0]), 
+                // 坐标校准：强制确保 GeoJSON 的 [lng, lat] 被正确解析
+                coordsToLatLng: (coords) => {
+                    // 如果你的路网依然偏移巨大，请检查数值是否在 [121, 31] 附近
+                    return L.latLng(coords[1], coords[0]);
+                },
                 style: { 
                     color: style.color, 
                     weight: style.weight, 
                     opacity: style.opacity,
-                    fillOpacity: 0 // 道路为线条，填充设为0
+                    fill: false // 确保线条数据不产生填充阴影
                 },
                 onEachFeature: (f, l) => {
-                    // 仅显示路名，不显示其他冗余信息
+                    // 仅显示路名信息，保持界面极简
                     if (f.properties.name) {
                         l.bindPopup(`<div style="font-weight:700; color:#1e293b; padding:2px;">路名：${f.properties.name}</div>`);
                     }
                 }
             });
 
-            // 统一 UI 显示格式（与其他数据轨道一致）
+            // --- 3. 统一 UI 样式：与其他轨道格式完全一致 ---
             const div = document.createElement('div');
             div.className = 'layer-item';
             div.innerHTML = `
-                <input type="checkbox"> <div class="legend-dot" style="background:${style.color}; height:2px; width:12px; border-radius:1px;"></div>
+                <input type="checkbox"> <div class="legend-dot" style="background:${style.color}; height:2px; width:14px; border-radius:1px; margin-top:2px;"></div>
                 <span style="font-weight:600;">${type}</span>
             `;
             
@@ -514,13 +516,13 @@ async function loadRoadNetwork() {
             roadListUI.appendChild(div);
         });
 
-        console.log("✅ 城市路网数据投影校准完成，UI 已同步。");
+        console.log("✅ 城市路网(OSM/WGS84)已就绪，已按道路等级分类并默认隐藏。");
     } catch (e) {
-        console.error("❌ 路网加载或投影异常:", e);
+        console.error("❌ 路网加载失败或 JSON 路径错误:", e);
     }
 }
 
-// 启动执行
+// 启动加载
 loadRoadNetwork();
 </script>
 <div id="pie-tip"></div>
