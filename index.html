@@ -446,91 +446,82 @@ Object.keys(aoiConfig).forEach(key => {
 
 
 
-// --- 1. 高对比度彩色路网配置 ---
-const roadConfigs = {
-    "高速公路":   { color: "#FF4D4F", weight: 2.5, opacity: 0.8 }, // 亮红
-    "城市主干道": { color: "#722ED1", weight: 2.2, opacity: 0.8 }, // 亮紫
-    "城市次干道": { color: "#1890FF", weight: 1.8, opacity: 0.7 }, // 科技蓝
-    "城市支路":   { color: "#52C41A", weight: 1.2, opacity: 0.6 }, // 翠绿
-    "其他道路":   { color: "#FAAD14", weight: 1.0, opacity: 0.5 }  // 金黄
+// --- 1. 定义道路等级排序权重与配色方案 (Ant Design 科技色系) ---
+const ROAD_HIERARCHY = {
+    "高速公路":   { weight: 5, color: "#F5222D", lineW: 2.5, opacity: 0.85 }, // 炽热红
+    "城市主干道": { weight: 4, color: "#722ED1", lineW: 2.0, opacity: 0.80 }, // 极客紫
+    "城市次干道": { color: "#1890FF", weight: 3, lineW: 1.6, opacity: 0.75 }, // 科技蓝
+    "城市支路":   { color: "#52C41A", weight: 2, lineW: 1.2, opacity: 0.70 }, // 活力绿
+    "其他道路":   { color: "#FAAD14", weight: 1, lineW: 1.0, opacity: 0.60 }  // 警示黄
 };
 
 async function initRoadNetwork() {
-    const roadFiles = [
-        'shanghai_roads_nw_part1.json',
-        'shanghai_roads_nw_part2.json',
-        'shanghai_roads_nw_part3.json'
-    ];
+    const roadFiles = ['shanghai_roads_nw_part1.json', 'shanghai_roads_nw_part2.json', 'shanghai_roads_nw_part3.json'];
     const container = document.getElementById('road-layers-container');
     if (!container) return;
 
     try {
-        // 1. 并行加载并合并数据
         const dataArray = await Promise.all(roadFiles.map(f => fetch(f).then(r => r.json())));
         const allFeatures = dataArray.flatMap(d => d.features);
 
-        // 2. 核心：按 type 分组（增加容错处理）
+        // 2. 属性归一化：解决“道”与“路”命名不统一导致的显示失败
         const groups = {};
         allFeatures.forEach(f => {
             let type = f.properties.type || "其他道路";
-            // 统一名称差异（防止“道”和“路”的命名冲突）
-            if (type.includes("主干")) type = "城市主干道";
-            if (type.includes("次干")) type = "城市次干道";
-            
+            if (type.includes("高速")) type = "高速公路";
+            else if (type.includes("主干")) type = "城市主干道";
+            else if (type.includes("次干")) type = "城市次干道";
+            else if (type.includes("支路")) type = "城市支路";
+            else type = "其他道路";
+
             if (!groups[type]) groups[type] = [];
             groups[type].push(f);
         });
 
-        // 3. 排序并渲染
-        Object.keys(groups).sort().forEach(type => {
-            const config = roadConfigs[type] || roadConfigs["其他道路"];
+        // 3. 按照定义的权重从高到低排序显示
+        const sortedTypes = Object.keys(groups).sort((a, b) => {
+            return (ROAD_HIERARCHY[b]?.weight || 0) - (ROAD_HIERARCHY[a]?.weight || 0);
+        });
+
+        sortedTypes.forEach(type => {
+            const cfg = ROAD_HIERARCHY[type] || ROAD_HIERARCHY["其他道路"];
             
-            // 创建图层组
+            // 创建图层
             const layerGroup = L.geoJSON(groups[type], {
                 coordsToLatLng: (c) => L.latLng(c[1], c[0]),
-                style: { 
-                    color: config.color, 
-                    weight: config.weight, 
-                    opacity: config.opacity,
-                    lineJoin: 'round'
-                },
+                style: { color: cfg.color, weight: cfg.lineW, opacity: cfg.opacity },
                 onEachFeature: (f, l) => {
-                    if (f.properties.name) {
-                        l.bindPopup(`<div style="font-weight:700; color:#333;">${f.properties.name}</div>`);
-                    }
+                    if (f.properties.name) l.bindPopup(`<b style="color:#333;">${f.properties.name}</b>`);
                 }
             });
 
-            // --- 4. 样式重塑：严格对齐 UI ---
+            // --- 4. 极致 UI 修复：强制水平布局且美化 ---
             const item = document.createElement('div');
-            // 强制使用 flex 布局并对齐
             item.className = 'layer-item';
+            // 关键：强制 Flex 布局确保不换行，且与 POI 样式完美对齐
             item.style.display = 'flex';
             item.style.alignItems = 'center';
-            item.style.gap = '10px';
-            item.style.padding = '8px 0';
+            item.style.padding = '10px 0';
+            item.style.borderBottom = '1px solid rgba(0,0,0,0.03)';
 
             item.innerHTML = `
-                <input type="checkbox" style="margin: 0; cursor: pointer;">
-                <div style="background:${config.color}; width:16px; height:3px; border-radius:2px; flex-shrink:0;"></div>
-                <span style="font-size: 13px; font-weight: 600; color: #444; white-space: nowrap;">${type}</span>
+                <input type="checkbox" style="margin-right: 12px; cursor: pointer; width: 16px; height: 16px;">
+                <div class="legend-line" style="background:${cfg.color}; width:20px; height:3px; border-radius:1.5px; margin-right:12px; flex-shrink:0;"></div>
+                <span style="font-size: 13px; font-weight: 600; color: #1e293b; white-space: nowrap; flex-grow: 1;">${type}</span>
             `;
             
             const checkbox = item.querySelector('input');
             checkbox.onchange = (e) => {
-                if (e.target.checked) {
-                    layerGroup.addTo(map);
-                } else {
-                    if (map.hasLayer(layerGroup)) map.removeLayer(layerGroup);
-                }
+                if (e.target.checked) layerGroup.addTo(map);
+                else if (map.hasLayer(layerGroup)) map.removeLayer(layerGroup);
             };
 
             container.appendChild(item);
         });
         
-        console.log("✅ 彩色路网加载完成，图层数:", Object.keys(groups).length);
+        console.log("✅ 彩色路网层级面板初始化成功");
     } catch (e) {
-        console.error("❌ 初始化失败:", e);
+        console.error("❌ 路网初始化异常:", e);
     }
 }
 
