@@ -553,19 +553,30 @@ function renderCalcHistory() {
 window.deleteCalc = (id) => { activeCalculations = activeCalculations.filter(c => c.id !== id); refreshMap(); renderCalcHistory(); };
 
 // --- 8. 启动加载 ---
+// analysis.html
+
 state.activeLayers.forEach(name => {
+    // 1. 判断图层类型（新增路网判断，保留原有判断）
+    const isR = !!ROAD_SETTING[name]; // 是否属于那 10 类路网
     const isH = name.includes('房产');
     const isS = name.includes('街景');
-    const isA = aoiConfig[name]; // 判断是否为 AOI 数据
-    
-    // 动态确定颜色：如果是 AOI 使用配置色，否则使用随机/预设色
-    const color = isA ? isA.c : (isS ? '#2BB5BE' : (isH ? '#FF7E5F' : `hsl(${(state.activeLayers.indexOf(name)*137)%360},65%,50%)`));
-    
-    // 初始化深度筛选轨道
+    const isA = aoiConfig[name]; 
+
+    // 2. 动态确定颜色：路网使用配置色，AOI 使用配置色，其余保留逻辑
+    const color = isR ? ROAD_SETTING[name].color : (isA ? isA.c : (isS ? '#2BB5BE' : (isH ? '#FF7E5F' : `hsl(${(state.activeLayers.indexOf(name)*137)%360},65%,50%)`)));
+
+    // 3. 初始化深度筛选轨道
     deepFilterRegistry[name] = { kws: [...state.keywords], activeFields: new Set(), availableHeaders: [], isDeep: false };
 
+    // 4. 加载逻辑：新增路网分片加载，保留原有所有加载逻辑
     let loadPromise;
-    if (name === "buildings_a") {
+    if (isR) {
+        // 处理路网数据的三个分片文件
+        const files = ['shanghai_roads_nw_part1.json', 'shanghai_roads_nw_part2.json', 'shanghai_roads_nw_part3.json'];
+        loadPromise = Promise.all(files.map(f => fetch(f).then(r => r.json()))).then(dataArray => ({
+            type: "FeatureCollection", features: dataArray.flatMap(d => d.features)
+        }));
+    } else if (name === "buildings_a") {
         const parts = ['part1', 'part2', 'part3'];
         loadPromise = Promise.all(parts.map(p => 
             fetch(`data_aoi/gis_osm_buildings_a_free_1_${p}.json`).then(r => r.json())
@@ -582,40 +593,52 @@ state.activeLayers.forEach(name => {
         loadPromise = fetch(path).then(r => r.json());
     }
 
+    // 5. 加载完成后的 UI 分发逻辑
     loadPromise.then(data => {
         pool[name] = data;
         
-        // 核心修复：根据类型选择容器和中文标签
         let targetContainer = 'active-category-list';
         let chineseLabel = name;
 
-        if (isA) {
-            targetContainer = 'aoi-list-ui'; // AOI 数据进入专用容器
-            chineseLabel = isA.n;           // 使用配置里的中文名
+        // 根据类型选择容器和标签
+        if (isR) {
+            targetContainer = 'road-layers-container'; // 路网进入专属容器
+            chineseLabel = name;
+        } else if (isA) {
+            targetContainer = 'aoi-list-ui';
+            chineseLabel = isA.n;
         } else if (isS) {
             targetContainer = 'street-list-ui';
             chineseLabel = '街景语义分割图';
         }
 
-        // 调用刚才改好的函数
-        initLayerControl(name, color, targetContainer, chineseLabel);
+        // 调用统一的初始化控制函数
+        initLayerControl(name, color, targetContainer, chineseLabel, isR);
         
     }).catch(e => console.error(`加载图层 ${name} 失败:`, e));
 });
 
 // 核心修复：重命名为 initLayerControl 并增加 label 参数
-function initLayerControl(name, color, containerId, label) {
-    displayLayers[name] = { layer: L.layerGroup().addTo(map), conf: { c: color, visible: true } };
+// analysis.html
+
+function initLayerControl(name, color, containerId, label, isR = false) {
+    // 1. 创建 Leaflet 图层并存入管理对象
+    const layer = L.layerGroup().addTo(map);
+    displayLayers[name] = { layer: layer, conf: { c: color, visible: true } };
     
-    // 如果有传入中文标签则使用，否则用原始 ID
-    const displayName = label || name;
-    
+    // 2. 渲染 UI 条目 (强制 Flex 布局对齐)
     const div = document.createElement('div'); 
-    div.className = 'layer-item';
+    div.className = 'layer-item' + (isR ? ' road-item' : '');
+    
+    // 如果是路网数据，使用 legend-line；否则使用 legend-dot
+    const legendHtml = isR 
+        ? `<div class="legend-line" style="background:${color}; width:20px; height:3px; border-radius:1px; margin-right:12px; flex-shrink:0;"></div>`
+        : `<div class="legend-dot" style="background:${color}; width:10px; height:10px; border-radius:50%; margin-right:12px; flex-shrink:0;"></div>`;
+
     div.innerHTML = `
-        <input type="checkbox" checked>
-        <div class="legend-dot" style="background:${color}"></div>
-        <span style="font-weight:600;">${displayName}</span>
+        <input type="checkbox" checked style="flex-shrink:0;">
+        ${legendHtml}
+        <span style="font-weight:600; font-size:13px; white-space:nowrap; flex-grow:1;">${label || name}</span>
     `;
     
     div.querySelector('input').onchange = (e) => { 
@@ -624,11 +647,8 @@ function initLayerControl(name, color, containerId, label) {
     };
     
     const container = document.getElementById(containerId);
-    if(container) {
-        container.appendChild(div);
-    } else {
-        console.warn(`找不到容器: ${containerId}，请检查 HTML 中是否有该 ID`);
-    }
+    if(container) container.appendChild(div);
+    
     refreshMap();
 }
 
@@ -665,6 +685,7 @@ const ROAD_SETTING = {
     "其他": { weight: 1, color: "#8C8C8C", lineW: 0.8 }
 };
 
+// analysis.html
 class RoadLayerManager {
     constructor(map) {
         this.map = map;
@@ -672,7 +693,7 @@ class RoadLayerManager {
     }
 
     async loadActiveRoads() {
-        // 只加载在首页被勾选的道路类别
+        // 1. 从 state 中筛选出被选中的路网类别
         const activeRoadTypes = state.activeLayers.filter(name => ROAD_SETTING[name]);
         if (activeRoadTypes.length === 0) return;
 
@@ -683,7 +704,7 @@ class RoadLayerManager {
         activeRoadTypes.forEach(type => {
             const features = allFeatures.filter(f => {
                 let t = f.properties.type || "其他";
-                // 归一化逻辑与 index.html 保持高度一致
+                // 归一化逻辑需与 index.html 严格一致
                 if (t.includes("高速")) t = "高速公路";
                 else if (t.includes("快速")) t = "城市快速路";
                 else if (t.includes("主干")) t = "城市主干路";
@@ -698,9 +719,9 @@ class RoadLayerManager {
             });
 
             if (features.length > 0) {
-                this.renderRoadLayer(type, features);
-                // 存入全局 pool，供指标运算引擎调用
+                // 2. 存入全局 pool，供指标运算引擎调用
                 pool[type] = { type: "FeatureCollection", features: features };
+                this.renderRoadLayer(type, features);
             }
         });
     }
@@ -709,13 +730,6 @@ class RoadLayerManager {
         const cfg = ROAD_SETTING[type];
         const layer = L.geoJSON(features, {
             coordsToLatLng: (c) => L.latLng(c[1], c[0]),
-            filter: (f) => {
-                const reg = deepFilterRegistry[type];
-                if (!reg || !reg.isDeep) return true;
-                // 接入原有的 AI CSV 匹配逻辑
-                const mKey = normalize(f.properties.name);
-                return reg.kws.some(kw => normalize(kw).includes(mKey) || mKey.includes(normalize(kw)));
-            },
             style: { color: cfg.color, weight: cfg.lineW, opacity: 0.8 },
             onEachFeature: (f, l) => {
                 l.bindPopup(`<div class="popup-info-row">道路属性</div><b>路名: ${f.properties.name || "未命名"}</b>`);
@@ -728,10 +742,10 @@ class RoadLayerManager {
 
     addControlUI(type, color) {
         const div = document.createElement('div');
-        div.className = 'layer-item road-item'; // 增加专用类名
+        div.className = 'layer-item road-item'; // 确保 CSS 样式生效
         div.innerHTML = `
             <input type="checkbox" checked>
-            <div class="legend-line" style="background:${color}"></div>
+            <div class="legend-line" style="background:${color}; width:20px; height:3px; margin-right:10px;"></div>
             <span>${type}</span>
         `;
         div.querySelector('input').onchange = (e) => {
