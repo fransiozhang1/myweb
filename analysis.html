@@ -33,7 +33,6 @@
     </svg>
     路网分析
 </button>
-</button>
     </div>
 </div>
 
@@ -98,25 +97,34 @@
         <div class="step-box">
             <div class="group-label" style="margin-top:0;">1. 分析方式</div>
             <select id="road-analysis-mode">
-                <option value="service_area">真实路程范围筛选</option>
-            </select>
+    <option value="service_area">真实路程范围筛选</option>
+    <option value="choice_center">选择度分析</option>
+</select>
+
+<div id="choice-source-box" style="display:none; margin-top:12px;">
+    <div class="group-label" style="margin-top:0;">2. 选择中心来源图层</div>
+    <select id="choice-source-layer"></select>
+    <div style="font-size:12px; color:#64748b; margin-top:8px;">
+        请选择一个“路网分析结果（xxkm）”图层，系统会读取其中的黑点作为中心点。
+    </div>
+</div>
         </div>
 
-        <div class="step-box">
-            <div class="group-label" style="margin-top:0;">2. 最大路程（公里）</div>
-            <input id="road-distance-km" class="input-coeff" type="number" min="0.1" step="0.1" value="1.0" placeholder="输入公里数">
-            <div style="font-size:12px; color:#64748b; margin-top:8px;">
-                先按圆形范围做裁剪，再按真实路网距离精算。
-            </div>
-        </div>
+        <div id="service-area-distance-box">
+    <div class="group-label" style="margin-top:0;">2. 最大路程（公里）</div>
+    <input id="road-distance-km" class="input-coeff" type="number" min="0.1" step="0.1" value="1.0" placeholder="输入公里数">
+    <div style="font-size:12px; color:#64748b; margin-top:8px;">
+        先按圆形范围做裁剪，再按真实路网距离精算。
+    </div>
+</div>
 
-        <div class="step-box">
-            <div class="group-label" style="margin-top:0;">3. 设置起点</div>
-            <button id="btn-pick-road-origin" style="background:var(--primary); color:white; border:none; padding:14px; border-radius:16px; font-weight:800; cursor:pointer; width:100%; font-size:14px;">
-                在地图上选择起点
-            </button>
-            <div id="road-origin-status" style="font-size:12px; color:#94a3b8; margin-top:8px;">尚未设置起点</div>
-        </div>
+        <div id="service-area-origin-box">
+    <div class="group-label" style="margin-top:0;">3. 设置起点</div>
+    <button id="btn-pick-road-origin" style="background:var(--primary); color:white; border:none; padding:14px; border-radius:16px; font-weight:800; cursor:pointer; width:100%; font-size:14px;">
+        在地图上选择起点
+    </button>
+    <div id="road-origin-status" style="font-size:12px; color:#94a3b8; margin-top:8px;">尚未设置起点</div>
+</div>
 
         <div class="step-box">
             <div class="group-label" style="margin-top:0;">4. 结果处理</div>
@@ -434,14 +442,91 @@ setupBtn('btn-layer-t', () => document.getElementById('layer-menu').style.displa
 setupBtn('btn-deep-filter', () => { renderDeepUI(); document.getElementById('deep-filter-win').style.display = 'flex'; });
 setupBtn('btn-data-interact', () => { initInteractUI(); document.getElementById('data-interact-win').style.display = 'flex'; });
 setupBtn('btn-road-analysis', () => {
+    refreshRoadAnalysisModeUI();
+    refreshChoiceSourceOptions();
     document.getElementById('road-analysis-win').style.display = 'flex';
 });
+
 setupBtn('btn-ruler', () => map.pm.enableDraw('Line', { measurements: { showLength: true } }));
 setupBtn('btn-poly', () => map.pm.enableDraw('Polygon', { measurements: { showArea: true } }));
 setupBtn('btn-marker', () => map.pm.enableDraw('Marker'));
 document.getElementById('tool-eraser').onclick = () => map.pm.toggleGlobalRemovalMode();
 document.querySelectorAll('.close-win').forEach(c => c.onclick = deactivateAll);
 
+function getRoadAnalysisSourceLayers() {
+    return Object.keys(displayLayers).filter(name => {
+        const conf = displayLayers[name]?.conf || {};
+        const fc = pool[name];
+
+        if (!conf.isGeneratedRoadAnalysis) return false;
+        if (conf.isChoiceResult) return false;
+        if (!fc || !Array.isArray(fc.features)) return false;
+
+        return fc.features.some(f => f.properties && f.properties.isRoadAnalysisOrigin);
+    });
+}
+
+function refreshChoiceSourceOptions() {
+    const sel = document.getElementById('choice-source-layer');
+    if (!sel) return;
+
+    const current = sel.value;
+    sel.innerHTML = '';
+
+    const names = getRoadAnalysisSourceLayers();
+
+    if (!names.length) {
+        const op = document.createElement('option');
+        op.value = '';
+        op.textContent = '暂无可用的路网分析结果图层';
+        sel.appendChild(op);
+        return;
+    }
+
+    names.forEach(name => {
+        const op = document.createElement('option');
+        op.value = name;
+        op.textContent = name;
+        sel.appendChild(op);
+    });
+
+    if (names.includes(current)) {
+        sel.value = current;
+    }
+}
+
+function refreshRoadAnalysisModeUI() {
+    const mode = document.getElementById('road-analysis-mode').value;
+
+    const choiceBox = document.getElementById('choice-source-box');
+    const distanceBox = document.getElementById('service-area-distance-box');
+    const originBox = document.getElementById('service-area-origin-box');
+
+    if (mode === 'choice_center') {
+        if (choiceBox) choiceBox.style.display = 'block';
+        if (distanceBox) distanceBox.style.display = 'none';
+        if (originBox) originBox.style.display = 'none';
+        refreshChoiceSourceOptions();
+    } else {
+        if (choiceBox) choiceBox.style.display = 'none';
+        if (distanceBox) distanceBox.style.display = 'block';
+        if (originBox) originBox.style.display = 'block';
+    }
+}
+
+function getOriginFromGeneratedRoadLayer(layerName) {
+    const fc = pool[layerName];
+    if (!fc || !Array.isArray(fc.features)) return null;
+
+    const pt = fc.features.find(f => f.properties && f.properties.isRoadAnalysisOrigin);
+    if (!pt || !pt.geometry || pt.geometry.type !== 'Point') return null;
+
+    return L.latLng(pt.geometry.coordinates[1], pt.geometry.coordinates[0]);
+}
+
+document.getElementById('road-analysis-mode').onchange = () => {
+    refreshRoadAnalysisModeUI();
+};
 
 
 document.getElementById('btn-pick-road-origin').onclick = () => {
@@ -571,6 +656,506 @@ function buildRoadGraphFromPool(originLatLng, radiusMeters) {
     roadGraph = graph;
     roadEdgeMeta = edgeMeta;
 }
+
+
+function buildFullRoadGraphFromPool() {
+    const graph = {};
+    const edgeMeta = [];
+
+    Object.keys(pool).forEach(layerName => {
+        const conf = displayLayers[layerName]?.conf || {};
+
+        // 只用基础路网，不用分析生成图层
+        if (!ROAD_SETTING[layerName]) return;
+        if (conf.isGeneratedRoadAnalysis) return;
+        if (conf.isChoiceResult) return;
+        if (!pool[layerName] || !pool[layerName].features) return;
+
+        pool[layerName].features.forEach((feature) => {
+            const geom = feature.geometry;
+            if (!geom) return;
+
+            const lines = geom.type === 'MultiLineString'
+                ? geom.coordinates
+                : (geom.type === 'LineString' ? [geom.coordinates] : []);
+
+            lines.forEach((lineCoords) => {
+                for (let i = 0; i < lineCoords.length - 1; i++) {
+                    const c1 = lineCoords[i];
+                    const c2 = lineCoords[i + 1];
+
+                    const a = { lat: c1[1], lng: c1[0] };
+                    const b = { lat: c2[1], lng: c2[0] };
+
+                    const k1 = latlngKey(a.lat, a.lng);
+                    const k2 = latlngKey(b.lat, b.lng);
+                    const w = segLength(a, b);
+
+                    if (!graph[k1]) graph[k1] = [];
+                    if (!graph[k2]) graph[k2] = [];
+
+                    const edgeId = edgeMeta.length;
+                    edgeMeta.push({
+                        edgeId,
+                        layerName,
+                        feature,
+                        a,
+                        b,
+                        weight: w
+                    });
+
+                    graph[k1].push({ to: k2, w, edgeId });
+                    graph[k2].push({ to: k1, w, edgeId });
+                }
+            });
+        });
+    });
+
+    roadGraph = graph;
+    roadEdgeMeta = edgeMeta;
+}
+
+
+
+function roundCoord(n, digits = 6) {
+    return Number(n.toFixed(digits));
+}
+
+function pointKey(pt) {
+    return `${roundCoord(pt.lat)},${roundCoord(pt.lng)}`;
+}
+
+function makeLatLng(lat, lng) {
+    return { lat: Number(lat), lng: Number(lng) };
+}
+
+function cross2d(ax, ay, bx, by) {
+    return ax * by - ay * bx;
+}
+
+function pointOnSegmentParam(p, a, b) {
+    const dx = b.lng - a.lng;
+    const dy = b.lat - a.lat;
+    const len2 = dx * dx + dy * dy;
+    if (len2 === 0) return 0;
+
+    const t = ((p.lng - a.lng) * dx + (p.lat - a.lat) * dy) / len2;
+    return t;
+}
+
+function isPointOnSegment(p, a, b, eps = 1e-8) {
+    const t = pointOnSegmentParam(p, a, b);
+    if (t < -eps || t > 1 + eps) return false;
+
+    const proj = {
+        lng: a.lng + (b.lng - a.lng) * t,
+        lat: a.lat + (b.lat - a.lat) * t
+    };
+
+    const dist2 = (proj.lng - p.lng) ** 2 + (proj.lat - p.lat) ** 2;
+    return dist2 < eps * eps;
+}
+
+function segmentIntersection(a, b, c, d, eps = 1e-9) {
+    const r = { x: b.lng - a.lng, y: b.lat - a.lat };
+    const s = { x: d.lng - c.lng, y: d.lat - c.lat };
+
+    const denom = cross2d(r.x, r.y, s.x, s.y);
+    const qpx = c.lng - a.lng;
+    const qpy = c.lat - a.lat;
+
+    if (Math.abs(denom) < eps) {
+        // 平行或共线
+        // 对共线情况，只返回端点重合点，避免逻辑过重
+        const candidates = [a, b, c, d].filter(pt =>
+            isPointOnSegment(pt, a, b) && isPointOnSegment(pt, c, d)
+        );
+
+        const uniq = [];
+        const seen = new Set();
+        candidates.forEach(pt => {
+            const k = pointKey(pt);
+            if (!seen.has(k)) {
+                seen.add(k);
+                uniq.push(pt);
+            }
+        });
+
+        return uniq.map(pt => ({ point: pt, ta: pointOnSegmentParam(pt, a, b), tb: pointOnSegmentParam(pt, c, d) }));
+    }
+
+    const t = cross2d(qpx, qpy, s.x, s.y) / denom;
+    const u = cross2d(qpx, qpy, r.x, r.y) / denom;
+
+    if (t >= -eps && t <= 1 + eps && u >= -eps && u <= 1 + eps) {
+        return [{
+            point: makeLatLng(a.lat + t * (b.lat - a.lat), a.lng + t * (b.lng - a.lng)),
+            ta: t,
+            tb: u
+        }];
+    }
+
+    return [];
+}
+
+function buildIntegratedSegmentsFromFeatureCollection(fc) {
+    const rawSegments = [];
+
+    if (!fc || !Array.isArray(fc.features)) return rawSegments;
+
+    fc.features.forEach(feature => {
+        const geom = feature.geometry;
+        const props = feature.properties || {};
+
+        if (!geom || geom.type !== 'LineString') return;
+        if (props.isRoadAnalysisOrigin || props.isChoiceOrigin) return;
+
+        const coords = geom.coordinates || [];
+        for (let i = 0; i < coords.length - 1; i++) {
+            const c1 = coords[i];
+            const c2 = coords[i + 1];
+
+            rawSegments.push({
+                a: makeLatLng(c1[1], c1[0]),
+                b: makeLatLng(c2[1], c2[0]),
+                feature,
+                sourceLayer: props.sourceLayer || props.type || "道路"
+            });
+        }
+    });
+
+    // 为每条原始 segment 收集切分点
+    const splitMap = rawSegments.map(seg => [
+        { pt: seg.a, t: 0 },
+        { pt: seg.b, t: 1 }
+    ]);
+
+    for (let i = 0; i < rawSegments.length; i++) {
+        for (let j = i + 1; j < rawSegments.length; j++) {
+            const s1 = rawSegments[i];
+            const s2 = rawSegments[j];
+
+            const ints = segmentIntersection(s1.a, s1.b, s2.a, s2.b);
+            if (!ints.length) continue;
+
+            ints.forEach(hit => {
+                if (hit.ta >= 0 && hit.ta <= 1) {
+                    splitMap[i].push({ pt: hit.point, t: hit.ta });
+                }
+                if (hit.tb >= 0 && hit.tb <= 1) {
+                    splitMap[j].push({ pt: hit.point, t: hit.tb });
+                }
+            });
+        }
+    }
+
+    // 按切分点把 segment 拆开
+    const integratedSegments = [];
+
+    rawSegments.forEach((seg, idx) => {
+        const sorted = splitMap[idx]
+            .sort((m1, m2) => m1.t - m2.t)
+            .filter((item, i, arr) => i === 0 || Math.abs(item.t - arr[i - 1].t) > 1e-8);
+
+        for (let k = 0; k < sorted.length - 1; k++) {
+            const p1 = sorted[k].pt;
+            const p2 = sorted[k + 1].pt;
+
+            if (pointKey(p1) === pointKey(p2)) continue;
+
+            integratedSegments.push({
+                a: p1,
+                b: p2,
+                feature: seg.feature,
+                sourceLayer: seg.sourceLayer
+            });
+        }
+    });
+
+    return integratedSegments;
+}
+
+
+
+function buildRoadGraphFromGeneratedLayer(layerName) {
+    const fc = pool[layerName];
+    if (!fc || !Array.isArray(fc.features)) {
+        roadGraph = {};
+        roadEdgeMeta = [];
+        return;
+    }
+
+    const rawSegments = [];
+
+    // 1. 先把来源图层里所有 LineString 全部拆成基础线段
+    fc.features.forEach(feature => {
+        const geom = feature.geometry;
+        const props = feature.properties || {};
+
+        if (!geom || geom.type !== "LineString") return;
+        if (props.isRoadAnalysisOrigin || props.isChoiceOrigin) return;
+
+        const coords = geom.coordinates || [];
+        for (let i = 0; i < coords.length - 1; i++) {
+            const c1 = coords[i];
+            const c2 = coords[i + 1];
+
+            rawSegments.push({
+                a: { lat: c1[1], lng: c1[0] },
+                b: { lat: c2[1], lng: c2[0] },
+                feature
+            });
+        }
+    });
+
+    // 2. 把这些线段统一建成一个整体网络
+    //    只要端点重合，就连起来；
+    //    如果相交但没有顶点，也通过交点补节点
+    const graph = {};
+    const edgeMeta = [];
+
+    const roundKey = (lat, lng) => `${lat.toFixed(6)},${lng.toFixed(6)}`;
+
+    const addNode = (pt) => roundKey(pt.lat, pt.lng);
+
+    const segIntersection = (a, b, c, d) => {
+        const ax = a.lng, ay = a.lat;
+        const bx = b.lng, by = b.lat;
+        const cx = c.lng, cy = c.lat;
+        const dx = d.lng, dy = d.lat;
+
+        const denom = (bx - ax) * (dy - cy) - (by - ay) * (dx - cx);
+        if (Math.abs(denom) < 1e-10) return null;
+
+        const t = ((cx - ax) * (dy - cy) - (cy - ay) * (dx - cx)) / denom;
+        const u = ((cx - ax) * (by - ay) - (cy - ay) * (bx - ax)) / denom;
+
+        if (t < 0 || t > 1 || u < 0 || u > 1) return null;
+
+        return {
+            lat: ay + t * (by - ay),
+            lng: ax + t * (bx - ax),
+            ta: t,
+            tb: u
+        };
+    };
+
+    // 3. 给每个原始 segment 收集切分点
+    const splitPoints = rawSegments.map(seg => [
+        { lat: seg.a.lat, lng: seg.a.lng, t: 0 },
+        { lat: seg.b.lat, lng: seg.b.lng, t: 1 }
+    ]);
+
+    for (let i = 0; i < rawSegments.length; i++) {
+        for (let j = i + 1; j < rawSegments.length; j++) {
+            const s1 = rawSegments[i];
+            const s2 = rawSegments[j];
+
+            const hit = segIntersection(s1.a, s1.b, s2.a, s2.b);
+            if (!hit) continue;
+
+            splitPoints[i].push({ lat: hit.lat, lng: hit.lng, t: hit.ta });
+            splitPoints[j].push({ lat: hit.lat, lng: hit.lng, t: hit.tb });
+        }
+    }
+
+    // 4. 按切分点把每条线真正切开，再建统一 graph
+    rawSegments.forEach((seg, idx) => {
+        const pts = splitPoints[idx]
+            .sort((p1, p2) => p1.t - p2.t)
+            .filter((p, i, arr) => i === 0 || Math.abs(p.t - arr[i - 1].t) > 1e-8);
+
+        for (let k = 0; k < pts.length - 1; k++) {
+            const a = { lat: pts[k].lat, lng: pts[k].lng };
+            const b = { lat: pts[k + 1].lat, lng: pts[k + 1].lng };
+
+            const k1 = addNode(a);
+            const k2 = addNode(b);
+
+            if (k1 === k2) continue;
+
+            const w = segLength(a, b);
+
+            if (!graph[k1]) graph[k1] = [];
+            if (!graph[k2]) graph[k2] = [];
+
+            const edgeId = edgeMeta.length;
+            edgeMeta.push({
+                edgeId,
+                layerName,
+                feature: seg.feature,
+                a,
+                b,
+                weight: w
+            });
+
+            graph[k1].push({ to: k2, w, edgeId });
+            graph[k2].push({ to: k1, w, edgeId });
+        }
+    });
+
+    roadGraph = graph;
+    roadEdgeMeta = edgeMeta;
+}
+
+function getChoiceColor(norm) {
+
+    // 蓝 → 红色带（冷 → 热）
+    if (norm >= 0.90) return "#7f0000";   // 深红
+    if (norm >= 0.75) return "#b30000";   // 红
+    if (norm >= 0.60) return "#e34a33";   // 橙红
+    if (norm >= 0.45) return "#fc8d59";   // 橙
+    if (norm >= 0.30) return "#91bfdb";   // 浅蓝
+    if (norm >= 0.15) return "#4575b4";   // 蓝
+    if (norm > 0)    return "#313695";    // 深蓝
+
+    return "#d1d5db"; // 极低值灰
+}
+
+function getChoiceWidth(norm) {
+
+    if (norm >= 0.95) return 6.8;
+    if (norm >= 0.85) return 6.0;
+    if (norm >= 0.75) return 5.2;
+    if (norm >= 0.65) return 4.6;
+    if (norm >= 0.55) return 4.0;
+    if (norm >= 0.45) return 3.5;
+    if (norm >= 0.35) return 3.0;
+    if (norm >= 0.20) return 2.5;
+
+    return 2.0;
+}
+
+function runCenterChoiceAnalysis(centerKey) {
+    if (!roadGraph || !roadGraph[centerKey]) {
+        return { edgeUse: new Map(), maxCount: 0, nodeCount: 0 };
+    }
+
+    const dist = {};
+    const parentNode = {};
+    const parentEdge = {};
+    const visited = new Set();
+    const heap = new MinHeap();
+
+    dist[centerKey] = 0;
+    heap.push({ key: centerKey, dist: 0 });
+
+    // 单次 Dijkstra：从中心点扩散到全图
+    while (heap.size() > 0) {
+        const cur = heap.pop();
+        if (!cur) break;
+        if (visited.has(cur.key)) continue;
+
+        visited.add(cur.key);
+
+        for (const edge of roadGraph[cur.key] || []) {
+            const nd = cur.dist + edge.w;
+            if (dist[edge.to] === undefined || nd < dist[edge.to]) {
+                dist[edge.to] = nd;
+                parentNode[edge.to] = cur.key;
+                parentEdge[edge.to] = edge.edgeId;
+                heap.push({ key: edge.to, dist: nd });
+            }
+        }
+    }
+
+    // 关键优化：
+    // 不对每个节点重复跑最短路；
+    // 只沿最短路树自底向上累积“需求”，得到 edge usage
+    const demand = {};
+    const order = Object.keys(dist).sort((a, b) => dist[b] - dist[a]);
+
+    order.forEach(node => {
+        demand[node] = (node === centerKey) ? 0 : 1;
+    });
+
+    const edgeUse = new Map();
+    let maxCount = 0;
+
+    order.forEach(node => {
+        const pNode = parentNode[node];
+        const eId = parentEdge[node];
+        const d = demand[node] || 0;
+
+        if (pNode !== undefined && eId !== undefined) {
+            const nextVal = (edgeUse.get(eId) || 0) + d;
+            edgeUse.set(eId, nextVal);
+
+            if (nextVal > maxCount) maxCount = nextVal;
+
+            demand[pNode] = (demand[pNode] || 0) + d;
+        }
+    });
+
+    return {
+        edgeUse,
+        maxCount,
+        nodeCount: Object.keys(dist).length
+    };
+}
+
+function choiceResultToGeoJSON(edgeUse, maxCount, centerLatLng, resultLabel) {
+    const features = [];
+
+    // 关键修复：
+    // 用 log scale，而不是线性归一化
+    const logMax = Math.log(maxCount + 1);
+
+    edgeUse.forEach((count, edgeId) => {
+        const edge = roadEdgeMeta[edgeId];
+        if (!edge) return;
+
+        const norm = maxCount > 0
+            ? Math.log(count + 1) / logMax
+            : 0;
+
+        features.push({
+            type: "Feature",
+            properties: {
+                name: edge.feature?.properties?.name || resultLabel,
+                type: edge.layerName,
+                sourceLayer: edge.sourceLayer || edge.layerName,
+                generated: true,
+                isChoiceLine: true,
+                choiceCount: count,
+                choiceNorm: norm,
+                choiceColor: getChoiceColor(norm),
+                choiceWidth: getChoiceWidth(norm)
+            },
+            geometry: {
+                type: "LineString",
+                coordinates: [
+                    [edge.a.lng, edge.a.lat],
+                    [edge.b.lng, edge.b.lat]
+                ]
+            }
+        });
+    });
+
+    if (centerLatLng) {
+        features.push({
+            type: "Feature",
+            properties: {
+                name: `${resultLabel} - 中心点`,
+                generated: true,
+                isChoiceOrigin: true,
+                pointRadius: 11
+            },
+            geometry: {
+                type: "Point",
+                coordinates: [centerLatLng.lng, centerLatLng.lat]
+            }
+        });
+    }
+
+    return {
+        type: "FeatureCollection",
+        features
+    };
+}
+
+
+
 
 function findNearestRoadNode(latlng) {
     if (!roadGraph) return null;
@@ -757,25 +1342,7 @@ function clearGeneratedRoadAnalysisLayers() {
     });
 }
 
-
-function clearGeneratedRoadAnalysisLayers() {
-    Object.keys(displayLayers).forEach(name => {
-        const conf = displayLayers[name]?.conf;
-        if (!conf || !conf.isGeneratedRoadAnalysis) return;
-
-        if (map.hasLayer(displayLayers[name].layer)) {
-            map.removeLayer(displayLayers[name].layer);
-        }
-
-        if (displayLayers[name].uiEl) {
-            displayLayers[name].uiEl.remove();
-        }
-
-        delete displayLayers[name];
-        delete pool[name];
-    });
-}
-document.getElementById('btn-run-road-analysis').onclick = () => {
+function runServiceAreaAnalysis() {
     if (!roadOriginLatLng) {
         alert('请先在地图上设置起点');
         return;
@@ -789,7 +1356,6 @@ document.getElementById('btn-run-road-analysis').onclick = () => {
 
     const maxMeters = km * 1000;
 
-    // 用同半径做硬裁剪
     buildRoadGraphFromPool(roadOriginLatLng, maxMeters);
 
     const snapped = findNearestRoadNode(roadOriginLatLng);
@@ -811,7 +1377,6 @@ document.getElementById('btn-run-road-analysis').onclick = () => {
     const resultName = `路网分析结果_${km}km_${Date.now()}`;
     const resultLabel = `路网分析结果（${km}km）`;
 
-    // 同一个结果图层里同时保存：线 + 起点
     const resultGeoJSON = edgeIdsToGeoJSON(edgeIds, roadOriginLatLng, resultLabel);
 
     pool[resultName] = resultGeoJSON;
@@ -830,7 +1395,6 @@ document.getElementById('btn-run-road-analysis').onclick = () => {
 
     refreshMap();
 
-    // 删除临时预览点，因为正式点已经进入结果图层
     if (roadOriginMarker) {
         map.removeLayer(roadOriginMarker);
         roadOriginMarker = null;
@@ -838,21 +1402,86 @@ document.getElementById('btn-run-road-analysis').onclick = () => {
 
     document.getElementById('road-origin-status').innerText =
         `分析完成：生成 ${edgeIds.size} 段道路`;
-};
 
-document.getElementById('btn-clear-road-analysis').onclick = () => {
-    clearGeneratedRoadAnalysisLayers();
+    refreshChoiceSourceOptions();
+}
 
-    if (roadOriginMarker) {
-        map.removeLayer(roadOriginMarker);
-        roadOriginMarker = null;
+function runChoiceAnalysis() {
+    const sourceLayerName = document.getElementById('choice-source-layer').value;
+    if (!sourceLayerName) {
+        alert('请先选择一个来源图层');
+        return;
     }
 
-    roadOriginLatLng = null;
-    roadGraph = null;
-    roadEdgeMeta = [];
+    const centerLatLng = getOriginFromGeneratedRoadLayer(sourceLayerName);
+    if (!centerLatLng) {
+        alert('来源图层中没有找到中心点');
+        return;
+    }
 
-    document.getElementById('road-origin-status').innerText = '尚未设置起点';
+    // 关键修复：
+    // 不再分析所有基础路网；
+    // 也不再按道路等级分开算；
+    // 只把来源图层里的所有路当成一个整体网络来计算
+    buildRoadGraphFromGeneratedLayer(sourceLayerName);
+
+    const snapped = findNearestRoadNode(centerLatLng);
+    if (!snapped || !snapped.key) {
+        alert('来源图层范围内没有找到可用的中心节点');
+        return;
+    }
+
+    const result = runCenterChoiceAnalysis(snapped.key);
+    if (!result.edgeUse.size) {
+        alert('当前来源图层范围内无法计算选择度结果');
+        return;
+    }
+
+    const resultName = `选择度分析结果_${Date.now()}`;
+    const resultLabel = `选择度分析结果（${sourceLayerName}）`;
+    const resultGeoJSON = choiceResultToGeoJSON(
+        result.edgeUse,
+        result.maxCount,
+        centerLatLng,
+        resultLabel
+    );
+
+    pool[resultName] = resultGeoJSON;
+
+    initLayerControl(
+        resultName,
+        '#F97316',
+        'road-layers-container',
+        resultLabel,
+        true
+    );
+
+    displayLayers[resultName].conf.isGeneratedRoadAnalysis = true;
+    displayLayers[resultName].conf.isChoiceResult = true;
+    displayLayers[resultName].conf.isRoadLike = true;
+    displayLayers[resultName].conf.pointRadius = 11;
+
+    refreshMap();
+
+    document.getElementById('road-origin-status').innerText =
+        `选择度分析完成：覆盖 ${result.nodeCount} 个路网节点`;
+}
+
+
+document.getElementById('btn-run-road-analysis').onclick = () => {
+    const mode = document.getElementById('road-analysis-mode').value;
+
+    if (mode === 'service_area') {
+        runServiceAreaAnalysis();
+        return;
+    }
+
+    if (mode === 'choice_center') {
+        runChoiceAnalysis();
+        return;
+    }
+
+    alert('未知的路网分析模式');
 };
 
 
@@ -892,14 +1521,23 @@ function refreshMap() {
 
                 if (!isKeywordMatch) return false;
 
-                const hasData = hasCsvRowForFeature(p);
-                return hasData;
+                return hasCsvRowForFeature(p);
             },
 
             style: (f) => {
+                const p = f.properties || {};
                 const isDeep = reg && reg.isDeep;
 
                 if (f.geometry?.type === "Point") return undefined;
+
+                if (p.isChoiceLine) {
+                    return {
+                        color: p.choiceColor || conf.c,
+                        weight: p.choiceWidth || 3,
+                        opacity: 0.95,
+                        lineJoin: 'round'
+                    };
+                }
 
                 if (isR) {
                     const roadLineW = ROAD_SETTING[name]?.lineW || 3;
@@ -931,7 +1569,7 @@ function refreshMap() {
 
             pointToLayer: (f, latlng) => {
                 const p = f.properties || {};
-                const isOriginPoint = !!p.isRoadAnalysisOrigin;
+                const isOriginPoint = !!p.isRoadAnalysisOrigin || !!p.isChoiceOrigin;
 
                 if (isOriginPoint) {
                     return L.circleMarker(latlng, {
@@ -953,124 +1591,116 @@ function refreshMap() {
             },
 
             onEachFeature: (f, l) => {
-    if (isR && f.geometry?.type !== "Point") l.bringToFront();
+                if (isR && f.geometry?.type !== "Point") l.bringToFront();
 
-    const p = f.properties || {};
-    const isOriginPoint = !!p.isRoadAnalysisOrigin;
+                const p = f.properties || {};
+                const isOriginPoint = !!p.isRoadAnalysisOrigin || !!p.isChoiceOrigin;
 
-    const title = isOriginPoint
-        ? (p.name || "路网分析起点")
-        : ((p.name && p.name !== 'None')
-            ? p.name
-            : (isR ? name : (isA ? isA.n : "空间要素")));
+                const title = isOriginPoint
+                    ? (p.name || "路网分析起点")
+                    : ((p.name && p.name !== 'None')
+                        ? p.name
+                        : (isR ? name : (isA ? isA.n : "空间要素")));
 
-    let h = `<div class="popup-header ${name.includes('房产') ? 'house' : ''}">
-                <h3>${title}</h3>
-             </div>
-             <div style="padding:15px; font-size:12px;">`;
+                let h = `<div class="popup-header ${name.includes('房产') ? 'house' : ''}">
+                            <h3>${title}</h3>
+                         </div>
+                         <div style="padding:15px; font-size:12px;">`;
 
-    // 1. 只显示少量核心基础信息
-    if (isOriginPoint) {
-        h += `<div class="popup-info-row">路网分析起点</div>`;
-        h += `<div><b>经度:</b> ${f.geometry.coordinates[0].toFixed(6)}</div>`;
-        h += `<div><b>纬度:</b> ${f.geometry.coordinates[1].toFixed(6)}</div>`;
+                if (isOriginPoint) {
+                    h += `<div class="popup-info-row">路网分析中心点</div>`;
+                    h += `<div><b>经度:</b> ${f.geometry.coordinates[0].toFixed(6)}</div>`;
+                    h += `<div><b>纬度:</b> ${f.geometry.coordinates[1].toFixed(6)}</div>`;
 
-    } else if (isR) {
-        h += `<div class="popup-info-row">道路属性</div>`;
-        h += `<div><b>道路等级:</b> ${name}</div>`;
-        if (p.name && p.name !== "None") {
-            h += `<div><b>名称:</b> ${p.name}</div>`;
-        }
-        if (p.fclass) {
-            h += `<div><b>类型编码:</b> ${p.fclass}</div>`;
-        }
+                } else if (p.isChoiceLine) {
+                    h += `<div class="popup-info-row">选择度分析</div>`;
+                    h += `<div><b>选择度次数:</b> ${p.choiceCount}</div>`;
+                    h += `<div><b>归一化值:</b> ${(p.choiceNorm || 0).toFixed(3)}</div>`;
+                    if (p.sourceLayer) {
+                        h += `<div><b>来源道路类型:</b> ${p.sourceLayer}</div>`;
+                    }
 
-    } else if (isA) {
-        h += `<div class="popup-info-row">${isA.n}</div>`;
+                } else if (isR) {
+                    h += `<div class="popup-info-row">道路属性</div>`;
+                    h += `<div><b>道路等级:</b> ${name}</div>`;
+                    if (p.name && p.name !== "None") h += `<div><b>名称:</b> ${p.name}</div>`;
+                    if (p.fclass) h += `<div><b>类型编码:</b> ${p.fclass}</div>`;
 
-        // AOI 只显示前 3 项有效字段
-        let shown = 0;
-        const aoiFields = Array.isArray(isA.fields) ? isA.fields : [];
+                } else if (isA) {
+                    h += `<div class="popup-info-row">${isA.n}</div>`;
+                    let shown = 0;
+                    const aoiFields = Array.isArray(isA.fields) ? isA.fields : [];
+                    for (const field of aoiFields) {
+                        if (shown >= 3) break;
+                        if (p[field] !== undefined && p[field] !== null && p[field] !== "") {
+                            h += `<div><b>${field}:</b> ${p[field]}</div>`;
+                            shown++;
+                        }
+                    }
 
-        for (const field of aoiFields) {
-            if (shown >= 3) break;
-            if (p[field] !== undefined && p[field] !== null && p[field] !== "") {
-                h += `<div><b>${field}:</b> ${p[field]}</div>`;
-                shown++;
-            }
-        }
+                } else if (name.includes('街景')) {
+                    h += `<div class="popup-info-row">语义分析</div>`;
+                    h += generatePieChart(p);
 
-    } else if (name.includes('街景')) {
-        h += `<div class="popup-info-row">语义分析</div>`;
-        h += generatePieChart(p);
+                } else {
+                    let shown = 0;
+                    const preferredFields = [
+                        ["type", "类别"],
+                        ["address", "地址"],
+                        ["fclass", "类型编码"],
+                        ["name", "名称"]
+                    ];
 
-    } else {
-        // POI / 其他点：只显示 3~4 项
-        let shown = 0;
-
-        const preferredFields = [
-            ["type", "类别"],
-            ["address", "地址"],
-            ["fclass", "类型编码"],
-            ["name", "名称"]
-        ];
-
-        for (const [key, label] of preferredFields) {
-            if (shown >= 4) break;
-            if (p[key] !== undefined && p[key] !== null && p[key] !== "" && p[key] !== "None") {
-                // name 一般已经在标题里了，正文里不重复
-                if (key === "name") continue;
-                h += `<div><b>${label}:</b> ${p[key]}</div>`;
-                shown++;
-            }
-        }
-    }
-
-    // 2. 关联 CSV 行
-    const csvRow = findCsvRowByFeature(p) || {};
-
-    // 3. AI 筛选后勾选的字段
-    if (reg && reg.activeFields && reg.activeFields.size > 0) {
-        let hasAnyCsvField = false;
-
-        reg.activeFields.forEach(field => {
-            if (csvRow[field] !== undefined && csvRow[field] !== null && csvRow[field] !== "") {
-                if (!hasAnyCsvField) {
-                    h += `<div class="popup-info-row" style="margin-top:10px;">关联数据字段</div>`;
-                    hasAnyCsvField = true;
+                    for (const [key, label] of preferredFields) {
+                        if (shown >= 4) break;
+                        if (p[key] !== undefined && p[key] !== null && p[key] !== "" && p[key] !== "None") {
+                            if (key === "name") continue;
+                            h += `<div><b>${label}:</b> ${p[key]}</div>`;
+                            shown++;
+                        }
+                    }
                 }
 
-                h += `<div style="margin-top:6px; color:var(--primary); font-weight:700; border-top:1px dashed #eee; padding-top:6px;">
-                        ${field}: ${csvRow[field]}
-                      </div>`;
+                const csvRow = findCsvRowByFeature(p) || {};
+
+                if (reg && reg.activeFields && reg.activeFields.size > 0) {
+                    let hasAnyCsvField = false;
+                    reg.activeFields.forEach(field => {
+                        if (csvRow[field] !== undefined && csvRow[field] !== null && csvRow[field] !== "") {
+                            if (!hasAnyCsvField) {
+                                h += `<div class="popup-info-row" style="margin-top:10px;">关联数据字段</div>`;
+                                hasAnyCsvField = true;
+                            }
+                            h += `<div style="margin-top:6px; color:var(--primary); font-weight:700; border-top:1px dashed #eee; padding-top:6px;">
+                                    ${field}: ${csvRow[field]}
+                                  </div>`;
+                        }
+                    });
+                }
+
+                activeCalculations.forEach(calc => {
+                    if (!calc.layerNames.includes(name)) return;
+
+                    const calcConfig = INDICATOR_CONFIG[calc.configKey];
+                    if (!calcConfig || typeof calcConfig.calc !== "function") return;
+
+                    const mergedData = { ...p, ...csvRow };
+                    const rawResult = calcConfig.calc(mergedData, calc.params);
+
+                    if (rawResult !== undefined && rawResult !== null && !Number.isNaN(rawResult)) {
+                        const displayResult = typeof rawResult === "number"
+                            ? rawResult.toFixed(2)
+                            : rawResult;
+
+                        h += `<div class="calc-box">
+                                <b>${calc.name}</b>
+                                <span>${displayResult}</span>
+                              </div>`;
+                    }
+                });
+
+                l.bindPopup(h + `</div>`, { maxWidth: 320 });
             }
-        });
-    }
-
-    // 4. 数据交互计算结果
-    activeCalculations.forEach(calc => {
-        if (!calc.layerNames.includes(name)) return;
-
-        const calcConfig = INDICATOR_CONFIG[calc.configKey];
-        if (!calcConfig || typeof calcConfig.calc !== "function") return;
-
-        const mergedData = { ...p, ...csvRow };
-        const rawResult = calcConfig.calc(mergedData, calc.params);
-
-        if (rawResult !== undefined && rawResult !== null && !Number.isNaN(rawResult)) {
-            const displayResult = typeof rawResult === "number"
-                ? rawResult.toFixed(2)
-                : rawResult;
-
-            h += `<div class="calc-box">
-                    <b>${calc.name}</b>
-                    <span>${displayResult}</span>
-                  </div>`;
-        }
-    });
-
-    l.bindPopup(h + `</div>`, { maxWidth: 320 });
-}
         }).addTo(layerGroup);
     }
 
@@ -1333,7 +1963,7 @@ state.activeLayers.forEach(name => {
             return {
                 type: "FeatureCollection",
                 features: allFeatures.filter(f => {
-                    const p = f.properties;
+                    const p = f.properties || {};
                     let actualType = p.type || ROAD_MAP[p.fclass] || p.fclass || "其他";
 
                     if (actualType.includes("高速")) actualType = "高速公路";
@@ -1341,6 +1971,11 @@ state.activeLayers.forEach(name => {
                     else if (actualType.includes("主干")) actualType = "城市主干路";
                     else if (actualType.includes("次干")) actualType = "城市次干路";
                     else if (actualType.includes("支路")) actualType = "城市支路";
+                    else if (actualType.includes("居住")) actualType = "居住区道路";
+                    else if (actualType.includes("内部")) actualType = "内部道路";
+                    else if (actualType.includes("辅助")) actualType = "辅助道路";
+                    else if (actualType.includes("绿道") || actualType.includes("行人")) actualType = "人行绿道";
+                    else if (actualType.includes("其他")) actualType = "其他";
 
                     return actualType === name;
                 })
@@ -1348,7 +1983,7 @@ state.activeLayers.forEach(name => {
         });
 
     } else if (isS) {
-        // 街景：同步 index.html，加载两个分卷
+        // 街景：双文件
         const files = ['street_view_data_1.json', 'street_view_data_2.json'];
         loadPromise = Promise.all(files.map(f => fetch(f).then(r => r.json()))).then(dataArray => ({
             type: "FeatureCollection",
@@ -1356,7 +1991,7 @@ state.activeLayers.forEach(name => {
         }));
 
     } else if (name === "buildings_a") {
-        // 建筑 AOI：同步 index.html，加载三个分卷
+        // 建筑 AOI：三分卷
         const parts = ['part1', 'part2', 'part3'];
         loadPromise = Promise.all(
             parts.map(p =>
@@ -1368,22 +2003,19 @@ state.activeLayers.forEach(name => {
         }));
 
     } else if (isA) {
-        // 其他 AOI：单文件
         loadPromise = fetch(`data_aoi/gis_osm_${name}_free_1.json`).then(r => r.json());
 
     } else if (isH) {
-        // 房产
         loadPromise = fetch('houses.json').then(r => r.json());
 
     } else {
-        // POI
         loadPromise = fetch(`data_poi/${name}.json`).then(r => r.json());
     }
 
     loadPromise.then(data => {
         pool[name] = data;
 
-        let container = isR
+        const container = isR
             ? 'road-layers-container'
             : (isA ? 'aoi-list-ui' : (isS ? 'street-list-ui' : 'active-category-list'));
 
