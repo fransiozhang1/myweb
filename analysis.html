@@ -98,6 +98,9 @@
         <div class="group-label">城市空间要素 (AOI)</div>
         <div id="aoi-list-ui"></div> 
 
+        <div class="group-label" style="margin-top: 20px;">城市道路分析轨道</div>
+        <div id="road-layers-container"></div> 
+
         <div class="group-label" style="margin-top: 20px;">街景语义分析轨道</div>
         <div id="street-list-ui"></div>
         
@@ -129,7 +132,19 @@ const aoiConfig = {
     "pofw_a":      { n: "宗教文化场所", c: "#c084fc", fields: ["name", "fclass"] }
 };
 
-
+// --- [新增] 10 类道路标准配置：解决 ReferenceError 并提供样式支持 ---
+const ROAD_SETTING = {
+    "高速公路":   { weight: 10, color: "#F5222D", lineW: 2.8 },
+    "城市快速路": { weight: 9,  color: "#EB2F96", lineW: 2.5 },
+    "城市主干路": { weight: 8,  color: "#722ED1", lineW: 2.2 },
+    "城市次干路": { weight: 7,  color: "#1890FF", lineW: 1.8 },
+    "城市支路":   { weight: 6,  color: "#13C2C2", lineW: 1.4 },
+    "居住区道路": { weight: 5,  color: "#52C41A", lineW: 1.2 },
+    "内部道路":   { weight: 4,  color: "#A0D911", lineW: 1.0 },
+    "辅助道路":   { weight: 3,  color: "#FAAD14", lineW: 1.0 },
+    "人行绿道":   { weight: 2,  color: "#FA8C16", lineW: 1.0 },
+    "其他":       { weight: 1,  color: "#8C8C8C", lineW: 0.8 }
+};
 const API_KEY = "sk-953b1a97918949d2a18c9a07a14729d0";
 // 街景语义颜色配置
 const svColors = { "road": "#808080", "sidewalk": "#FF00FF", "vegetation": "#228B22", "sky": "#87CEEB", "building": "#A52A2A", "car": "#0000FF", "person": "#FF0000" };
@@ -239,28 +254,30 @@ function refreshMap() {
         const color = displayLayers[name].conf.c;
         const visible = displayLayers[name].conf.visible;
         const isA = aoiConfig[name];
+        const isR = !!ROAD_SETTING[name]; // 新增：判断是否为路网类别
 
         layerGroup.clearLayers();
 
         if (visible && pool[name]) {
             const geoJsonLayer = L.geoJSON(pool[name], {
                 filter: (f) => {
-                    // 1. 如果未开启 AI 深度筛选，显示全部首页选中的点
+                    // 1. 如果未开启 AI 深度筛选，显示全部首页选中的数据
                     if (!reg.isDeep) return true;
 
                     const p = f.properties;
+                    // 匹配字符串：包含名称、分类、图片名等
                     const matchStr = `${p.name || ""} ${p.fclass || ""} ${p.type || ""} ${p.image || ""}`.toLowerCase();
                     
                     // 2. 第一层拦截：判断是否匹配 AI 提取的关键词
-                    const isKeywordMatch = reg.kws.some(kw => matchStr.includes(normalize(kw)));
+                    const isKeywordMatch = reg.kws.some(kw => normalize(matchStr).includes(normalize(kw)));
                     if (!isKeywordMatch) return false;
 
-                    // 3. 第二层拦截 (核心修复)：验证是否在 CSV 中存在对应数据行
+                    // 3. 第二层拦截：验证是否在 CSV 中存在对应数据行
                     const mKey = normalize(p.name || p.image);
-                    let hasData = !!csvGlobalMap[mKey]; // 检查精确匹配
+                    let hasData = !!csvGlobalMap[mKey]; 
 
                     if (!hasData && mKey) {
-                        // 检查模糊匹配
+                        // 模糊匹配逻辑
                         const fallbackKey = Object.keys(csvGlobalMap).find(k => {
                             if (!k || k.length < 2) return false;
                             return k.includes(mKey) || mKey.includes(k);
@@ -268,13 +285,20 @@ function refreshMap() {
                         hasData = !!fallbackKey;
                     }
 
-                    // 只有既符合 AI 关键词，又能找到 CSV 数据的点才会被渲染
+                    // 只有既符合 AI 关键词，又能找到 CSV 数据的对象才会被渲染
                     return hasData;
                 },
                 style: (f) => {
-                    if (isA) return { color: color, weight: 1.5, fillColor: color, fillOpacity: 0.35, opacity: 0.8 };
+                    // --- 核心修复：分图层类型设置样式 ---
+                    if (isR) {
+                        // 路网样式
+                        return { color: color, weight: ROAD_SETTING[name].lineW, opacity: 0.8, lineJoin: 'round' };
+                    }
+                    if (isA) {
+                        // AOI 样式
+                        return { color: color, weight: 1.5, fillColor: color, fillOpacity: 0.35, opacity: 0.8 };
+                    }
                 },
-                // ... 后续 pointToLayer 和 onEachFeature 逻辑保持不变 ...
                 pointToLayer: (f, latlng) => L.circleMarker(latlng, { 
                     radius: 7, 
                     weight: 2.0, 
@@ -284,45 +308,49 @@ function refreshMap() {
                 }),
                 onEachFeature: (f, l) => {
                     const p = f.properties;
-                    // 弹窗标题修复：优先显示名称，无名称则显示分类或中文图层名
-                    const title = p.name || p.image || (isA ? isA.n : "空间要素");
+                    // 弹窗标题修复：优先显示名称，无名称则显示分类或图层名
+                    const title = p.name || p.image || (isA ? isA.n : (isR ? name : "空间要素"));
                     let h = `<div class="popup-header ${name.includes('房产') ? 'house' : ''}"><h3>${title}</h3></div><div style="padding:15px; font-size:12px;">`;
 
                     // 1. 根据数据轨道显示核心内容
-                    if (isA) {
-                        // AOI 专用信息展示：显示配置中定义的字段
+                    if (isR) {
+                        // 路网专用展示
+                        h += `<div class="popup-info-row">道路等级: ${name}</div>`;
+                        if(p.name) h += `<div style="margin-bottom:4px;"><b>路名:</b> ${p.name}</div>`;
+                    } else if (isA) {
+                        // AOI 专用展示
                         h += `<div class="popup-info-row">${isA.n} 属性详情</div>`;
                         isA.fields.forEach(field => {
                             if (p[field]) h += `<div style="margin-bottom:4px;"><b>${field}:</b> ${p[field]}</div>`;
                         });
                     } else if (name.includes('街景')) {
+                        // 街景饼图展示
                         h += `<div class="popup-info-row">语义环境分析</div>` + generatePieChart(p);
                     } else {
-                        // POI 与 房产轨道
+                        // POI 与 房产轨道展示
                         h += `<div style="margin-bottom:4px;"><b>原始地址:</b> ${p.address || '-'}</div>`;
                     }
 
                     // 2. 关联外部 CSV 数据字段展示
-const mKey = normalize(p.name || p.image);
-let csvRow = csvGlobalMap[mKey]; // 1. 优先尝试精确匹配
+                    const mKey = normalize(p.name || p.image);
+                    let csvRow = csvGlobalMap[mKey]; 
 
-if (!csvRow && mKey) {
-    // 2. 核心修复：双向模糊包含匹配，且增加长度阈值防止乱码匹配
-    const fallbackKey = Object.keys(csvGlobalMap).find(k => {
-        if (!k || k.length < 2) return false; // 忽略过短的干扰词
-        return k.includes(mKey) || mKey.includes(k);
-    });
-    if (fallbackKey) csvRow = csvGlobalMap[fallbackKey];
-}
+                    if (!csvRow && mKey) {
+                        const fallbackKey = Object.keys(csvGlobalMap).find(k => {
+                            if (!k || k.length < 2) return false;
+                            return k.includes(mKey) || mKey.includes(k);
+                        });
+                        if (fallbackKey) csvRow = csvGlobalMap[fallbackKey];
+                    }
 
-csvRow = csvRow || {}; // 兜底为空对象，防止后续报错
+                    csvRow = csvRow || {}; 
 
-// 渲染字段逻辑保持不变... 
-reg.activeFields.forEach(field => {
-    if (csvRow[field]) {
-        h += `<div style="margin-top:8px; color:var(--primary); font-weight:700; border-top:1px dashed #eee; padding-top:4px;">${field}: ${csvRow[field]}</div>`;
-    }
-});
+                    // 渲染勾选的 CSV 字段
+                    reg.activeFields.forEach(field => {
+                        if (csvRow[field]) {
+                            h += `<div style="margin-top:8px; color:var(--primary); font-weight:700; border-top:1px dashed #eee; padding-top:4px;">${field}: ${csvRow[field]}</div>`;
+                        }
+                    });
 
                     // 3. 动态指标计算结果展示
                     activeCalculations.forEach(calc => {
@@ -541,82 +569,84 @@ function renderCalcHistory() {
 window.deleteCalc = (id) => { activeCalculations = activeCalculations.filter(c => c.id !== id); refreshMap(); renderCalcHistory(); };
 
 // --- 8. 启动加载 ---
+// analysis.html
 state.activeLayers.forEach(name => {
+    const isR = !!ROAD_SETTING[name]; // 现在 ROAD_SETTING 已定义，不会再报错
     const isH = name.includes('房产');
     const isS = name.includes('街景');
-    const isA = aoiConfig[name]; // 判断是否为 AOI 数据
-    
-    // 动态确定颜色：如果是 AOI 使用配置色，否则使用随机/预设色
-    const color = isA ? isA.c : (isS ? '#2BB5BE' : (isH ? '#FF7E5F' : `hsl(${(state.activeLayers.indexOf(name)*137)%360},65%,50%)`));
-    
-    // 初始化深度筛选轨道
-    deepFilterRegistry[name] = { kws: [...state.keywords], activeFields: new Set(), availableHeaders: [], isDeep: false };
+    const isA = aoiConfig[name]; 
 
+    // 确定颜色
+    const color = isR ? ROAD_SETTING[name].color : (isA ? isA.c : (isS ? '#2BB5BE' : (isH ? '#FF7E5F' : `hsl(${(state.activeLayers.indexOf(name)*137)%360},65%,50%)`)));
+
+    // 确定加载路径
     let loadPromise;
-    if (name === "buildings_a") {
-        const parts = ['part1', 'part2', 'part3'];
-        loadPromise = Promise.all(parts.map(p => 
-            fetch(`data_aoi/gis_osm_buildings_a_free_1_${p}.json`).then(r => r.json())
-        )).then(dataArray => ({ type: "FeatureCollection", features: dataArray.flatMap(d => d.features) }));
-    } else if (isA) {
-        loadPromise = fetch(`data_aoi/gis_osm_${name}_free_1.json`).then(r => r.json());
-    } else if (isS) {
-        const files = ['street_view_data_1.json', 'street_view_data_2.json'];
+    if (isR) {
+        const files = ['shanghai_roads_nw_part1.json', 'shanghai_roads_nw_part2.json', 'shanghai_roads_nw_part3.json'];
         loadPromise = Promise.all(files.map(f => fetch(f).then(r => r.json()))).then(dataArray => ({
-            type: "FeatureCollection", features: dataArray[0].features.concat(dataArray[1].features)
+            type: "FeatureCollection", 
+            features: dataArray.flatMap(d => d.features).filter(f => {
+                let t = f.properties.type || "其他";
+                // 归一化逻辑，确保数据与分类匹配
+                if (t.includes("高速")) t = "高速公路";
+                else if (t.includes("快速")) t = "城市快速路";
+                else if (t.includes("主干")) t = "城市主干路";
+                else if (t.includes("次干")) t = "城市次干路";
+                else if (t.includes("支路")) t = "城市支路";
+                else if (t.includes("居住")) t = "居住区道路";
+                else if (t.includes("内部")) t = "内部道路";
+                else if (t.includes("辅助")) t = "辅助道路";
+                else if (t.includes("绿道") || t.includes("行人")) t = "人行绿道";
+                else t = "其他";
+                return t === name;
+            })
         }));
+    } else if (name === "buildings_a") {
+        const parts = ['part1', 'part2', 'part3'];
+        loadPromise = Promise.all(parts.map(p => fetch(`data_aoi/gis_osm_buildings_a_free_1_${p}.json`).then(r => r.json()))).then(dataArray => ({ type: "FeatureCollection", features: dataArray.flatMap(d => d.features) }));
     } else {
-        const path = isH ? 'houses.json' : `data_poi/${name}.json`;
+        const path = isA ? `data_aoi/gis_osm_${name}_free_1.json` : (isH ? 'houses.json' : `data_poi/${name}.json`);
         loadPromise = fetch(path).then(r => r.json());
     }
 
     loadPromise.then(data => {
         pool[name] = data;
+        let container = isR ? 'road-layers-container' : (isA ? 'aoi-list-ui' : (isS ? 'street-list-ui' : 'active-category-list'));
+        let label = isA ? isA.n : (isS ? '街景语义分割图' : name);
         
-        // 核心修复：根据类型选择容器和中文标签
-        let targetContainer = 'active-category-list';
-        let chineseLabel = name;
-
-        if (isA) {
-            targetContainer = 'aoi-list-ui'; // AOI 数据进入专用容器
-            chineseLabel = isA.n;           // 使用配置里的中文名
-        } else if (isS) {
-            targetContainer = 'street-list-ui';
-            chineseLabel = '街景语义分割图';
-        }
-
-        // 调用刚才改好的函数
-        initLayerControl(name, color, targetContainer, chineseLabel);
-        
-    }).catch(e => console.error(`加载图层 ${name} 失败:`, e));
+        // 传递 isR 参数给 UI 生成函数
+        initLayerControl(name, color, container, label, isR);
+    }).catch(e => console.error(`图层 ${name} 加载失败:`, e));
 });
 
 // 核心修复：重命名为 initLayerControl 并增加 label 参数
-function initLayerControl(name, color, containerId, label) {
+// analysis.html
+// analysis.html 约第 324 行
+function initLayerControl(name, color, containerId, label, isR = false) {
     displayLayers[name] = { layer: L.layerGroup().addTo(map), conf: { c: color, visible: true } };
     
-    // 如果有传入中文标签则使用，否则用原始 ID
     const displayName = label || name;
-    
     const div = document.createElement('div'); 
     div.className = 'layer-item';
+    
+    // 如果是路网数据(isR)，显示线段图例；否则显示圆点图例
+    const legendHtml = isR 
+        ? `<div class="legend-line" style="background:${color}; width:20px; height:3px; border-radius:1px; margin-right:12px; flex-shrink:0;"></div>`
+        : `<div class="legend-dot" style="background:${color}; width:10px; height:10px; border-radius:50%; margin-right:12px; flex-shrink:0;"></div>`;
+
     div.innerHTML = `
-        <input type="checkbox" checked>
-        <div class="legend-dot" style="background:${color}"></div>
-        <span style="font-weight:600;">${displayName}</span>
+        <input type="checkbox" checked style="flex-shrink:0;">
+        ${legendHtml}
+        <span style="font-weight:600; font-size:13px; white-space:nowrap;">${displayName}</span>
     `;
     
     div.querySelector('input').onchange = (e) => { 
         displayLayers[name].conf.visible = e.target.checked; 
-        refreshMap(); 
+        refreshMap(); // 切换 checkbox 时刷新地图显示
     };
     
     const container = document.getElementById(containerId);
-    if(container) {
-        container.appendChild(div);
-    } else {
-        console.warn(`找不到容器: ${containerId}，请检查 HTML 中是否有该 ID`);
-    }
+    if(container) container.appendChild(div);
     refreshMap();
 }
 

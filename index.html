@@ -279,30 +279,40 @@ window.hideTip = () => { document.getElementById('pie-tip').style.display = 'non
 function updateLayers() {
     for(let n in activeLayers) {
         const conf = activeLayers[n].conf;
+        // 增加防御逻辑：确保 pool 中存在该图层的数据
+        if (!pool[n]) continue;
+
         map.removeLayer(activeLayers[n].layer);
         
         activeLayers[n].layer = L.geoJSON(pool[n], {
             filter: (f) => {
-                if (conf.t === 'aoi' || conf.t === 'street') return true;
+                // 路网、AOI 和 街景数据通常不参与首页的关键字搜索过滤
+                if (conf.t === 'aoi' || conf.t === 'street' || conf.t === 'road') return true;
                 return keywords.length === 0 || keywords.some(k => (f.properties.name || "").toLowerCase().includes(k.toLowerCase()));
             },
-            // 线/面样式
+            // 核心样式控制：增加对路网（线型）的支持
             style: (f) => {
                 if (conf.t === 'aoi') {
                     return { color: conf.c, weight: 1, fillColor: conf.c, fillOpacity: 0.4, opacity: 0.8 };
                 }
+                if (conf.t === 'road') {
+                    // 从 ROAD_SETTING 获取该类道路预设的粗细，颜色使用勾选时存入的配置色
+                    const roadCfg = ROAD_SETTING[n] || { lineW: 1.5 };
+                    return { color: conf.c, weight: roadCfg.lineW, opacity: 0.8 };
+                }
             },
-            // 核心修复：将点位渲染为圆点而非默认图标
+            // 将点位数据（POI、房产、街景点）渲染为圆点
             pointToLayer: (f, latlng) => L.circleMarker(latlng, {
                 radius: 5,
                 weight: 1.5,
-                fillColor: conf.c, // 确保使用图层配置的颜色
+                fillColor: conf.c, 
                 color: "#fff",
                 fillOpacity: 0.9
             }),
             onEachFeature: (f, l) => {
                 const p = f.properties;
-                let h = `<div class="popup-header"><h3>${p.name || p.fclass || "街景数据"}</h3></div><div style="padding:15px; font-size:12px;">`;
+                // 弹窗标题：优先显示名称，无名称则显示分类或图层名
+                let h = `<div class="popup-header"><h3>${p.name || p.fclass || n}</h3></div><div style="padding:15px; font-size:12px;">`;
                 
                 // 根据类型定制弹窗内容
                 if (conf.t === 'aoi') {
@@ -315,6 +325,9 @@ function updateLayers() {
                     }
                 } else if (conf.t === 'street') {
                     h += `<div class="popup-info-row">语义占比分析</div>` + generatePieChart(p);
+                } else if (conf.t === 'road') {
+                    // 增加路网专属弹窗信息
+                    h += `<div class="popup-info-row">道路属性</div><b>级别:</b> ${n}`;
                 } else {
                     const its = conf.t === 'house' ? [['address','地址'],['type','类型']] : [['address','地址'],['大类','大类']];
                     its.forEach(i => {
@@ -472,24 +485,27 @@ async function initRoadNetwork() {
 
         // 2. 属性清洗：将“路”与“道”归一化到 10 类标准中
         const groups = {};
-        allFeatures.forEach(f => {
-            let type = f.properties.type || "其他";
-            
-            // 归一化逻辑，确保数据能对应上配置
-            if (type.includes("高速")) type = "高速公路";
-            else if (type.includes("快速")) type = "城市快速路";
-            else if (type.includes("主干")) type = "城市主干路";
-            else if (type.includes("次干")) type = "城市次干路";
-            else if (type.includes("支路")) type = "城市支路";
-            else if (type.includes("居住")) type = "居住区道路";
-            else if (type.includes("内部")) type = "内部道路";
-            else if (type.includes("辅助")) type = "辅助道路";
-            else if (type.includes("绿道") || type.includes("行人")) type = "人行绿道";
-            else type = "其他";
+       allFeatures.forEach(f => {
+    let type = f.properties.type || "其他";
+    // 归一化逻辑保持不变...
+    if (type.includes("高速")) type = "高速公路";
+    else if (type.includes("快速")) type = "城市快速路";
+    else if (type.includes("主干")) type = "城市主干路";
+    else if (type.includes("次干")) type = "城市次干路";
+    else if (type.includes("支路")) type = "城市支路";
+    else if (type.includes("居住")) type = "居住区道路";
+    else if (type.includes("内部")) type = "内部道路";
+    else if (type.includes("辅助")) type = "辅助道路";
+    else if (type.includes("绿道") || type.includes("行人")) type = "人行绿道";
+    else type = "其他";
 
-            if (!groups[type]) groups[type] = [];
-            groups[type].push(f);
-        });
+    if (!groups[type]) groups[type] = [];
+    groups[type].push(f);
+
+    // --- 核心修复：将路网数据填入全局 pool，确保能被 updateLayers 找到并传输 ---
+    if (!pool[type]) pool[type] = { type: "FeatureCollection", features: [] };
+    pool[type].features.push(f);
+});
 
         // 3. 排序逻辑：严格按照 weight 从高到低
         const sortedTypes = Object.keys(groups).sort((a, b) => {
@@ -542,16 +558,17 @@ async function initRoadNetwork() {
                 cb.dispatchEvent(new Event('change'));
             };
 
-            const checkbox = item.querySelector('input');
-            // index.html
-// 找到 initRoadNetwork 函数中的 checkbox.onchange，修改为：
+const checkbox = item.querySelector('input');
 checkbox.onchange = (e) => {
     if (e.target.checked) {
-        layerGroup.addTo(map);
-        // 核心修复：同步到全局 activeLayers 对象，确保跳转时带走
-        activeLayers[type] = { layer: layerGroup, conf: { c: config.color, t: 'road' } };
+        // --- 核心修复：变量名由 config 改为 cfg，类型设为 'road' ---
+        activeLayers[type] = { 
+            layer: L.layerGroup().addTo(map), // 先创建一个空组
+            conf: { c: cfg.color, t: 'road' } 
+        };
+        updateLayers(); // 触发统一渲染
     } else {
-        map.removeLayer(layerGroup);
+        if(activeLayers[type]) map.removeLayer(activeLayers[type].layer);
         delete activeLayers[type];
     }
 };
