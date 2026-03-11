@@ -269,15 +269,9 @@ window.hideTip = () => { document.getElementById('pie-tip').style.display = 'non
     document.getElementById('btn-analysis-entry').onclick = () => document.getElementById('confirm-modal').style.display='flex';
     function closeModal() { document.getElementById('confirm-modal').style.display='none'; }
 function goToAnalysis() {
-    const currentActive = Object.keys(activeLayers);
-
-    const loadedAoiLayers = Object.keys(pool).filter(name => {
-        return name.endsWith('_a');
-    });
-
     const state = {
         keywords: keywords,
-        activeLayers: [...new Set([...currentActive, ...loadedAoiLayers])]
+        activeLayers: Object.keys(activeLayers)
     };
 
     localStorage.setItem('analysis_state', JSON.stringify(state));
@@ -394,10 +388,11 @@ function updateLayers() {
             activeLayers[name] = { layer: L.layerGroup().addTo(map), conf: { c: color, t: type } };
             updateLayers();
         }).catch(e => console.error("加载失败:", e));
-    } else if(activeLayers[name]) { 
-        map.removeLayer(activeLayers[name].layer); 
-        delete activeLayers[name]; 
-    }
+    } else if (activeLayers[name]) { 
+    map.removeLayer(activeLayers[name].layer); 
+    delete activeLayers[name];
+    delete pool[name];
+}
 }
     // 升级后的 UI 生成函数，支持中文标签显示
 // 修改后的 createUI 函数：增加 displayName 兼容逻辑
