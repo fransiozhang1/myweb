@@ -302,3 +302,34 @@ select option { padding: 10px; color: #1e293b; font-weight: 600; }
     color: #1e293b;
     background: #fff;
 }
+
+
+/* analysis.css */
+
+/* 强制路网条目水平排列，严禁换行 */
+.layer-item.road-item {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    padding: 8px 0;
+    gap: 12px;
+    white-space: nowrap !important;
+}
+
+/* 路网专用的线状图例 */
+.legend-line {
+    width: 20px;
+    height: 3px;
+    border-radius: 1.5px;
+    flex-shrink: 0;
+}
+
+/* AI 高亮样式 */
+.road-highlight {
+    stroke-dasharray: 10, 10;
+    animation: dash 1s linear infinite;
+}
+
+@keyframes dash {
+    to { stroke-dashoffset: -20; }
+}
