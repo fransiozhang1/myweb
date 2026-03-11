@@ -571,7 +571,7 @@ state.activeLayers.forEach(name => {
     // 4. 加载逻辑：新增路网分片加载，保留原有所有加载逻辑
     let loadPromise;
     if (isR) {
-        // 处理路网数据的三个分片文件
+        // --- 统合路网加载逻辑 ---
         const files = ['shanghai_roads_nw_part1.json', 'shanghai_roads_nw_part2.json', 'shanghai_roads_nw_part3.json'];
         loadPromise = Promise.all(files.map(f => fetch(f).then(r => r.json()))).then(dataArray => ({
             type: "FeatureCollection", features: dataArray.flatMap(d => d.features)
@@ -758,7 +758,6 @@ class RoadLayerManager {
 
 // 初始化
 const roadManager = new RoadLayerManager(map);
-roadManager.loadActiveRoads();
 </script>
 <div id="pie-tip"></div>
 </body>
