@@ -141,6 +141,8 @@
     <div style="padding:20px; overflow-y:auto; flex:1;">
         <div class="group-label">城市空间要素 (AOI)</div>
         <div id="aoi-list-ui"></div>
+        <div class="group-label" style="margin-top: 20px;">城市地理路网</div>
+        <div id="road-layers-container"></div>
         <div class="group-label">街景语义分析 (Street View)</div>
         
         <div id="street-view-list-ui"></div> <div class="group-label">城市 POI 兴趣点</div>
@@ -442,6 +444,86 @@ Object.keys(aoiConfig).forEach(key => {
     createUI(key, config.c, 'aoi', document.getElementById('aoi-list-ui'), config.n);
 });
 
+
+
+// --- 城市路网集成逻辑 (UI 规范化版) ---
+
+// 1. 定义路网样式（极致轻量，透明度高，不遮挡底图）
+const roadConfigs = {
+    "城市主干道": { color: "#475569", weight: 1.2, opacity: 0.15 },
+    "城市次干道": { color: "#64748b", weight: 0.9, opacity: 0.12 },
+    "城市支路":   { color: "#94a3b8", weight: 0.6, opacity: 0.10 },
+    "default":    { color: "#cbd5e1", weight: 0.5, opacity: 0.08 }
+};
+
+async function initRoadNetwork() {
+    const roadFiles = [
+        'shanghai_roads_nw_part1.json',
+        'shanghai_roads_nw_part2.json',
+        'shanghai_roads_nw_part3.json'
+    ];
+    const container = document.getElementById('road-layers-container');
+    
+    try {
+        // 并行加载分片数据
+        const responses = await Promise.all(roadFiles.map(f => fetch(f).then(r => r.json())));
+        const allFeatures = responses.flatMap(d => d.features);
+
+        // 按道路等级 (type) 分组
+        const groups = {};
+        allFeatures.forEach(f => {
+            const type = f.properties.type || "其他道路";
+            if (!groups[type]) groups[type] = [];
+            groups[type].push(f);
+        });
+
+        // 渲染 UI 和图层
+        Object.keys(groups).sort().forEach(type => {
+            const config = roadConfigs[type] || roadConfigs.default;
+            
+            // 创建 Leaflet 图层 (由于坐标已纠偏，这里直接加载)
+            const layerGroup = L.geoJSON(groups[type], {
+                coordsToLatLng: (c) => L.latLng(c[1], c[0]),
+                style: { 
+                    color: config.color, 
+                    weight: config.weight, 
+                    opacity: config.opacity,
+                    fill: false 
+                },
+                onEachFeature: (f, l) => {
+                    if (f.properties.name) {
+                        l.bindPopup(`<div style="font-family:inherit; font-weight:700; color:#1e293b; padding:2px;">路名：${f.properties.name}</div>`);
+                    }
+                }
+            });
+
+            // --- 核心：严格对齐原始 UI 格式 ---
+            const item = document.createElement('div');
+            item.className = 'layer-item';
+            // 使用与 POI 相同的内部结构
+            item.innerHTML = `
+                <input type="checkbox">
+                <div class="legend-dot" style="background:${config.color}; width:14px; height:2px; border-radius:1px; margin-top:2px;"></div>
+                <span style="font-weight: 600; font-size: 13px;">${type}</span>
+            `;
+            
+            // 绑定交互
+            const checkbox = item.querySelector('input');
+            checkbox.onchange = (e) => {
+                if (e.target.checked) layerGroup.addTo(map);
+                else map.removeLayer(layerGroup);
+            };
+
+            container.appendChild(item);
+        });
+        console.log("✅ 路网图层控制面板初始化成功");
+    } catch (e) {
+        console.error("❌ 路网 UI 初始化失败:", e);
+    }
+}
+
+// 启动执行
+initRoadNetwork();
 </script>
 <div id="pie-tip"></div>
 </body>
