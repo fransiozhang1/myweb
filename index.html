@@ -446,16 +446,22 @@ Object.keys(aoiConfig).forEach(key => {
 
 
 
-// --- 1. 定义道路等级排序权重与配色方案 (Ant Design 科技色系) ---
-const ROAD_HIERARCHY = {
-    "高速公路":   { weight: 5, color: "#F5222D", lineW: 2.5, opacity: 0.85 }, // 炽热红
-    "城市主干道": { weight: 4, color: "#722ED1", lineW: 2.0, opacity: 0.80 }, // 极客紫
-    "城市次干道": { color: "#1890FF", weight: 3, lineW: 1.6, opacity: 0.75 }, // 科技蓝
-    "城市支路":   { color: "#52C41A", weight: 2, lineW: 1.2, opacity: 0.70 }, // 活力绿
-    "其他道路":   { color: "#FAAD14", weight: 1, lineW: 1.0, opacity: 0.60 }  // 警示黄
+// --- 1. 严格定义 10 类道路等级、权重与色彩 (数智化配色) ---
+const ROAD_SETTING = {
+    "高速公路":   { weight: 10, color: "#F5222D", lineW: 2.8 }, // 炽热红
+    "城市快速路": { weight: 9,  color: "#EB2F96", lineW: 2.5 }, // 科技粉
+    "城市主干路": { weight: 8,  color: "#722ED1", lineW: 2.2 }, // 极客紫
+    "城市次干路": { weight: 7,  color: "#1890FF", lineW: 1.8 }, // 科技蓝
+    "城市支路":   { weight: 6,  color: "#13C2C2", lineW: 1.4 }, // 碧青色
+    "居住区道路": { weight: 5,  color: "#52C41A", lineW: 1.2 }, // 活力绿
+    "内部道路":   { weight: 4,  color: "#A0D911", lineW: 1.0 }, // 草绿色
+    "辅助道路":   { weight: 3,  color: "#FAAD14", lineW: 1.0 }, // 金黄色
+    "人行绿道":   { weight: 2,  color: "#FA8C16", lineW: 1.0 }, // 橘色
+    "其他":       { weight: 1,  color: "#8C8C8C", lineW: 0.8 }  // 灰色
 };
 
 async function initRoadNetwork() {
+    // 引用你刚生成的三个纠偏文件
     const roadFiles = ['shanghai_roads_nw_part1.json', 'shanghai_roads_nw_part2.json', 'shanghai_roads_nw_part3.json'];
     const container = document.getElementById('road-layers-container');
     if (!container) return;
@@ -464,52 +470,78 @@ async function initRoadNetwork() {
         const dataArray = await Promise.all(roadFiles.map(f => fetch(f).then(r => r.json())));
         const allFeatures = dataArray.flatMap(d => d.features);
 
-        // 2. 属性归一化：解决“道”与“路”命名不统一导致的显示失败
+        // 2. 属性清洗：将“路”与“道”归一化到 10 类标准中
         const groups = {};
         allFeatures.forEach(f => {
-            let type = f.properties.type || "其他道路";
+            let type = f.properties.type || "其他";
+            
+            // 归一化逻辑，确保数据能对应上配置
             if (type.includes("高速")) type = "高速公路";
-            else if (type.includes("主干")) type = "城市主干道";
-            else if (type.includes("次干")) type = "城市次干道";
+            else if (type.includes("快速")) type = "城市快速路";
+            else if (type.includes("主干")) type = "城市主干路";
+            else if (type.includes("次干")) type = "城市次干路";
             else if (type.includes("支路")) type = "城市支路";
-            else type = "其他道路";
+            else if (type.includes("居住")) type = "居住区道路";
+            else if (type.includes("内部")) type = "内部道路";
+            else if (type.includes("辅助")) type = "辅助道路";
+            else if (type.includes("绿道") || type.includes("行人")) type = "人行绿道";
+            else type = "其他";
 
             if (!groups[type]) groups[type] = [];
             groups[type].push(f);
         });
 
-        // 3. 按照定义的权重从高到低排序显示
+        // 3. 排序逻辑：严格按照 weight 从高到低
         const sortedTypes = Object.keys(groups).sort((a, b) => {
-            return (ROAD_HIERARCHY[b]?.weight || 0) - (ROAD_HIERARCHY[a]?.weight || 0);
+            const weightA = ROAD_SETTING[a]?.weight || 0;
+            const weightB = ROAD_SETTING[b]?.weight || 0;
+            return weightB - weightA;
         });
 
+        // 4. 构建 UI
         sortedTypes.forEach(type => {
-            const cfg = ROAD_HIERARCHY[type] || ROAD_HIERARCHY["其他道路"];
+            const cfg = ROAD_SETTING[type] || ROAD_SETTING["其他"];
             
-            // 创建图层
+            // 创建 Leaflet 图层
             const layerGroup = L.geoJSON(groups[type], {
                 coordsToLatLng: (c) => L.latLng(c[1], c[0]),
-                style: { color: cfg.color, weight: cfg.lineW, opacity: cfg.opacity },
+                style: { 
+                    color: cfg.color, 
+                    weight: cfg.lineW, 
+                    opacity: 0.8,
+                    lineJoin: 'round'
+                },
                 onEachFeature: (f, l) => {
-                    if (f.properties.name) l.bindPopup(`<b style="color:#333;">${f.properties.name}</b>`);
+                    if (f.properties.name) l.bindPopup(`<b style="color:#1e293b; font-family:sans-serif;">${f.properties.name}</b>`);
                 }
             });
 
-            // --- 4. 极致 UI 修复：强制水平布局且美化 ---
+            // --- 5. UI 极致对齐 (完全模仿 POI 开关样式) ---
             const item = document.createElement('div');
             item.className = 'layer-item';
-            // 关键：强制 Flex 布局确保不换行，且与 POI 样式完美对齐
+            
+            // 强制 Flex 布局，解决换行问题
             item.style.display = 'flex';
+            item.style.flexDirection = 'row';
             item.style.alignItems = 'center';
-            item.style.padding = '10px 0';
-            item.style.borderBottom = '1px solid rgba(0,0,0,0.03)';
+            item.style.padding = '8px 0';
+            item.style.gap = '12px';
+            item.style.cursor = 'pointer';
 
             item.innerHTML = `
-                <input type="checkbox" style="margin-right: 12px; cursor: pointer; width: 16px; height: 16px;">
-                <div class="legend-line" style="background:${cfg.color}; width:20px; height:3px; border-radius:1.5px; margin-right:12px; flex-shrink:0;"></div>
-                <span style="font-size: 13px; font-weight: 600; color: #1e293b; white-space: nowrap; flex-grow: 1;">${type}</span>
+                <input type="checkbox" style="flex-shrink:0; cursor:pointer; width:16px; height:16px; margin:0;">
+                <div style="background:${cfg.color}; width:20px; height:3px; border-radius:1px; flex-shrink:0;"></div>
+                <span style="font-size:13px; font-weight:600; color:#444; white-space:nowrap; flex-grow:1; display:block;">${type}</span>
             `;
             
+            // 点击整个条目也能勾选（增强体验）
+            item.onclick = (e) => {
+                if (e.target.tagName === 'INPUT') return;
+                const cb = item.querySelector('input');
+                cb.checked = !cb.checked;
+                cb.dispatchEvent(new Event('change'));
+            };
+
             const checkbox = item.querySelector('input');
             checkbox.onchange = (e) => {
                 if (e.target.checked) layerGroup.addTo(map);
@@ -519,7 +551,7 @@ async function initRoadNetwork() {
             container.appendChild(item);
         });
         
-        console.log("✅ 彩色路网层级面板初始化成功");
+        console.log("✅ 10 类彩色路网控制面板初始化成功");
     } catch (e) {
         console.error("❌ 路网初始化异常:", e);
     }
