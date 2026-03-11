@@ -446,14 +446,13 @@ Object.keys(aoiConfig).forEach(key => {
 
 
 
-// --- 城市路网集成逻辑 (UI 规范化版) ---
-
-// 1. 定义路网样式（极致轻量，透明度高，不遮挡底图）
+// --- 1. 高对比度彩色路网配置 ---
 const roadConfigs = {
-    "城市主干道": { color: "#475569", weight: 1.2, opacity: 0.15 },
-    "城市次干道": { color: "#64748b", weight: 0.9, opacity: 0.12 },
-    "城市支路":   { color: "#94a3b8", weight: 0.6, opacity: 0.10 },
-    "default":    { color: "#cbd5e1", weight: 0.5, opacity: 0.08 }
+    "高速公路":   { color: "#FF4D4F", weight: 2.5, opacity: 0.8 }, // 亮红
+    "城市主干道": { color: "#722ED1", weight: 2.2, opacity: 0.8 }, // 亮紫
+    "城市次干道": { color: "#1890FF", weight: 1.8, opacity: 0.7 }, // 科技蓝
+    "城市支路":   { color: "#52C41A", weight: 1.2, opacity: 0.6 }, // 翠绿
+    "其他道路":   { color: "#FAAD14", weight: 1.0, opacity: 0.5 }  // 金黄
 };
 
 async function initRoadNetwork() {
@@ -463,66 +462,78 @@ async function initRoadNetwork() {
         'shanghai_roads_nw_part3.json'
     ];
     const container = document.getElementById('road-layers-container');
-    
-    try {
-        // 并行加载分片数据
-        const responses = await Promise.all(roadFiles.map(f => fetch(f).then(r => r.json())));
-        const allFeatures = responses.flatMap(d => d.features);
+    if (!container) return;
 
-        // 按道路等级 (type) 分组
+    try {
+        // 1. 并行加载并合并数据
+        const dataArray = await Promise.all(roadFiles.map(f => fetch(f).then(r => r.json())));
+        const allFeatures = dataArray.flatMap(d => d.features);
+
+        // 2. 核心：按 type 分组（增加容错处理）
         const groups = {};
         allFeatures.forEach(f => {
-            const type = f.properties.type || "其他道路";
+            let type = f.properties.type || "其他道路";
+            // 统一名称差异（防止“道”和“路”的命名冲突）
+            if (type.includes("主干")) type = "城市主干道";
+            if (type.includes("次干")) type = "城市次干道";
+            
             if (!groups[type]) groups[type] = [];
             groups[type].push(f);
         });
 
-        // 渲染 UI 和图层
+        // 3. 排序并渲染
         Object.keys(groups).sort().forEach(type => {
-            const config = roadConfigs[type] || roadConfigs.default;
+            const config = roadConfigs[type] || roadConfigs["其他道路"];
             
-            // 创建 Leaflet 图层 (由于坐标已纠偏，这里直接加载)
+            // 创建图层组
             const layerGroup = L.geoJSON(groups[type], {
                 coordsToLatLng: (c) => L.latLng(c[1], c[0]),
                 style: { 
                     color: config.color, 
                     weight: config.weight, 
                     opacity: config.opacity,
-                    fill: false 
+                    lineJoin: 'round'
                 },
                 onEachFeature: (f, l) => {
                     if (f.properties.name) {
-                        l.bindPopup(`<div style="font-family:inherit; font-weight:700; color:#1e293b; padding:2px;">路名：${f.properties.name}</div>`);
+                        l.bindPopup(`<div style="font-weight:700; color:#333;">${f.properties.name}</div>`);
                     }
                 }
             });
 
-            // --- 核心：严格对齐原始 UI 格式 ---
+            // --- 4. 样式重塑：严格对齐 UI ---
             const item = document.createElement('div');
+            // 强制使用 flex 布局并对齐
             item.className = 'layer-item';
-            // 使用与 POI 相同的内部结构
+            item.style.display = 'flex';
+            item.style.alignItems = 'center';
+            item.style.gap = '10px';
+            item.style.padding = '8px 0';
+
             item.innerHTML = `
-                <input type="checkbox">
-                <div class="legend-dot" style="background:${config.color}; width:14px; height:2px; border-radius:1px; margin-top:2px;"></div>
-                <span style="font-weight: 600; font-size: 13px;">${type}</span>
+                <input type="checkbox" style="margin: 0; cursor: pointer;">
+                <div style="background:${config.color}; width:16px; height:3px; border-radius:2px; flex-shrink:0;"></div>
+                <span style="font-size: 13px; font-weight: 600; color: #444; white-space: nowrap;">${type}</span>
             `;
             
-            // 绑定交互
             const checkbox = item.querySelector('input');
             checkbox.onchange = (e) => {
-                if (e.target.checked) layerGroup.addTo(map);
-                else map.removeLayer(layerGroup);
+                if (e.target.checked) {
+                    layerGroup.addTo(map);
+                } else {
+                    if (map.hasLayer(layerGroup)) map.removeLayer(layerGroup);
+                }
             };
 
             container.appendChild(item);
         });
-        console.log("✅ 路网图层控制面板初始化成功");
+        
+        console.log("✅ 彩色路网加载完成，图层数:", Object.keys(groups).length);
     } catch (e) {
-        console.error("❌ 路网 UI 初始化失败:", e);
+        console.error("❌ 初始化失败:", e);
     }
 }
 
-// 启动执行
 initRoadNetwork();
 </script>
 <div id="pie-tip"></div>
