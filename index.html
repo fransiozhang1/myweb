@@ -276,7 +276,6 @@ window.hideTip = () => { document.getElementById('pie-tip').style.display = 'non
 
     // 5. 数据核心与多重筛选
     let keywords = []; const activeLayers = {}, pool = {};
-// index.html
 function updateLayers() {
     for(let n in activeLayers) {
         const conf = activeLayers[n].conf;
@@ -284,19 +283,16 @@ function updateLayers() {
         
         activeLayers[n].layer = L.geoJSON(pool[n], {
             filter: (f) => {
-                // 路网数据通常不参与首页的关键字搜索过滤（除非你有特殊需求）
-                if (conf.t === 'road') return true; 
+                if (conf.t === 'aoi' || conf.t === 'street') return true;
                 return keywords.length === 0 || keywords.some(k => (f.properties.name || "").toLowerCase().includes(k.toLowerCase()));
             },
+            // 线/面样式
             style: (f) => {
-                if (conf.t === 'aoi') return { color: conf.c, weight: 1, fillColor: conf.c, fillOpacity: 0.4 };
-                // --- 核心修复：为路网数据提供线型样式 ---
-                if (conf.t === 'road') {
-                    const cfg = ROAD_SETTING[n] || ROAD_SETTING["其他"];
-                    return { color: cfg.color, weight: cfg.lineW, opacity: 0.8 };
+                if (conf.t === 'aoi') {
+                    return { color: conf.c, weight: 1, fillColor: conf.c, fillOpacity: 0.4, opacity: 0.8 };
                 }
             },
-            // ... pointToLayer 保持不变 ...
+            // 核心修复：将点位渲染为圆点而非默认图标
             pointToLayer: (f, latlng) => L.circleMarker(latlng, {
                 radius: 5,
                 weight: 1.5,
@@ -546,16 +542,14 @@ async function initRoadNetwork() {
                 cb.dispatchEvent(new Event('change'));
             };
 
+            const checkbox = item.querySelector('input');
             // index.html
-const checkbox = item.querySelector('input');
+// 找到 initRoadNetwork 函数中的 checkbox.onchange，修改为：
 checkbox.onchange = (e) => {
     if (e.target.checked) {
         layerGroup.addTo(map);
-        // 核心修复：使用 cfg.color 记录状态，并将类型标记为 'road'
-        activeLayers[type] = { 
-            layer: layerGroup, 
-            conf: { c: cfg.color, t: 'road' } 
-        };
+        // 核心修复：同步到全局 activeLayers 对象，确保跳转时带走
+        activeLayers[type] = { layer: layerGroup, conf: { c: config.color, t: 'road' } };
     } else {
         map.removeLayer(layerGroup);
         delete activeLayers[type];
