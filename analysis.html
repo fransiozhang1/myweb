@@ -131,8 +131,8 @@ const aoiConfig = {
     "pois_a":      { n: "公共服务设施面", c: "#f472b6", fields: ["name", "fclass"] },
     "pofw_a":      { n: "宗教文化场所", c: "#c084fc", fields: ["name", "fclass"] }
 };
-
-// --- [新增] 10 类道路标准配置：解决 ReferenceError 并提供样式支持 ---
+// --- [1] 定义道路分级配置 (解决 ReferenceError) ---
+// --- [新增] 道路分级标准与数据映射 (必须放在脚本最顶端) ---
 const ROAD_SETTING = {
     "高速公路":   { weight: 10, color: "#F5222D", lineW: 2.8 },
     "城市快速路": { weight: 9,  color: "#EB2F96", lineW: 2.5 },
@@ -144,6 +144,37 @@ const ROAD_SETTING = {
     "辅助道路":   { weight: 3,  color: "#FAAD14", lineW: 1.0 },
     "人行绿道":   { weight: 2,  color: "#FA8C16", lineW: 1.0 },
     "其他":       { weight: 1,  color: "#8C8C8C", lineW: 0.8 }
+};
+
+const ROAD_MAP = {
+    'motorway': '高速公路',
+    'motorway_link': '高速公路',
+
+    'trunk': '城市快速路',
+    'trunk_link': '城市快速路',
+
+    'primary': '城市主干路',
+    'primary_link': '城市主干路',
+
+    'secondary': '城市次干路',
+    'secondary_link': '城市次干路',
+
+    'tertiary': '城市支路',
+    'tertiary_link': '城市支路',
+
+    'residential': '居住区道路',
+    'living_street': '居住区道路',
+
+    'service': '内部道路',
+    'track': '内部道路',
+
+    'pedestrian': '人行绿道',
+    'footway': '人行绿道',
+    'path': '人行绿道',
+
+    // 建议新增
+    'unclassified': '城市支路',
+    'road': '城市支路'
 };
 const API_KEY = "sk-953b1a97918949d2a18c9a07a14729d0";
 // 街景语义颜色配置
@@ -186,7 +217,37 @@ map.pm.setLang('zh');
 
 // --- 3. 状态管理 ---
 const state = JSON.parse(localStorage.getItem('analysis_state')) || { keywords: [], activeLayers: [] };
-const pool = {};             
+const pool = {};
+
+function getPoiColor(name) {
+    const colorMap = {
+        "餐饮服务": "#ef4444",
+        "风景名胜": "#f59e0b",
+        "公共设施": "#64748b",
+        "公司企业": "#3b82f6",
+        "购物服务": "#ec4899",
+        "交通设施服务": "#06b6d4",
+        "金融保险服务": "#8b5cf6",
+        "科教文化服务": "#22c55e",
+        "摩托车服务": "#f97316",
+        "汽车服务": "#0ea5e9",
+        "汽车维修": "#78716c",
+        "汽车销售": "#14b8a6",
+        "商务住宅": "#84cc16",
+        "生活服务": "#e11d48",
+        "室内设施": "#a855f7",
+        "体育休闲服务": "#10b981",
+        "通行设施": "#6366f1",
+        "虚拟数据": "#94a3b8",
+        "医疗保健服务": "#dc2626",
+        "政府机构及社会团体": "#475569",
+        "住宿服务": "#f97316",
+        "房产数据": "#FF7E5F",
+        "街景语义分割图点": "#2BB5BE"
+    };
+
+    return colorMap[name] || "#2BB5BE";
+}
 const displayLayers = {};    
 let csvGlobalMap = {};       
 let activeCalculations = []; 
@@ -219,6 +280,76 @@ const normalize = (n) => {
         .trim().toLowerCase();
 };
 
+
+function parseCsvLine(line) {
+    const result = [];
+    let cur = "";
+    let inQuotes = false;
+
+    for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+
+        if (ch === '"') {
+            if (inQuotes && line[i + 1] === '"') {
+                cur += '"';
+                i++;
+            } else {
+                inQuotes = !inQuotes;
+            }
+        } else if (ch === ',' && !inQuotes) {
+            result.push(cur.trim());
+            cur = "";
+        } else {
+            cur += ch;
+        }
+    }
+
+    result.push(cur.trim());
+    return result;
+}
+
+function detectNameColumnIndex(headers) {
+    const idx = headers.findIndex(h => /名称|店名|name|小区|项目|楼盘|地址/i.test(h));
+    return idx >= 0 ? idx : 0;
+}
+
+function getFeatureCandidateKeys(p) {
+    const rawCandidates = [
+        p.name,
+        p.type,
+        p.fclass,
+        p.address,
+        p.名称,
+        p.项目名,
+        p.楼盘名
+    ].filter(Boolean);
+
+    const normalized = rawCandidates
+        .map(v => normalize(v))
+        .filter(Boolean);
+
+    return [...new Set(normalized)];
+}
+
+function findCsvRowByFeature(p) {
+    const keys = getFeatureCandidateKeys(p);
+
+    for (const key of keys) {
+        if (csvGlobalMap[key]) return csvGlobalMap[key];
+    }
+
+    for (const key of keys) {
+        const fuzzyKey = Object.keys(csvGlobalMap).find(k => k.includes(key) || key.includes(k));
+        if (fuzzyKey) return csvGlobalMap[fuzzyKey];
+    }
+
+    return null;
+}
+
+function hasCsvRowForFeature(p) {
+    return !!findCsvRowByFeature(p);
+}
+
 // --- 4. 交互排他逻辑 ---
 function deactivateAll() {
     document.querySelectorAll('.floating-window').forEach(w => w.style.display = 'none');
@@ -247,111 +378,112 @@ document.querySelectorAll('.close-win').forEach(c => c.onclick = deactivateAll);
 
 // --- 5. 渲染引擎：核心修复（不再强制依赖 CSV） ---
 // analysis.html
+// analysis.html
+// analysis.html
 function refreshMap() {
     for (let name in displayLayers) {
-        const reg = deepFilterRegistry[name];
         const layerGroup = displayLayers[name].layer;
-        const color = displayLayers[name].conf.c;
-        const visible = displayLayers[name].conf.visible;
-        const isR = !!ROAD_SETTING[name]; // 判断是否为路网
+        const conf = displayLayers[name].conf;
+        const isR = !!ROAD_SETTING[name]; 
         const isA = aoiConfig[name];
+        const reg = deepFilterRegistry[name]; // 必须获取该轨道的筛选注册表
 
         layerGroup.clearLayers();
 
-        if (visible && pool[name]) {
-            const geoJsonLayer = L.geoJSON(pool[name], {
-    filter: (f) => {
-        // 1. 如果未开启 AI 深度筛选，显示全部首页选中的数据
-        if (!reg.isDeep) return true;
+        if (conf.visible && pool[name]) {
+           // analysis.html
+L.geoJSON(pool[name], {
+    // 1. 坐标修正：处理 GeoJSON 的 [lng, lat] 到 Leaflet 的 [lat, lng] 转换
+    coordsToLatLng: (c) => L.latLng(c[1], c[0]),
+    
+    // 2. 核心过滤器：整合分类识别、AI 关键词与 CSV 校验
+filter: (f) => {
+    if (!reg || !reg.isDeep) return true;
 
-        const p = f.properties;
-        // --- 核心修复：路网数据不仅匹配 name，还匹配 fclass (如 primary) ---
-        const featureName = p.name || p.fclass || ""; 
-        const matchStr = normalize(featureName);
-        
-        // 2. 第一层拦截：AI 关键词匹配 (支持路名和道路等级的模糊包含)
-        const isKeywordMatch = reg.kws.some(kw => {
-            const targetKw = normalize(kw);
-            return matchStr.includes(targetKw) || targetKw.includes(matchStr);
-        });
-        if (!isKeywordMatch) return false;
+    const p = f.properties || {};
+    const featureName = [
+        p.name && p.name !== "None" ? p.name : "",
+        p.type || "",
+        p.fclass || "",
+        p.address || ""
+    ].join(" ");
 
-        // 3. 第二层拦截：CSV 数据关联校验 (确保在上传的表格中能找到该路)
-        let hasData = !!csvGlobalMap[matchStr]; 
-        if (!hasData && matchStr) {
-            const fallbackKey = Object.keys(csvGlobalMap).find(k => 
-                k.includes(matchStr) || matchStr.includes(k)
-            );
-            hasData = !!fallbackKey;
-        }
+    const matchStr = normalize(featureName);
 
-        return hasData;
+    const isKeywordMatch = reg.kws.some(kw => {
+        const tk = normalize(kw);
+        return tk && (matchStr.includes(tk) || tk.includes(matchStr));
+    });
+
+    if (!isKeywordMatch) return false;
+
+    const hasData = hasCsvRowForFeature(p);
+    return hasData;
     },
+
+    // 3. 样式引擎：支持路网高亮与 AOI 渲染
     style: (f) => {
+        const isDeep = reg && reg.isDeep;
         if (isR) {
-            // --- 优化点：如果是 AI 筛选命中的路，增加线宽并开启高亮动画 ---
-            const isDeepActive = deepFilterRegistry[name].isDeep;
             return { 
-                color: isDeepActive ? '#FF7E5F' : color, // 选中后变橙色，未选中保持图层色
-                weight: isDeepActive ? 5 : ROAD_SETTING[name].lineW, 
+                color: isDeep ? '#FF7E5F' : conf.c, 
+                weight: isDeep ? ROAD_SETTING[name].lineW + 2 : ROAD_SETTING[name].lineW, 
                 opacity: 1.0, 
                 lineJoin: 'round',
-                className: isDeepActive ? 'road-match-highlight' : '' // 对应 CSS 动画
+                className: isDeep ? 'road-match-highlight' : '' // 对应 analysis.css 中的动画
             };
         }
-        if (isA) {
-            return { color: color, weight: 1.5, fillColor: color, fillOpacity: 0.35, opacity: 0.8 };
-        }
+        if (isA) return { color: conf.c, weight: 1.5, fillColor: conf.c, fillOpacity: 0.35, opacity: 0.8 };
     },
-    pointToLayer: (f, latlng) => L.circleMarker(latlng, { 
-        radius: 7, weight: 2.0, fillColor: color, color: "#fff", fillOpacity: 0.9 
-    }),
-    onEachFeature: (f, l) => {
-        // --- 核心修复：强制路网图层置顶，防止被 AOI 遮挡 ---
-        if (isR) l.bringToFront();
 
+    // 4. 点位渲染：将点数据渲染为圆点
+    pointToLayer: (f, latlng) => L.circleMarker(latlng, { radius: 7, fillColor: conf.c, color: "#fff", weight: 2, fillOpacity: 0.9 }),
+    
+    // 5. 交互与弹窗：整合 CSV 字段和计算结果
+    onEachFeature: (f, l) => {
+        if (isR) l.bringToFront(); // 线条置顶显示
         const p = f.properties;
-        // 弹窗标题：AOI 显示配置名，路网显示路名/等级
-        const title = p.name || (isR ? `${name}: ${p.fclass}` : (isA ? isA.n : "空间要素"));
+        
+        // 标题优化：避免显示 "None" 或 undefined
+        const title = (p.name && p.name !== 'None') ? p.name : (isR ? name : (isA ? isA.n : "空间要素"));
         let h = `<div class="popup-header ${name.includes('房产') ? 'house' : ''}"><h3>${title}</h3></div><div style="padding:15px; font-size:12px;">`;
 
-        // 1. 各轨道基础属性展示
         if (isR) {
-            h += `<div class="popup-info-row">道路详情</div>`;
-            h += `<div><b>路段等级:</b> ${p.fclass || '未知'}</div>`;
-            if(p.name) h += `<div><b>标准路名:</b> ${p.name}</div>`;
+            h += `<div class="popup-info-row">道路属性</div>`;
+            h += `<div><b>所属等级:</b> ${name}</div>`;
+            if(p.name && p.name !== "None") h += `<div><b>路段名称:</b> ${p.name}</div>`;
         } else if (isA) {
             h += `<div class="popup-info-row">${isA.n} 属性详情</div>`;
             isA.fields.forEach(field => { if (p[field]) h += `<div><b>${field}:</b> ${p[field]}</div>`; });
         } else if (name.includes('街景')) {
-            h += `<div class="popup-info-row">语义环境分析</div>` + generatePieChart(p);
+            h += `<div class="popup-info-row">语义分析</div>` + generatePieChart(p);
         } else {
-            h += `<div><b>原始地址:</b> ${p.address || '-'}</div>`;
+            h += `<div><b>地址:</b> ${p.address || '-'}</div>`;
         }
 
-                    // 关联 CSV 字段展示
-                    const mKey = normalize(p.name || p.image);
-                    let csvRow = csvGlobalMap[mKey] || {};
-                    if(!csvRow.name && mKey) {
-                        const fk = Object.keys(csvGlobalMap).find(k => k.includes(mKey) || mKey.includes(k));
-                        if(fk) csvRow = csvGlobalMap[fk];
-                    }
+        // 5.1 获取关联的 CSV 数据行
+        let csvRow = findCsvRowByFeature(p) || {};
 
-                    reg.activeFields.forEach(field => {
-                        if (csvRow[field]) h += `<div style="margin-top:8px; color:var(--primary); font-weight:700; border-top:1px dashed #eee; padding-top:4px;">${field}: ${csvRow[field]}</div>`;
-                    });
-
-                    activeCalculations.forEach(calc => {
-                        if (calc.layerNames.includes(name)) {
-                            const result = INDICATOR_CONFIG[calc.configKey].calc({ ...p, ...csvRow }, calc.params);
-                            h += `<div class="calc-box"><b>${calc.name}</b><span>${result.toFixed(2)}</span></div>`;
-                        }
-                    });
-
-                    l.bindPopup(h + `</div>`, { maxWidth: 280 });
+        // 5.2 渲染勾选的 CSV 字段
+        if (reg && reg.activeFields) {
+            reg.activeFields.forEach(field => {
+                if (csvRow[field]) {
+                    h += `<div style="margin-top:8px; color:var(--primary); font-weight:700; border-top:1px dashed #eee; padding-top:4px;">${field}: ${csvRow[field]}</div>`;
                 }
             });
-            layerGroup.addLayer(geoJsonLayer);
+        }
+
+        // 5.3 动态指标计算结果展示
+        activeCalculations.forEach(calc => {
+            if (calc.layerNames.includes(name)) {
+                const result = INDICATOR_CONFIG[calc.configKey].calc({ ...p, ...csvRow }, calc.params);
+                h += `<div class="calc-box"><b>${calc.name}</b><span>${result.toFixed(2)}</span></div>`;
+            }
+        });
+
+        l.bindPopup(h + `</div>`, { maxWidth: 280 });
+    }
+}).addTo(layerGroup);
         }
     }
     map.invalidateSize();
@@ -371,28 +503,35 @@ function renderDeepUI() {
     renderHistoryCards();
 }
 
-// --- 修改后的文件读取逻辑 ---
 document.getElementById('deep-file-in').onchange = (e) => {
-    const file = e.target.files[0]; if(!file) return;
+    const file = e.target.files[0];
+    if (!file) return;
+
     document.getElementById('file-name').innerText = file.name;
+
     const reader = new FileReader();
     reader.onload = (ev) => {
-        const lines = ev.target.result.split('\n').filter(l => l.trim());
-        sessionHeaders = lines[0].split(',').map(h => h.trim());
-        
-        const nameIdx = sessionHeaders.findIndex(h => /名称|店名|Name|小区|项目/i.test(h)) || 0;
+        const lines = ev.target.result.split(/\r?\n/).filter(l => l.trim());
+        if (!lines.length) return;
 
-        // 核心修复：删除 csvGlobalMap = {}; 这行代码！
-        // 这样新上传的文件数据会与旧数据合并，而不是覆盖。
-        
+        sessionHeaders = parseCsvLine(lines[0]).map(h => h.trim());
+        const nameIdx = detectNameColumnIndex(sessionHeaders);
+
         lines.slice(1).forEach(line => {
-            const vals = line.split(',').map(v => v.trim());
-            const obj = {}; 
-            sessionHeaders.forEach((h, i) => obj[h] = vals[i]);
-            const key = normalize(obj[sessionHeaders[nameIdx]]);
-            if(key) csvGlobalMap[key] = obj; 
+            const vals = parseCsvLine(line);
+            const obj = {};
+
+            sessionHeaders.forEach((h, i) => {
+                obj[h] = (vals[i] || "").trim();
+            });
+
+            const rawName = obj[sessionHeaders[nameIdx]];
+            const key = normalize(rawName);
+
+            if (key) csvGlobalMap[key] = obj;
         });
     };
+
     reader.readAsText(file);
 };
 
@@ -410,7 +549,17 @@ document.getElementById('btn-run-deep').onclick = async () => {
             const content = ev.target.result;
             const lines = content.split('\n').filter(l => l.trim());
             // 提取第一列数据，并限制条数（如 500 条）以防超出单次 Token 限制
-            const nameList = lines.slice(1, 501).map(line => line.split(',')[0].trim()).join(',');
+            const headers = parseCsvLine(lines[0]).map(h => h.trim());
+const nameIdx = detectNameColumnIndex(headers);
+
+const nameList = lines
+    .slice(1, 501)
+    .map(line => {
+        const vals = parseCsvLine(line);
+        return (vals[nameIdx] || "").trim();
+    })
+    .filter(Boolean)
+    .join(',');
 
             // --- 措施 2：调用北京地域低成本模型 Qwen-Doc-Turbo ---
             const aiRes = await fetch("https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions", {
@@ -552,55 +701,89 @@ function renderCalcHistory() {
         <div class="calc-card"><div class="calc-title"><span>${c.name}</span><button class="btn-del-calc" onclick="deleteCalc(${c.id})">删除</button></div></div>`).join('');
 }
 window.deleteCalc = (id) => { activeCalculations = activeCalculations.filter(c => c.id !== id); refreshMap(); renderCalcHistory(); };
-const ROAD_MAP = {
-    'motorway': '高速公路', 'motorway_link': '高速公路',
-    'trunk': '城市快速路', 'trunk_link': '城市快速路',
-    'primary': '城市主干路', 'primary_link': '城市主干路',
-    'secondary': '城市次干路', 'secondary_link': '城市次干路',
-    'tertiary': '城市支路', 'tertiary_link': '城市支路',
-    'residential': '居住区道路', 'living_street': '居住区道路',
-    'service': '内部道路', 'track': '内部道路',
-    'unclassified': '其他', 'unknown': '其他',
-    'pedestrian': '人行绿道', 'footway': '人行绿道', 'path': '人行绿道'
-};
+
 // --- 8. 启动加载 ---
 // analysis.html
+// analysis.html
 state.activeLayers.forEach(name => {
-    const isR = !!ROAD_SETTING[name]; 
+    const isR = !!ROAD_SETTING[name];
+    const isA = aoiConfig[name];
     const isH = name.includes('房产');
     const isS = name.includes('街景');
-    const isA = aoiConfig[name]; 
-
-    const color = isR ? ROAD_SETTING[name].color : (isA ? isA.c : (isS ? '#2BB5BE' : (isH ? '#FF7E5F' : `hsl(${(state.activeLayers.indexOf(name)*137)%360},65%,50%)`)));
-    deepFilterRegistry[name] = { kws: [...state.keywords], activeFields: new Set(), availableHeaders: [], isDeep: false };
 
     let loadPromise;
+    let color = isR ? ROAD_SETTING[name].color : (isA ? isA.c : getPoiColor(name));
+    let label = isA ? isA.n : (isS ? '街景语义分割图' : name);
+
     if (isR) {
-        // --- 核心修复：加载路网并执行 fclass 映射 ---
-        const files = ['shanghai_roads_nw_part1.json', 'shanghai_roads_nw_part2.json', 'shanghai_roads_nw_part3.json'];
+        // 路网：3 个分片
+        const files = [
+            'shanghai_roads_nw_part1.json',
+            'shanghai_roads_nw_part2.json',
+            'shanghai_roads_nw_part3.json'
+        ];
+
+        loadPromise = Promise.all(files.map(f => fetch(f).then(r => r.json()))).then(dataArray => {
+            const allFeatures = dataArray.flatMap(d => d.features);
+            return {
+                type: "FeatureCollection",
+                features: allFeatures.filter(f => {
+                    const p = f.properties;
+                    let actualType = p.type || ROAD_MAP[p.fclass] || p.fclass || "其他";
+
+                    if (actualType.includes("高速")) actualType = "高速公路";
+                    else if (actualType.includes("快速")) actualType = "城市快速路";
+                    else if (actualType.includes("主干")) actualType = "城市主干路";
+                    else if (actualType.includes("次干")) actualType = "城市次干路";
+                    else if (actualType.includes("支路")) actualType = "城市支路";
+
+                    return actualType === name;
+                })
+            };
+        });
+
+    } else if (isS) {
+        // 街景：同步 index.html，加载两个分卷
+        const files = ['street_view_data_1.json', 'street_view_data_2.json'];
         loadPromise = Promise.all(files.map(f => fetch(f).then(r => r.json()))).then(dataArray => ({
-            type: "FeatureCollection", 
-            features: dataArray.flatMap(d => d.features).filter(f => {
-                // 关键：读取 fclass 并映射为中文轨道名
-                const rawClass = f.properties.fclass || "unknown";
-                const mappedType = ROAD_MAP[rawClass] || "其他";
-                return mappedType === name; // 只有匹配当前勾选轨道的才加载
-            })
+            type: "FeatureCollection",
+            features: dataArray.flatMap(d => d.features || [])
         }));
+
     } else if (name === "buildings_a") {
+        // 建筑 AOI：同步 index.html，加载三个分卷
         const parts = ['part1', 'part2', 'part3'];
-        loadPromise = Promise.all(parts.map(p => fetch(`data_aoi/gis_osm_buildings_a_free_1_${p}.json`).then(r => r.json()))).then(dataArray => ({ type: "FeatureCollection", features: dataArray.flatMap(d => d.features) }));
+        loadPromise = Promise.all(
+            parts.map(p =>
+                fetch(`data_aoi/gis_osm_buildings_a_free_1_${p}.json`).then(r => r.json())
+            )
+        ).then(dataArray => ({
+            type: "FeatureCollection",
+            features: dataArray.flatMap(d => d.features || [])
+        }));
+
+    } else if (isA) {
+        // 其他 AOI：单文件
+        loadPromise = fetch(`data_aoi/gis_osm_${name}_free_1.json`).then(r => r.json());
+
+    } else if (isH) {
+        // 房产
+        loadPromise = fetch('houses.json').then(r => r.json());
+
     } else {
-        const path = isA ? `data_aoi/gis_osm_${name}_free_1.json` : (isH ? 'houses.json' : `data_poi/${name}.json`);
-        loadPromise = fetch(path).then(r => r.json());
+        // POI
+        loadPromise = fetch(`data_poi/${name}.json`).then(r => r.json());
     }
 
     loadPromise.then(data => {
         pool[name] = data;
-        let container = isR ? 'road-layers-container' : (isA ? 'aoi-list-ui' : (isS ? 'street-list-ui' : 'active-category-list'));
-        let label = isA ? isA.n : (isS ? '街景语义分割图' : name);
+
+        let container = isR
+            ? 'road-layers-container'
+            : (isA ? 'aoi-list-ui' : (isS ? 'street-list-ui' : 'active-category-list'));
+
         initLayerControl(name, color, container, label, isR);
-    }).catch(e => console.error(`图层 ${name} 加载失败:`, e));
+    }).catch(err => console.error("加载失败:", name, err));
 });
 
 // 核心修复：重命名为 initLayerControl 并增加 label 参数

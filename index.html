@@ -268,11 +268,21 @@ window.hideTip = () => { document.getElementById('pie-tip').style.display = 'non
     // 4. 分析跳转逻辑
     document.getElementById('btn-analysis-entry').onclick = () => document.getElementById('confirm-modal').style.display='flex';
     function closeModal() { document.getElementById('confirm-modal').style.display='none'; }
-    function goToAnalysis() {
-        const state = { keywords: keywords, activeLayers: Object.keys(activeLayers) };
-        localStorage.setItem('analysis_state', JSON.stringify(state));
-        window.location.href = 'analysis.html';
-    }
+function goToAnalysis() {
+    const currentActive = Object.keys(activeLayers);
+
+    const loadedAoiLayers = Object.keys(pool).filter(name => {
+        return name.endsWith('_a');
+    });
+
+    const state = {
+        keywords: keywords,
+        activeLayers: [...new Set([...currentActive, ...loadedAoiLayers])]
+    };
+
+    localStorage.setItem('analysis_state', JSON.stringify(state));
+    window.location.href = 'analysis.html';
+}
 
     // 5. 数据核心与多重筛选
     let keywords = []; const activeLayers = {}, pool = {};
