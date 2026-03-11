@@ -484,24 +484,33 @@ function initInteractUI() {
     let csvLayersHtml = "";  // 存放关联的 CSV 属性
 
     state.activeLayers.forEach(ln => {
-        const label = aoiConfig[ln] ? aoiConfig[ln].n : (ln.includes('街景') ? '街景语义分割图' : ln);
+    // 1. 判定图层类型并确定显示标签
+    const isRoad = !!ROAD_SETTING[ln]; // 是否属于那 10 类路网
+    const label = isRoad ? ln : (aoiConfig[ln] ? aoiConfig[ln].n : (ln.includes('街景') ? '街景语义分割图' : ln));
+    
+    // 2. 生成 [基础属性] 数据组：从 pool 缓冲池中提取 GeoJSON 原始字段
+    if(pool[ln] && pool[ln].features && pool[ln].features[0]) {
+        const fields = Object.keys(pool[ln].features[0].properties);
+        // 如果是路网，增加 [路网轨道] 前缀以便区分
+        const groupPrefix = isRoad ? "[路网轨道]" : "[基础图层]";
         
-        // 1. 生成 1 级数据组：图层原始基础属性
-        if(pool[ln] && pool[ln].features && pool[ln].features[0]) {
-            const fields = Object.keys(pool[ln].features[0].properties);
-            baseLayersHtml += `<optgroup label="[基础图层] ${label}">`;
-            fields.forEach(f => { baseLayersHtml += `<option value="${f}">${f}</option>`; });
-            baseLayersHtml += `</optgroup>`;
-        }
+        baseLayersHtml += `<optgroup label="${groupPrefix} ${label}">`;
+        fields.forEach(f => { 
+            baseLayersHtml += `<option value="${f}">${f}</option>`; 
+        });
+        baseLayersHtml += `</optgroup>`;
+    }
 
-        // 2. 生成 2 级数据组：该图层关联的 CSV 字段 (这是新增的人文关怀点)
-        const reg = deepFilterRegistry[ln];
-        if(reg && reg.availableHeaders.length > 0) {
-            csvLayersHtml += `<optgroup label="[关联数据] ${label}">`;
-            reg.availableHeaders.forEach(h => { csvLayersHtml += `<option value="${h}">${h}</option>`; });
-            csvLayersHtml += `</optgroup>`;
-        }
-    });
+    // 3. 生成 [关联数据] 数据组：提取 AI 深度筛选后关联的 CSV 字段
+    const reg = deepFilterRegistry[ln];
+    if(reg && reg.availableHeaders.length > 0) {
+        csvLayersHtml += `<optgroup label="[关联数据] ${label}">`;
+        reg.availableHeaders.forEach(h => { 
+            csvLayersHtml += `<option value="${h}">${h}</option>`; 
+        });
+        csvLayersHtml += `</optgroup>`;
+    }
+});
 
     // --- 渲染 UI：将两部分 HTML 注入 ---
     document.getElementById('param-inputs-container').innerHTML = config.params.map(p => `
@@ -641,140 +650,101 @@ fetch('xuhui.json').then(r => r.json()).then(data => L.geoJSON(data, { style: { 
 
 
 
-// --- 1. 严格 10 类路网配置方案 ---
+// analysis.html
+
 const ROAD_SETTING = {
-    "高速公路":   { weight: 10, color: "#F5222D", lineW: 2.8 },
-    "城市快速路": { weight: 9,  color: "#EB2F96", lineW: 2.5 },
-    "城市主干路": { weight: 8,  color: "#722ED1", lineW: 2.2 },
-    "城市次干路": { weight: 7,  color: "#1890FF", lineW: 1.8 },
-    "城市支路":   { weight: 6,  color: "#13C2C2", lineW: 1.4 },
-    "居住区道路": { weight: 5,  color: "#52C41A", lineW: 1.2 },
-    "内部道路":   { weight: 4,  color: "#A0D911", lineW: 1.0 },
-    "辅助道路":   { weight: 3,  color: "#FAAD14", lineW: 1.0 },
-    "人行绿道":   { weight: 2,  color: "#FA8C16", lineW: 1.0 },
-    "其他":       { weight: 1,  color: "#8C8C8C", lineW: 0.8 }
+    "高速公路": { weight: 10, color: "#F5222D", lineW: 2.8 },
+    "城市快速路": { weight: 9, color: "#EB2F96", lineW: 2.5 },
+    "城市主干路": { weight: 8, color: "#722ED1", lineW: 2.2 },
+    "城市次干路": { weight: 7, color: "#1890FF", lineW: 1.8 },
+    "城市支路": { weight: 6, color: "#13C2C2", lineW: 1.4 },
+    "居住区道路": { weight: 5, color: "#52C41A", lineW: 1.2 },
+    "内部道路": { weight: 4, color: "#A0D911", lineW: 1.0 },
+    "辅助道路": { weight: 3, color: "#FAAD14", lineW: 1.0 },
+    "人行绿道": { weight: 2, color: "#FA8C16", lineW: 1.0 },
+    "其他": { weight: 1, color: "#8C8C8C", lineW: 0.8 }
 };
 
-// --- 2. 独立的路网数据管理类 ---
 class RoadLayerManager {
     constructor(map) {
         this.map = map;
-        this.groups = {};       // 存储各级道路的 FeatureGroup
-        this.allFeatures = [];  // 用于 AI 全量搜索
+        this.groups = {}; 
     }
 
-    async init() {
+    async loadActiveRoads() {
+        // 只加载在首页被勾选的道路类别
+        const activeRoadTypes = state.activeLayers.filter(name => ROAD_SETTING[name]);
+        if (activeRoadTypes.length === 0) return;
+
         const files = ['shanghai_roads_nw_part1.json', 'shanghai_roads_nw_part2.json', 'shanghai_roads_nw_part3.json'];
         const dataArray = await Promise.all(files.map(f => fetch(f).then(r => r.json())));
-        this.allFeatures = dataArray.flatMap(d => d.features);
+        const allFeatures = dataArray.flatMap(d => d.features);
 
-        // 属性归一化清洗
-        const groupedData = {};
-        this.allFeatures.forEach(f => {
-            let t = f.properties.type || "其他";
-            if (t.includes("高速")) t = "高速公路";
-            else if (t.includes("快速")) t = "城市快速路";
-            else if (t.includes("主干")) t = "城市主干路";
-            else if (t.includes("次干")) t = "城市次干路";
-            else if (t.includes("支路")) t = "城市支路";
-            else if (t.includes("居住")) t = "居住区道路";
-            else if (t.includes("内部")) t = "内部道路";
-            else if (t.includes("辅助")) t = "辅助道路";
-            else if (t.includes("绿道") || t.includes("行人")) t = "人行绿道";
-            else t = "其他";
-
-            if (!groupedData[t]) groupedData[t] = [];
-            groupedData[t].push(f);
-        });
-
-        this.renderUI(groupedData);
-    }
-
-    renderUI(groupedData) {
-        const container = document.getElementById('road-layers-container');
-        const sortedTypes = Object.keys(groupedData).sort((a, b) => 
-            (ROAD_SETTING[b]?.weight || 0) - (ROAD_SETTING[a]?.weight || 0)
-        );
-
-        sortedTypes.forEach(type => {
-            const cfg = ROAD_SETTING[type] || ROAD_SETTING["其他"];
-            
-            // 创建 Leaflet 矢量图层
-            const layer = L.geoJSON(groupedData[type], {
-                coordsToLatLng: (c) => L.latLng(c[1], c[0]),
-                style: { color: cfg.color, weight: cfg.lineW, opacity: 0.8 },
-                onEachFeature: (f, l) => {
-                    if (f.properties.name) {
-                        l.bindPopup(`<div class="popup-info-row">道路详情</div><b>路名：${f.properties.name}</b>`);
-                    }
-                }
+        activeRoadTypes.forEach(type => {
+            const features = allFeatures.filter(f => {
+                let t = f.properties.type || "其他";
+                // 归一化逻辑与 index.html 保持高度一致
+                if (t.includes("高速")) t = "高速公路";
+                else if (t.includes("快速")) t = "城市快速路";
+                else if (t.includes("主干")) t = "城市主干路";
+                else if (t.includes("次干")) t = "城市次干路";
+                else if (t.includes("支路")) t = "城市支路";
+                else if (t.includes("居住")) t = "居住区道路";
+                else if (t.includes("内部")) t = "内部道路";
+                else if (t.includes("辅助")) t = "辅助道路";
+                else if (t.includes("绿道") || t.includes("行人")) t = "人行绿道";
+                else t = "其他";
+                return t === type;
             });
-            this.groups[type] = layer;
 
-            // 构建 UI (与原有 UI 样式对齐)
-            const div = document.createElement('div');
-            div.className = 'layer-item road-item';
-            div.innerHTML = `
-                <input type="checkbox">
-                <div class="legend-line" style="background:${cfg.color}"></div>
-                <span style="font-weight:600;">${type}</span>
-            `;
-
-            div.querySelector('input').onchange = (e) => {
-                if (e.target.checked) this.map.addLayer(layer);
-                else this.map.removeLayer(layer);
-            };
-            container.appendChild(div);
-        });
-    }
-
-    // AI 筛选接口：支持按路名模糊搜索
-    applyAISearch(keyword) {
-    let foundCount = 0;
-    Object.keys(this.groups).forEach(type => {
-        const layerGroup = this.groups[type];
-        layerGroup.eachLayer(l => {
-            const name = l.feature.properties.name || "";
-            if (keyword && name.includes(keyword)) {
-                // 1. 高亮并置顶
-                l.setStyle({ color: '#FF7E5F', weight: 6, className: 'road-highlight' });
-                if (this.map.hasLayer(layerGroup)) l.bringToFront();
-                
-                // 2. 核心改进：如果搜到了，自动把对应的道路等级图层打开
-                if (!this.map.hasLayer(layerGroup)) {
-                    this.map.addLayer(layerGroup);
-                    // 同步勾选 UI 中的 checkbox
-                    const checkboxes = document.querySelectorAll('.road-item input');
-                    checkboxes.forEach(cb => {
-                        if(cb.nextElementSibling.nextElementSibling.innerText === type) cb.checked = true;
-                    });
-                }
-                foundCount++;
-            } else {
-                // 恢复原样
-                const cfg = ROAD_SETTING[type] || ROAD_SETTING["其他"];
-                l.setStyle({ color: cfg.color, weight: cfg.lineW, className: '' });
+            if (features.length > 0) {
+                this.renderRoadLayer(type, features);
+                // 存入全局 pool，供指标运算引擎调用
+                pool[type] = { type: "FeatureCollection", features: features };
             }
         });
-    });
-    console.log(`AI 筛选完成，共匹配到 ${foundCount} 条路段`);
-}
+    }
+
+    renderRoadLayer(type, features) {
+        const cfg = ROAD_SETTING[type];
+        const layer = L.geoJSON(features, {
+            coordsToLatLng: (c) => L.latLng(c[1], c[0]),
+            filter: (f) => {
+                const reg = deepFilterRegistry[type];
+                if (!reg || !reg.isDeep) return true;
+                // 接入原有的 AI CSV 匹配逻辑
+                const mKey = normalize(f.properties.name);
+                return reg.kws.some(kw => normalize(kw).includes(mKey) || mKey.includes(normalize(kw)));
+            },
+            style: { color: cfg.color, weight: cfg.lineW, opacity: 0.8 },
+            onEachFeature: (f, l) => {
+                l.bindPopup(`<div class="popup-info-row">道路属性</div><b>路名: ${f.properties.name || "未命名"}</b>`);
+            }
+        }).addTo(this.map);
+
+        this.groups[type] = layer;
+        this.addControlUI(type, cfg.color);
+    }
+
+    addControlUI(type, color) {
+        const div = document.createElement('div');
+        div.className = 'layer-item road-item'; // 增加专用类名
+        div.innerHTML = `
+            <input type="checkbox" checked>
+            <div class="legend-line" style="background:${color}"></div>
+            <span>${type}</span>
+        `;
+        div.querySelector('input').onchange = (e) => {
+            if (e.target.checked) this.map.addLayer(this.groups[type]);
+            else this.map.removeLayer(this.groups[type]);
+        };
+        document.getElementById('road-layers-container').appendChild(div);
+    }
 }
 
 // 初始化
 const roadManager = new RoadLayerManager(map);
-roadManager.init();
-
-
-
-document.getElementById('btn-deep-filter').onclick = () => {
-    const userInput = prompt("请输入要搜索的道路名称（如：肇嘉浜路）：");
-    if (userInput) {
-        // 调用类中的 AI 检索方法
-        roadManager.applyAISearch(userInput);
-        console.log(`AI 正在深度检索路网：${userInput}`);
-    }
-};
+roadManager.loadActiveRoads();
 </script>
 <div id="pie-tip"></div>
 </body>

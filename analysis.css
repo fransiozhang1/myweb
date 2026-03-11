@@ -333,3 +333,28 @@ select option { padding: 10px; color: #1e293b; font-weight: 600; }
 @keyframes dash {
     to { stroke-dashoffset: -20; }
 }
+
+
+
+/* analysis.css */
+.layer-item {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    padding: 10px 12px !important;
+    gap: 12px !important;
+    white-space: nowrap !important; /* 严禁文字换行 */
+}
+
+.legend-line {
+    width: 20px;
+    height: 3px;
+    border-radius: 2px;
+    flex-shrink: 0; /* 防止线段被压缩 */
+}
+
+.layer-item span {
+    font-size: 13px;
+    font-weight: 600;
+    flex-grow: 1;
+}

@@ -543,10 +543,18 @@ async function initRoadNetwork() {
             };
 
             const checkbox = item.querySelector('input');
-            checkbox.onchange = (e) => {
-                if (e.target.checked) layerGroup.addTo(map);
-                else if (map.hasLayer(layerGroup)) map.removeLayer(layerGroup);
-            };
+            // index.html
+// 找到 initRoadNetwork 函数中的 checkbox.onchange，修改为：
+checkbox.onchange = (e) => {
+    if (e.target.checked) {
+        layerGroup.addTo(map);
+        // 核心修复：同步到全局 activeLayers 对象，确保跳转时带走
+        activeLayers[type] = { layer: layerGroup, conf: { c: config.color, t: 'road' } };
+    } else {
+        map.removeLayer(layerGroup);
+        delete activeLayers[type];
+    }
+};
 
             container.appendChild(item);
         });
