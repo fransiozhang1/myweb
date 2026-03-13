@@ -1,0 +1,1409 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>大徐家汇数智化平台 - 出图端</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="analysis.css" />
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <style>
+    #map { background:#f0f2f5; }
+    #export-win {
+      display:none;
+      top: 168px;
+      left: 34px;
+      width: 400px;
+      max-height: 76vh;
+    }
+    .export-row { margin-bottom: 14px; }
+    .export-row label {
+      display:block;
+      font-size:11px;
+      color:#94a3b8;
+      font-weight:800;
+      text-transform:uppercase;
+      margin-bottom:8px;
+      letter-spacing:1px;
+    }
+    .export-inline { display:grid; grid-template-columns:1fr 78px; gap:12px; align-items:center; }
+    .soft-btn {
+      width:100%; padding:14px 16px; border-radius:14px; border:1px solid #e2e8f0;
+      background:#fff; color:#334155; font-weight:800; cursor:pointer;
+    }
+    .soft-btn:hover { border-color:var(--primary); color:var(--primary); }
+    .panel-tip {
+      font-size:12px; line-height:1.6; color:#64748b; background:#f8fafc;
+      border:1px solid #eef2f7; border-radius:14px; padding:12px 14px;
+    }
+    .status-badge {
+      display:inline-block; padding:4px 10px; border-radius:999px;
+      background:rgba(43,181,190,0.12); color:var(--primary); font-size:11px; font-weight:800; margin-top:6px;
+    }
+    .section-empty { font-size:12px; color:#94a3b8; padding:8px 2px; }
+    .layer-item small { color:#94a3b8; display:block; margin-top:2px; }
+    #map-export-mask {
+      position:absolute; inset:0; pointer-events:none; border:2px dashed rgba(255,255,255,0.65);
+      box-sizing:border-box; z-index:1500; display:none;
+    }
+    .leaflet-popup-content { min-width:220px; }
+  </style>
+</head>
+
+
+
+<body>
+
+<div id="hud-left" style="display:flex; flex-direction:column;">
+  <div id="header" style="margin-bottom: 40px;">
+    <h1>大徐家汇数智化平台</h1>
+    <p>● 出图与保存</p>
+  </div>
+
+  <div class="hud-btn-group" style="display:flex; flex-direction:column; gap:20px;">
+  <button id="btn-grid-panel" class="big-action-btn">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+      <path d="M3 3h18v18H3z"/>
+      <path d="M9 3v18"/>
+      <path d="M15 3v18"/>
+      <path d="M3 9h18"/>
+      <path d="M3 15h18"/>
+    </svg>
+    创建格栅
+  </button>
+
+  <button id="btn-export-panel" class="big-action-btn">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+      <path d="M12 3v12"/>
+      <path d="M8 11l4 4 4-4"/>
+      <path d="M4 21h16"/>
+    </svg>
+    导出
+  </button>
+</div>
+</div>
+
+<div id="analysis-tools" class="toolbar-group">
+  <div class="tool-btn" id="btn-layer-t" title="大类图层控制">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+  </div>
+</div>
+
+<div id="layer-menu" class="floating-window" style="display:none; top: 35px; right: 100px; width: 320px;">
+  <div class="win-header"><span>当前出图图层</span><span class="close-win">×</span></div>
+  <div style="padding:20px; overflow-y:auto; flex:1;">
+    <div class="group-label">城市空间要素 (AOI)</div>
+    <div id="aoi-list-ui"></div>
+
+    <div class="group-label" style="margin-top:20px;">城市道路分析轨道</div>
+    <div id="road-layers-container"></div>
+
+    <div class="group-label" style="margin-top:20px;">街景语义分析轨道</div>
+    <div id="street-list-ui"></div>
+
+    <div class="group-label" style="margin-top:20px;">POI 与 房产轨道</div>
+    <div id="active-category-list"></div>
+
+    <div class="group-label" style="margin-top:20px;">全部当前图层</div>
+    <div id="current-layers-container"></div>
+  </div>
+</div>
+
+<div id="grid-win" class="floating-window" style="display:none; top: 168px; left: 34px; width: 430px; max-height: 78vh;">
+  <div class="win-header"><span>创建格栅</span><span class="close-win">×</span></div>
+  <div style="padding:22px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:14px;">
+
+    <div class="step-box" style="margin-bottom:0;">
+      <div class="group-label" style="margin-top:0;">1. 网格大小（米）</div>
+      <div class="export-row">
+        <select id="grid-size">
+          <option value="100">100 m</option>
+          <option value="200">200 m</option>
+          <option value="500" selected>500 m</option>
+          <option value="1000">1000 m</option>
+        </select>
+      </div>
+
+      <div class="group-label" style="margin-top:12px;">2. 选择格栅中心</div>
+      <button id="btn-pick-grid-origin" class="soft-btn">在地图上选择中心点</button>
+      <div id="grid-origin-status" class="status-badge" style="margin-top:10px;">尚未设置中心点</div>
+
+      <div class="group-label" style="margin-top:12px;">3. X / Y 方向数量</div>
+      <div class="export-inline" style="grid-template-columns:1fr 1fr;">
+        <input id="grid-count-x" class="input-coeff" type="number" min="1" step="1" value="5" />
+        <input id="grid-count-y" class="input-coeff" type="number" min="1" step="1" value="5" />
+      </div>
+      <div class="panel-tip" style="margin-top:10px;">
+        以所选点作为格网交点，X 与 Y 分别向正负方向扩展。总格数为 (2X) × (2Y)
+      </div>
+    </div>
+
+    <button id="btn-generate-grid" class="soft-btn">生成格栅</button>
+
+    <hr style="border:0; border-top:1px solid #f1f5f9; margin:4px 0;">
+
+    <div class="step-box" style="margin-bottom:0;">
+      <div class="group-label" style="margin-top:0;">4. 选择计算图层</div>
+      <div class="export-row">
+        <select id="grid-source-layer"></select>
+      </div>
+
+      <div class="group-label" style="margin-top:12px;">5. 选择数值字段</div>
+      <div class="export-row">
+        <select id="grid-source-field"></select>
+      </div>
+
+      <div class="panel-tip">
+        将对每个格栅内的相关数据求平均值；无数据的格栅保持透明。
+      </div>
+    </div>
+
+    <button id="btn-grid-calc" class="soft-btn">计算格栅平均值并着色</button>
+  </div>
+</div>
+
+<div id="export-win" class="floating-window">
+  <div class="win-header"><span>导出模块</span><span class="close-win">×</span></div>
+  <div style="padding:22px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:14px;">
+    <div class="panel-tip">
+      当前会优先恢复 analysis 页的地图视角，并平移 analysis 页传来的全部当前图层。导出时只保存地图区域，不会把左侧按钮、标题或右上角浮窗一起导出。
+      <div class="status-badge" id="graph-status">等待加载数据</div>
+    </div>
+
+    <div class="step-box" style="margin-bottom:0;">
+      <div class="group-label" style="margin-top:0;">1. 导出范围</div>
+      <div class="export-row">
+        <select id="export-range">
+          <option value="current">当前视图</option>
+          <option value="xuhui">大徐家汇边界</option>
+          <option value="alllayers">全部当前图层范围</option>
+        </select>
+      </div>
+
+      <div class="group-label" style="margin-top:12px;">2. 图片格式</div>
+      <div class="export-row">
+        <select id="export-format">
+          <option value="png">PNG</option>
+          <option value="jpeg">JPG</option>
+          <option value="webp">WEBP</option>
+        </select>
+      </div>
+
+      <div class="group-label" style="margin-top:12px;">3. 保存质量</div>
+      <div class="export-row export-inline">
+        <input id="export-quality" type="range" min="40" max="100" step="5" value="92" />
+        <input id="export-quality-text" class="input-coeff" value="92" />
+      </div>
+
+      <div class="group-label" style="margin-top:12px;">4. 输出分辨率</div>
+      <div class="export-row export-inline">
+        <input id="export-scale" type="range" min="1" max="4" step="1" value="2" />
+        <input id="export-scale-text" class="input-coeff" value="2x" />
+      </div>
+
+      <div class="group-label" style="margin-top:12px;">5. 纯地图导出</div>
+      <div class="export-row" style="display:flex; align-items:center; gap:10px;">
+        <input id="export-clean-map" type="checkbox" checked />
+        <span style="font-size:13px; color:#334155;">隐藏缩放控件与地图内控件</span>
+      </div>
+    </div>
+
+    <button id="btn-save-graph" class="soft-btn">保存当前页面</button>
+  </div>
+</div>
+
+<div id="map"></div>
+<div id="map-export-mask"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const map = L.map('map', { zoomControl:false, renderer:L.canvas() }).setView([31.15, 121.43], 13);
+L.control.zoom({ position:'bottomright' }).addTo(map);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{y}/{x}{r}.png'.replace('{y}','{z}').replace('{x}','{x}'), { crossOrigin:true, maxZoom:20 }).addTo(map);
+// 修正上面模板后再重设，避免某些编辑器替换问题
+
+
+
+
+map.on('zoomend', () => {
+    refreshMap();
+});
+
+map.eachLayer(l => { if (l instanceof L.TileLayer) map.removeLayer(l); });
+L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { crossOrigin:true, maxZoom:20 }).addTo(map);
+
+const displayLayers = {};
+const pool = {};
+let xuhuiBounds = null;
+let allLayerBounds = null;
+let gridPicking = false;
+let gridOriginLatLng = null;
+let gridOriginMarker = null;
+let currentGridLayerName = null;
+
+function openGraphTransferDB() {
+    return new Promise((resolve, reject) => {
+        const req = indexedDB.open('GraphTransferDB', 1);
+
+        req.onupgradeneeded = (e) => {
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains('payloads')) {
+                db.createObjectStore('payloads');
+            }
+        };
+
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+    });
+}
+
+async function idbGet(key) {
+    const db = await openGraphTransferDB();
+
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction('payloads', 'readonly');
+        const store = tx.objectStore('payloads');
+        const req = store.get(key);
+
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+    });
+}
+function setStatus(text) {
+  const el = document.getElementById('graph-status');
+  if (el) el.textContent = text;
+}
+
+function deactivateAll() {
+  document.querySelectorAll('.floating-window').forEach(w => w.style.display = 'none');
+  document.querySelectorAll('.tool-btn, .big-action-btn').forEach(b => b.classList.remove('active'));
+}
+window.addEventListener('keydown', (e) => { if (e.key === 'Escape') deactivateAll(); });
+
+const setupBtn = (id, action) => {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.onclick = () => {
+    const wasActive = el.classList.contains('active');
+    deactivateAll();
+    if (!wasActive) {
+      action();
+      el.classList.add('active');
+    }
+  };
+};
+setupBtn('btn-layer-t', () => document.getElementById('layer-menu').style.display = 'flex');
+setupBtn('btn-export-panel', () => document.getElementById('export-win').style.display = 'flex');
+setupBtn('btn-grid-panel', () => {
+  refreshGridSourceOptions();
+  document.getElementById('grid-win').style.display = 'flex';
+});
+document.querySelectorAll('.close-win').forEach(c => c.onclick = deactivateAll);
+
+document.querySelectorAll('.win-header').forEach(h => {
+  let dr = false, of = [0,0], win = h.parentElement;
+  h.onmousedown = (e) => { dr = true; of = [win.offsetLeft - e.clientX, win.offsetTop - e.clientY]; };
+  document.addEventListener('mousemove', (e) => {
+    if (!dr) return;
+    win.style.left = (e.clientX + of[0]) + 'px';
+    win.style.top = (e.clientY + of[1]) + 'px';
+    win.style.bottom = 'auto';
+    win.style.right = 'auto';
+  });
+  document.addEventListener('mouseup', () => dr = false);
+});
+
+document.getElementById('btn-pick-grid-origin').onclick = () => {
+  gridPicking = true;
+  document.getElementById('grid-origin-status').textContent = '请在地图上点击一个中心点';
+};
+
+
+map.on('click', (e) => {
+  if (!gridPicking) return;
+
+  gridPicking = false;
+
+  const snapped = findNearestSnapPoint(e.latlng, 200);
+  gridOriginLatLng = snapped ? snapped.latlng : e.latlng;
+
+  if (gridOriginMarker) {
+    map.removeLayer(gridOriginMarker);
+    gridOriginMarker = null;
+  }
+
+  gridOriginMarker = L.circleMarker(gridOriginLatLng, {
+  radius: 4,
+  fillColor: '#111827',
+  fillOpacity: 1,
+  color: '#ffffff',
+  weight: 1,
+  opacity: 1
+}).addTo(map);
+
+  if (snapped) {
+    document.getElementById('grid-origin-status').textContent =
+      `已吸附到格网原点：${snapped.title}（${snapped.distance.toFixed(1)}m）`;
+  } else {
+    document.getElementById('grid-origin-status').textContent =
+      `格网原点：${gridOriginLatLng.lat.toFixed(5)}, ${gridOriginLatLng.lng.toFixed(5)}`;
+  }
+});
+
+
+async function restoreFromAnalysisPayload() {
+    ['aoi-list-ui', 'road-layers-container', 'street-list-ui', 'active-category-list', 'current-layers-container']
+  .forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = '';
+  });
+    const payload = await idbGet('graph_export_payload');
+    if (!payload || !payload.pool || !payload.layerStates) {
+        console.warn('没有读取到 analysis 传来的图层数据');
+        return false;
+    }
+
+    // 清空当前
+    Object.keys(displayLayers).forEach(name => {
+        if (displayLayers[name]?.layer) {
+            displayLayers[name].layer.clearLayers();
+            map.removeLayer(displayLayers[name].layer);
+        }
+    });
+
+    for (const k in displayLayers) delete displayLayers[k];
+    for (const k in pool) delete pool[k];
+
+    // 恢复“当前显示快照”
+    Object.keys(payload.pool).forEach(name => {
+        pool[name] = payload.pool[name];
+    });
+
+    Object.keys(payload.layerStates).forEach(name => {
+        const meta = payload.layerStates[name];
+        const conf = meta?.conf || {};
+        const color = conf.c || '#2BB5BE';
+        const label = conf.label || name;
+        const containerId = conf.containerId || 'active-category-list';
+        const isR = !!conf.isRoadLike;
+
+        initLayerControl(name, color, containerId, label, isR);
+        Object.assign(displayLayers[name].conf, conf);
+        displayLayers[name].conf.visible = true;
+
+        const checkbox = displayLayers[name].uiEl?.querySelector('input');
+        if (checkbox) checkbox.checked = true;
+    });
+
+    if (payload.mapView?.center && Number.isFinite(payload.mapView?.zoom)) {
+        map.setView(
+            [payload.mapView.center.lat, payload.mapView.center.lng],
+            payload.mapView.zoom
+        );
+    }
+
+    refreshMap();
+    return true;
+}
+
+function computeFeatureCollectionBounds(fc) {
+  if (!fc || !Array.isArray(fc.features) || !fc.features.length) return null;
+  const layer = L.geoJSON(fc);
+  const bounds = layer.getBounds();
+  return bounds && bounds.isValid() ? bounds : null;
+}
+
+function getLayerContainerId(item) {
+  const conf = item.conf || {};
+  if (item.containerId) return item.containerId;
+  if (conf.containerId) return conf.containerId;
+  if (conf.isGeneratedRoadAnalysis || conf.isChoiceResult || conf.isIntegrationResult || conf.isRoadLike || item.isR) return 'road-layers-container';
+  const name = item.name || '';
+  if (/房产|POI/i.test(name)) return 'active-category-list';
+  if (/街景|street/i.test(name)) return 'street-list-ui';
+  if (/AOI|边界|区界|徐汇/i.test(name)) return 'aoi-list-ui';
+  return 'current-layers-container';
+}
+
+function inferLayerStyle(fc, item) {
+  const conf = item.conf || {};
+  const sample = fc?.features?.find(f => f?.geometry)?.geometry?.type || '';
+  const isLine = conf.isLine ?? /Line/.test(sample);
+  const color = conf.c || item.color || '#FF7E5F';
+  return { isLine, color };
+}
+
+function initLayerControl(name, color, containerId, label, isR = false, checked = true) {
+  displayLayers[name] = displayLayers[name] || { layer: L.layerGroup().addTo(map), conf: {}, uiEl: null, on: checked };
+  displayLayers[name].on = checked;
+  displayLayers[name].conf.visible = checked;
+
+  const displayName = label || name;
+  const div = document.createElement('div');
+  div.className = 'layer-item';
+  div.dataset.layer = name;
+
+  const legendHtml = isR
+    ? `<div class="legend-line" style="background:${color}; width:20px; height:3px; border-radius:1px; margin-right:12px; flex-shrink:0;"></div>`
+    : `<div class="legend-dot" style="background:${color}; width:10px; height:10px; border-radius:50%; margin-right:12px; flex-shrink:0;"></div>`;
+
+  div.innerHTML = `
+    <input type="checkbox" ${checked ? 'checked' : ''} style="flex-shrink:0;">
+    ${legendHtml}
+    <span style="font-weight:600; font-size:13px; white-space:nowrap;">${displayName}</span>
+  `;
+
+  div.querySelector('input').onchange = (e) => {
+    displayLayers[name].on = e.target.checked;
+    displayLayers[name].conf.visible = e.target.checked;
+    refreshMap();
+  };
+
+  const container = document.getElementById(containerId) || document.getElementById('current-layers-container');
+  container.appendChild(div);
+  displayLayers[name].uiEl = div;
+}
+
+function styleForFeature(p, conf) {
+  if (p.isIntegrationLine) {
+    return { color: p.integrationColor || conf.c || '#2563EB', weight: p.integrationWidth || 3, opacity: 0.95, lineJoin:'round' };
+  }
+  if (p.isChoiceLine) {
+    return { color: p.choiceColor || conf.c || '#FF7E5F', weight: p.choiceWidth || 3, opacity: 0.95, lineJoin:'round' };
+  }
+  if (p.isRoadAnalysisOrigin || p.isChoiceOrigin) {
+    return { radius: p.pointRadius || 9, color: '#ffffff', weight: 2, fillColor: conf.c || '#2BB5BE', fillOpacity: 1 };
+  }
+  return {
+    color: conf.c || '#FF7E5F',
+    fillColor: conf.c || '#FF7E5F',
+    weight: conf.isLine ? (conf.weight || 2.5) : (conf.weight || 1.2),
+    radius: conf.pointRadius || 6,
+    opacity: 0.95,
+    fillOpacity: conf.isLine ? 0 : (conf.fillOpacity ?? 0.22)
+  };
+}
+
+function popupHtml(name, p) {
+  let h = `<div class="popup-header"><h3>${name || p.name || '图层要素'}</h3></div>`;
+  if (p.isIntegrationLine) {
+    h += `<div class="popup-info-row">整合度分析</div>`;
+    h += `<div><b>整合度值:</b> ${(p.integrationScore ?? 0).toFixed(8)}</div>`;
+    h += `<div><b>归一化值:</b> ${(p.integrationNorm || 0).toFixed(3)}</div>`;
+    if (p.sourceLayer) h += `<div><b>来源道路类型:</b> ${p.sourceLayer}</div>`;
+    return h;
+  }
+  if (p.isChoiceLine) {
+    h += `<div class="popup-info-row">选择度分析</div>`;
+    h += `<div><b>选择度次数:</b> ${p.choiceCount ?? 0}</div>`;
+    h += `<div><b>归一化值:</b> ${(p.choiceNorm || 0).toFixed(3)}</div>`;
+    if (p.sourceLayer) h += `<div><b>来源道路类型:</b> ${p.sourceLayer}</div>`;
+    return h;
+  }
+  return h;
+}
+
+
+function buildGridCellFromCorner(origin, ix, iy, sizeMeters) {
+  // origin 作为格网交点（角点），不是格子中心
+  const x0 = ix * sizeMeters;
+  const y0 = iy * sizeMeters;
+  const x1 = (ix + 1) * sizeMeters;
+  const y1 = (iy + 1) * sizeMeters;
+
+  const lng0 = origin.lng + metersToLng(x0, origin.lat);
+  const lng1 = origin.lng + metersToLng(x1, origin.lat);
+  const lat0 = origin.lat + metersToLat(y0);
+  const lat1 = origin.lat + metersToLat(y1);
+
+  const centerX = (x0 + x1) / 2;
+  const centerY = (y0 + y1) / 2;
+
+  return {
+    type: 'Feature',
+    properties: {
+      gridIx: ix,
+      gridIy: iy,
+      gridDx: centerX,
+      gridDy: centerY,
+      gridValue: null,
+      hasValue: false,
+      gridCount: 0
+    },
+    geometry: {
+      type: 'Polygon',
+      coordinates: [[
+        [lng0, lat0],
+        [lng1, lat0],
+        [lng1, lat1],
+        [lng0, lat1],
+        [lng0, lat0]
+      ]]
+    }
+  };
+}
+
+function buildGridFeatureCollection(origin, sizeMeters, countX, countY) {
+  const features = [];
+
+  // origin 是格网交点，所以四个象限都要展开
+  for (let ix = -countX; ix < countX; ix++) {
+    for (let iy = -countY; iy < countY; iy++) {
+      features.push(buildGridCellFromCorner(origin, ix, iy, sizeMeters));
+    }
+  }
+
+  return {
+    type: 'FeatureCollection',
+    features
+  };
+}
+
+document.getElementById('btn-generate-grid').onclick = () => {
+  if (!gridOriginLatLng) {
+    alert('请先选择格栅中心点');
+    return;
+  }
+
+  const size = parseFloat(document.getElementById('grid-size').value);
+  const countX = parseInt(document.getElementById('grid-count-x').value, 10);
+  const countY = parseInt(document.getElementById('grid-count-y').value, 10);
+
+  if (!Number.isFinite(size) || !Number.isFinite(countX) || !Number.isFinite(countY) || countX < 1 || countY < 1) {
+    alert('格栅参数无效');
+    return;
+  }
+
+  const layerName = `格栅_${size}m_${Date.now()}`;
+  const fc = buildGridFeatureCollection(gridOriginLatLng, size, countX, countY);
+
+  pool[layerName] = fc;
+  currentGridLayerName = layerName;
+
+  initLayerControl(layerName, '#334155', 'current-layers-container', `格栅 ${size}m`, false, true);
+
+  Object.assign(displayLayers[layerName].conf, {
+    c: '#334155',
+    visible: true,
+    isGridLayer: true,
+    gridSize: size,
+    fillOpacity: 0,
+    weight: 1
+  });
+
+  refreshMap();
+  refreshGridSourceOptions();
+};
+
+function getNumericFieldsFromLayer(layerName) {
+  const fc = pool[layerName];
+  if (!fc || !Array.isArray(fc.features)) return [];
+
+  const counter = {};
+
+  fc.features.forEach(f => {
+    const p = f.properties || {};
+
+    // 1. 原始数值字段
+    Object.entries(p).forEach(([k, v]) => {
+      if (typeof v === 'number' && Number.isFinite(v)) {
+        counter[k] = (counter[k] || 0) + 1;
+      }
+
+      // 2. CSV 映射字段：__csv__xxx
+      if (k.startsWith('__csv__')) {
+        const n = Number(v);
+        if (Number.isFinite(n)) {
+          counter[k] = (counter[k] || 0) + 1;
+        }
+      }
+    });
+
+    // 3. 数据交互结果：__calcResults
+    if (Array.isArray(p.__calcResults)) {
+      p.__calcResults.forEach(item => {
+        const n = Number(item?.value);
+        const calcKey = `__calc__${item?.name || '未命名运算结果'}`;
+        if (Number.isFinite(n)) {
+          counter[calcKey] = (counter[calcKey] || 0) + 1;
+        }
+      });
+    }
+  });
+
+  return Object.keys(counter).sort((a, b) => counter[b] - counter[a]);
+}
+
+function getVisiblePointCandidates() {
+  const pts = [];
+
+  Object.keys(pool).forEach(name => {
+    const conf = displayLayers[name]?.conf || {};
+    if (!conf.visible) return;
+    if (conf.isGridLayer) return;
+
+    const fc = pool[name];
+    if (!fc || !Array.isArray(fc.features)) return;
+
+    fc.features.forEach(f => {
+      if (f?.geometry?.type !== 'Point') return;
+
+      const p = f.properties || {};
+      const latlng = L.latLng(f.geometry.coordinates[1], f.geometry.coordinates[0]);
+
+      pts.push({
+        layerName: name,
+        latlng,
+        feature: f,
+        title: p.name || p.type || p.address || name || '未命名点'
+      });
+    });
+  });
+
+  return pts;
+}
+
+function findNearestSnapPoint(latlng, maxMeters = 200) {
+  const candidates = getVisiblePointCandidates();
+  if (!candidates.length) return null;
+
+  let best = null;
+  let bestDist = Infinity;
+
+  candidates.forEach(item => {
+    const d = map.distance(latlng, item.latlng);
+    if (d < bestDist) {
+      bestDist = d;
+      best = item;
+    }
+  });
+
+  if (!best || bestDist > maxMeters) return null;
+  return { ...best, distance: bestDist };
+}
+
+function refreshGridSourceOptions() {
+  const layerSel = document.getElementById('grid-source-layer');
+  const fieldSel = document.getElementById('grid-source-field');
+  if (!layerSel || !fieldSel) return;
+
+  layerSel.innerHTML = '';
+  fieldSel.innerHTML = '';
+
+  Object.keys(pool).forEach(name => {
+    const conf = displayLayers[name]?.conf || {};
+    if (conf.isGridLayer) return;
+
+    const fields = getNumericFieldsFromLayer(name);
+    if (!fields.length) return;
+
+    const op = document.createElement('option');
+    op.value = name;
+    op.textContent = name;
+    layerSel.appendChild(op);
+  });
+
+  function refreshFields() {
+    fieldSel.innerHTML = '';
+    const layerName = layerSel.value;
+    const fields = getNumericFieldsFromLayer(layerName);
+    fields.forEach(k => {
+  const op = document.createElement('option');
+  op.value = k;
+
+  if (k.startsWith('__csv__')) {
+    op.textContent = `CSV：${k.replace('__csv__', '')}`;
+  } else if (k.startsWith('__calc__')) {
+    op.textContent = `运算结果：${k.replace('__calc__', '')}`;
+  } else {
+    op.textContent = `属性：${k}`;
+  }
+
+  fieldSel.appendChild(op);
+});
+  }
+
+  layerSel.onchange = refreshFields;
+  refreshFields();
+}
+
+function featureBounds(feature) {
+  const layer = L.geoJSON(feature);
+  const bounds = layer.getBounds();
+  return bounds && bounds.isValid() ? bounds : null;
+}
+
+function featureIntersectsCell(feature, cellBounds) {
+  const g = feature.geometry;
+  if (!g) return false;
+
+  if (g.type === 'Point') {
+    const latlng = L.latLng(g.coordinates[1], g.coordinates[0]);
+    return cellBounds.contains(latlng);
+  }
+
+  const b = featureBounds(feature);
+  if (!b) return false;
+  return cellBounds.intersects(b);
+}
+
+function getNumericValueFromFeature(feature, fieldName) {
+  const p = feature.properties || {};
+
+  // 普通属性字段
+  if (!fieldName.startsWith('__csv__') && !fieldName.startsWith('__calc__')) {
+    const v = p[fieldName];
+    return (typeof v === 'number' && Number.isFinite(v)) ? v : null;
+  }
+
+  // CSV 字段
+  if (fieldName.startsWith('__csv__')) {
+    const v = Number(p[fieldName]);
+    return Number.isFinite(v) ? v : null;
+  }
+
+  // 运算结果字段
+  if (fieldName.startsWith('__calc__')) {
+    const calcName = fieldName.replace('__calc__', '');
+    if (!Array.isArray(p.__calcResults)) return null;
+
+    const hit = p.__calcResults.find(item => item?.name === calcName);
+    if (!hit) return null;
+
+    const v = Number(hit.value);
+    return Number.isFinite(v) ? v : null;
+  }
+
+  return null;
+}
+
+function getGridHeatColor(min, max, value) {
+  if (!Number.isFinite(value)) return 'transparent';
+  if (!Number.isFinite(min) || !Number.isFinite(max) || max <= min) return '#60a5fa';
+
+  const t = Math.max(0, Math.min(1, (value - min) / (max - min)));
+
+  if (t < 0.16) return '#2c7bb6'; // 冷蓝
+  if (t < 0.33) return '#00a6ca'; // 蓝青
+  if (t < 0.50) return '#00ccbc'; // 青绿
+  if (t < 0.66) return '#90eb9d'; // 绿黄
+  if (t < 0.82) return '#f9d057'; // 黄
+  return '#f29e2e';               // 橙热
+}
+
+function calcGridAverage(gridLayerName, sourceLayerName, fieldName) {
+  const gridFc = pool[gridLayerName];
+  const srcFc = pool[sourceLayerName];
+  if (!gridFc || !srcFc) return;
+
+  const allValues = [];
+
+  gridFc.features.forEach(cell => {
+    const cellB = featureBounds(cell);
+    const hits = [];
+
+    srcFc.features.forEach(f => {
+      const v = getNumericValueFromFeature(f, fieldName);
+if (!Number.isFinite(v)) return;
+
+      if (featureIntersectsCell(f, cellB)) {
+        hits.push(v);
+      }
+    });
+
+    if (hits.length) {
+      const avg = hits.reduce((a, b) => a + b, 0) / hits.length;
+      cell.properties.gridValue = avg;
+      cell.properties.hasValue = true;
+      cell.properties.gridCount = hits.length;
+      allValues.push(avg);
+    } else {
+      cell.properties.gridValue = null;
+      cell.properties.hasValue = false;
+      cell.properties.gridCount = 0;
+    }
+  });
+
+  const conf = displayLayers[gridLayerName]?.conf || {};
+  conf.gridMin = allValues.length ? Math.min(...allValues) : null;
+  conf.gridMax = allValues.length ? Math.max(...allValues) : null;
+  conf.gridSourceLayer = sourceLayerName;
+  conf.gridSourceField = fieldName;
+}
+
+document.getElementById('btn-grid-calc').onclick = () => {
+  if (!currentGridLayerName || !pool[currentGridLayerName]) {
+    alert('请先生成格栅');
+    return;
+  }
+
+  const sourceLayer = document.getElementById('grid-source-layer').value;
+  const fieldName = document.getElementById('grid-source-field').value;
+
+  if (!sourceLayer || !fieldName) {
+    alert('请选择数据图层和字段');
+    return;
+  }
+
+  calcGridAverage(currentGridLayerName, sourceLayer, fieldName);
+  refreshMap();
+};
+
+const svColors = {
+  "road": "#808080",
+  "sidewalk": "#FF00FF",
+  "vegetation": "#228B22",
+  "sky": "#87CEEB",
+  "building": "#A52A2A",
+  "car": "#0000FF",
+  "person": "#FF0000"
+};
+
+function generatePieChart(props) {
+  const data = Object.entries(props)
+    .filter(([k, v]) => typeof v === 'number' && v > 0.01 && !['lon', 'lat'].includes(k))
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10);
+
+  if (!data.length) {
+    return '<p style="color:#94a3b8;font-size:11px;">无显著语义数据</p>';
+  }
+
+  const total = data.reduce((s, [_, v]) => s + v, 0);
+  let curA = 0;
+  const r = 80, cx = 110, cy = 110;
+  let paths = "";
+
+  data.forEach(([label, value], i) => {
+    const angle = (value / total) * 2 * Math.PI;
+    const x1 = cx + r * Math.cos(curA);
+    const y1 = cy + r * Math.sin(curA);
+    const x2 = cx + r * Math.cos(curA + angle);
+    const y2 = cy + r * Math.sin(curA + angle);
+    const color = svColors[label] || `hsl(${(i * 53) % 360}, 60%, 65%)`;
+
+    paths += `<path d="M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${angle > Math.PI ? 1 : 0} 1 ${x2} ${y2} Z"
+                    fill="${color}"
+                    stroke="#fff"
+                    onmouseover="showTip(event,'${label}','${(value * 100).toFixed(1)}%')"
+                    onmouseout="hideTip()"></path>`;
+    curA += angle;
+  });
+
+  return `<div class="pie-container"><svg width="220" height="220">${paths}</svg></div>`;
+}
+
+window.showTip = (e, l, p) => {
+  const t = document.getElementById('pie-tip');
+  if (!t) return;
+  t.style.display = 'block';
+  t.innerText = `${l}: ${p}`;
+  t.style.left = (e.clientX + 15) + 'px';
+  t.style.top = (e.clientY + 15) + 'px';
+};
+
+window.hideTip = () => {
+  const t = document.getElementById('pie-tip');
+  if (t) t.style.display = 'none';
+};
+
+
+
+function getZoomScaledRadius(baseRadius = 5) {
+  const z = map.getZoom();
+  const factor = Math.pow(1.12, z - 13);
+  const clamped = Math.max(0.18, Math.min(1.35, factor));
+  return Math.max(0.8, baseRadius * clamped);
+}
+
+function metersToLat(m) {
+  return m / 111320;
+}
+
+function metersToLng(m, lat) {
+  return m / (111320 * Math.cos(lat * Math.PI / 180));
+}
+
+function refreshMap() {
+    for (let name in displayLayers) {
+        const layerGroup = displayLayers[name].layer;
+        const conf = displayLayers[name].conf;
+        const isR = !!conf.isRoadLike;
+        const isA = !!conf.isAoiLike;
+
+        layerGroup.clearLayers();
+        if (!conf.visible || !pool[name]) continue;
+
+        L.geoJSON(pool[name], {
+            coordsToLatLng: (c) => L.latLng(c[1], c[0]),
+
+            style: (f) => {
+                const p = f.properties || {};
+                if (conf.isGridLayer) {
+  const val = f.properties?.gridValue;
+
+  if (f.properties?.hasValue) {
+    return {
+      color: '#475569',
+      weight: 0.8,
+      fillColor: getGridHeatColor(conf.gridMin, conf.gridMax, val),
+      fillOpacity: 0.42,
+      opacity: 0.9
+    };
+  }
+
+  return {
+    color: '#94a3b8',
+    weight: 0.8,
+    fillColor: 'transparent',
+    fillOpacity: 0,
+    opacity: 0.65
+  };
+}
+                if (f.geometry?.type === "Point") return undefined;
+
+                if (p.isIntegrationLine) {
+                    return {
+                        color: p.integrationColor || conf.c,
+                        weight: p.integrationWidth || 3,
+                        opacity: 0.95,
+                        lineJoin: 'round'
+                    };
+                }
+
+                if (p.isChoiceLine) {
+                    return {
+                        color: p.choiceColor || conf.c,
+                        weight: p.choiceWidth || 3,
+                        opacity: 0.95,
+                        lineJoin: 'round'
+                    };
+                }
+
+                if (isR) {
+                    return {
+                        color: conf.c,
+                        weight: 3,
+                        opacity: 1.0,
+                        lineJoin: 'round'
+                    };
+                }
+
+                if (isA) {
+                    return {
+                        color: conf.c,
+                        weight: 1.5,
+                        fillColor: conf.c,
+                        fillOpacity: 0.35,
+                        opacity: 0.8
+                    };
+                }
+
+                return {
+                    color: conf.c,
+                    weight: 2,
+                    opacity: 0.9
+                };
+            },
+
+            pointToLayer: (f, latlng) => {
+                const p = f.properties || {};
+                const isOriginPoint = !!p.isRoadAnalysisOrigin || !!p.isChoiceOrigin;
+
+                if (isOriginPoint) {
+                    return L.circleMarker(latlng, {
+                        radius: getZoomScaledRadius(p.pointRadius || conf.pointRadius || 6),
+                        fillColor: "#111827",
+                        stroke: false,
+                        fillOpacity: 0.95
+                    });
+                }
+
+                return L.circleMarker(latlng, {
+                    radius: getZoomScaledRadius(conf.pointRadius || 4),
+                    fillColor: conf.c,
+                    stroke: false,
+                    fillOpacity: 0.9
+                });
+            },
+
+            onEachFeature: (f, l) => {
+    const p = f.properties || {};
+
+    if (conf.isGridLayer) {
+      const val = p.gridValue;
+      let h = `<div class="popup-header"><h3>${conf.label || name}</h3></div>
+               <div style="padding:15px; font-size:12px;">`;
+      h += `<div class="popup-info-row">格栅统计</div>`;
+      h += `<div><b>来源图层:</b> ${conf.gridSourceLayer || '-'}</div>`;
+      h += `<div><b>统计字段:</b> ${conf.gridSourceField || '-'}</div>`;
+      h += `<div><b>平均值:</b> ${Number.isFinite(val) ? val.toFixed(2) : '无数据'}</div>`;
+      h += `<div><b>样本数:</b> ${p.gridCount || 0}</div>`;
+      h += `</div>`;
+      l.bindPopup(h, { maxWidth: 320 });
+      return;
+    }
+
+    if (isR && f.geometry?.type !== "Point") l.bringToFront();
+
+    const isOriginPoint = !!p.isRoadAnalysisOrigin || !!p.isChoiceOrigin;
+
+    const title = isOriginPoint
+        ? (p.name || "路网分析起点")
+        : ((p.name && p.name !== 'None')
+            ? p.name
+            : (isR ? name : (isA ? (conf.label || name) : "空间要素")));
+
+    let h = `<div class="popup-header ${name.includes('房产') ? 'house' : ''}">
+                <h3>${title}</h3>
+             </div>
+             <div style="padding:15px; font-size:12px;">`;
+
+    if (isOriginPoint) {
+        h += `<div class="popup-info-row">路网分析中心点</div>`;
+        if (f.geometry?.coordinates) {
+            h += `<div><b>经度:</b> ${f.geometry.coordinates[0].toFixed(6)}</div>`;
+            h += `<div><b>纬度:</b> ${f.geometry.coordinates[1].toFixed(6)}</div>`;
+        }
+
+    } else if (p.isIntegrationLine) {
+        h += `<div class="popup-info-row">整合度分析</div>`;
+        h += `<div><b>整合度值:</b> ${(p.integrationScore ?? 0).toFixed(8)}</div>`;
+        h += `<div><b>归一化值:</b> ${(p.integrationNorm || 0).toFixed(3)}</div>`;
+        if (p.sourceLayer) {
+            h += `<div><b>来源道路类型:</b> ${p.sourceLayer}</div>`;
+        }
+
+    } else if (p.isChoiceLine) {
+        h += `<div class="popup-info-row">选择度分析</div>`;
+        h += `<div><b>选择度次数:</b> ${p.choiceCount ?? 0}</div>`;
+        h += `<div><b>归一化值:</b> ${(p.choiceNorm || 0).toFixed(3)}</div>`;
+        if (p.sourceLayer) {
+            h += `<div><b>来源道路类型:</b> ${p.sourceLayer}</div>`;
+        }
+
+    } else if (isR) {
+        h += `<div class="popup-info-row">道路属性</div>`;
+        h += `<div><b>道路等级:</b> ${conf.label || name}</div>`;
+        if (p.name && p.name !== "None") h += `<div><b>名称:</b> ${p.name}</div>`;
+        if (p.fclass) h += `<div><b>类型编码:</b> ${p.fclass}</div>`;
+
+    } else if (isA) {
+        h += `<div class="popup-info-row">${conf.label || name}</div>`;
+
+        let shown = 0;
+        const aoiFields = Array.isArray(conf.fields) ? conf.fields : ["name", "type", "fclass"];
+
+        for (const field of aoiFields) {
+            if (shown >= 3) break;
+            if (p[field] !== undefined && p[field] !== null && p[field] !== "" && p[field] !== "None") {
+                h += `<div><b>${field}:</b> ${p[field]}</div>`;
+                shown++;
+            }
+        }
+
+    } else if (name.includes('街景')) {
+        h += `<div class="popup-info-row">语义分析</div>`;
+        h += generatePieChart(p);
+
+    } else {
+        let shown = 0;
+        const preferredFields = [
+            ["type", "类别"],
+            ["address", "地址"],
+            ["fclass", "类型编码"],
+            ["name", "名称"]
+        ];
+
+        for (const [key, label] of preferredFields) {
+            if (shown >= 4) break;
+            if (p[key] !== undefined && p[key] !== null && p[key] !== "" && p[key] !== "None") {
+                if (key === "name") continue;
+                h += `<div><b>${label}:</b> ${p[key]}</div>`;
+                shown++;
+            }
+        }
+    }
+
+    const csvKeys = Object.keys(p).filter(k => k.startsWith('__csv__'));
+    if (csvKeys.length) {
+        h += `<div class="popup-info-row" style="margin-top:10px;">关联数据字段</div>`;
+        csvKeys.forEach(k => {
+            const fieldName = k.replace('__csv__', '');
+            if (p[k] !== undefined && p[k] !== null && p[k] !== '') {
+                h += `<div style="margin-top:6px; color:var(--primary); font-weight:700; border-top:1px dashed #eee; padding-top:6px;">
+                        ${fieldName}: ${p[k]}
+                      </div>`;
+            }
+        });
+    }
+
+    if (Array.isArray(p.__calcResults) && p.__calcResults.length) {
+        p.__calcResults.forEach(item => {
+            const displayResult = typeof item.value === "number"
+                ? item.value.toFixed(2)
+                : item.value;
+
+            h += `<div class="calc-box">
+                    <b>${item.name}</b>
+                    <span>${displayResult}</span>
+                  </div>`;
+        });
+    }
+
+    l.bindPopup(h + `</div>`, { maxWidth: 320 });
+}
+        }).addTo(layerGroup);
+    }
+
+}
+
+
+function normalizeLayerPayload(raw) {
+  if (!raw) return [];
+
+  if (raw.layers && Array.isArray(raw.layers)) {
+    return raw.layers.map((item, idx) => {
+      const fc = item.geojson || item.data;
+      if (!fc || fc.type !== 'FeatureCollection') return null;
+      const sty = inferLayerStyle(fc, item);
+      return {
+        name: item.name || `图层_${idx+1}`,
+        label: item.label || item.conf?.label || item.name || `图层_${idx+1}`,
+        color: sty.color,
+        isLine: sty.isLine,
+        containerId: getLayerContainerId(item),
+        visible: item.visible ?? item.conf?.visible ?? true,
+        conf: item.conf || {},
+        data: fc
+      };
+    }).filter(Boolean);
+  }
+
+  if (Array.isArray(raw)) {
+    return raw.map((item, idx) => {
+      const fc = item?.data || item?.geojson || item;
+      if (!fc || fc.type !== 'FeatureCollection') return null;
+      const sty = inferLayerStyle(fc, item || {});
+      return {
+        name: item.name || `图层_${idx+1}`,
+        label: item.label || item.conf?.label || item.name || `图层_${idx+1}`,
+        color: sty.color,
+        isLine: sty.isLine,
+        containerId: getLayerContainerId(item || {}),
+        visible: item.visible ?? item.conf?.visible ?? true,
+        conf: item.conf || {},
+        data: fc
+      };
+    }).filter(Boolean);
+  }
+
+  if (raw.type === 'FeatureCollection') {
+    const sty = inferLayerStyle(raw, {});
+    return [{ name:'当前图层', label:'当前图层', color:sty.color, isLine:sty.isLine, containerId:'current-layers-container', visible:true, conf:{}, data:raw }];
+  }
+
+  return [];
+}
+
+function addTransferredLayer(item) {
+  pool[item.name] = item.data;
+  const conf = {
+  ...(item.conf || {}),
+  c: item.color,
+  isLine: item.isLine,
+  visible: item.visible
+};
+  displayLayers[item.name] = {
+    layer: L.layerGroup().addTo(map),
+    conf,
+    uiEl: null,
+    on: item.visible !== false
+  };
+  initLayerControl(item.name, item.color, item.containerId || 'current-layers-container', item.label || item.name, !!item.isLine, item.visible !== false);
+}
+
+function updateAllLayerBounds() {
+  let bounds = null;
+  Object.keys(pool).forEach(name => {
+    const b = computeFeatureCollectionBounds(pool[name]);
+    if (!b) return;
+    bounds = bounds ? bounds.extend(b) : b;
+  });
+  allLayerBounds = bounds;
+}
+
+function loadTransferredPayload() {
+  const raw = localStorage.getItem('graph_export_payload');
+  if (!raw) {
+    setStatus('未找到 analysis 传来的图层数据');
+    return false;
+  }
+
+  try {
+    const payload = JSON.parse(raw);
+    const layers = normalizeLayerPayload(payload);
+    if (!layers.length) {
+      setStatus('读取到 payload，但没有可用图层');
+      return false;
+    }
+
+    layers.forEach(addTransferredLayer);
+    updateAllLayerBounds();
+    refreshMap();
+
+    if (payload?.mapView?.center && Number.isFinite(payload?.mapView?.zoom)) {
+      map.setView([payload.mapView.center.lat, payload.mapView.center.lng], payload.mapView.zoom);
+    } else if (allLayerBounds && allLayerBounds.isValid()) {
+      map.fitBounds(allLayerBounds.pad(0.08));
+    }
+
+    setStatus(`已读取 analysis 当前图层 ${layers.length} 个`);
+    return true;
+  } catch (err) {
+    console.error(err);
+    setStatus('读取 graph_export_payload 失败');
+    return false;
+  }
+}
+
+function waitMapIdle() {
+  return new Promise(resolve => setTimeout(resolve, 320));
+}
+
+async function exportCurrentPage() {
+  const btn = document.getElementById('btn-save-graph');
+  const mask = document.getElementById('map-export-mask');
+  const format = document.getElementById('export-format').value;
+  const qualityVal = Number(document.getElementById('export-quality').value || 92) / 100;
+  const scale = Number(document.getElementById('export-scale').value || 2);
+  const range = document.getElementById('export-range').value;
+  const cleanMap = document.getElementById('export-clean-map').checked;
+
+  const originalCenter = map.getCenter();
+  const originalZoom = map.getZoom();
+  const controlContainer = document.querySelector('.leaflet-control-container');
+  const originalControlDisplay = controlContainer ? controlContainer.style.display : '';
+
+  try {
+    btn.disabled = true;
+    btn.textContent = '正在保存...';
+    mask.style.display = 'block';
+
+    if (range === 'xuhui' && xuhuiBounds) {
+      map.fitBounds(xuhuiBounds.pad(0.04));
+      await waitMapIdle();
+    } else if (range === 'alllayers' && allLayerBounds) {
+      map.fitBounds(allLayerBounds.pad(0.08));
+      await waitMapIdle();
+    } else {
+      await waitMapIdle();
+    }
+
+    if (cleanMap && controlContainer) controlContainer.style.display = 'none';
+
+    const mapEl = document.getElementById('map');
+    const canvas = await html2canvas(mapEl, {
+      useCORS:true,
+      backgroundColor:'#f0f2f5',
+      scale,
+      logging:false
+    });
+
+    const mime = format === 'png' ? 'image/png' : `image/${format}`;
+    const ext = format === 'jpeg' ? 'jpg' : format;
+    const dataUrl = canvas.toDataURL(mime, format === 'png' ? 1 : qualityVal);
+    const link = document.createElement('a');
+    link.href = dataUrl;
+    link.download = `graph_export_${Date.now()}.${ext}`;
+    link.click();
+
+    setStatus('导出完成');
+  } catch (err) {
+    console.error(err);
+    alert('导出失败，请查看 console');
+    setStatus('导出失败');
+  } finally {
+    mask.style.display = 'none';
+    btn.disabled = false;
+    btn.textContent = '保存当前页面';
+    if (controlContainer) controlContainer.style.display = originalControlDisplay;
+    map.setView(originalCenter, originalZoom);
+    await waitMapIdle();
+  }
+}
+
+function bindRangePair(rangeId, textId, suffix = '') {
+  const rangeEl = document.getElementById(rangeId);
+  const textEl = document.getElementById(textId);
+  const syncFromRange = () => textEl.value = `${rangeEl.value}${suffix}`;
+  const syncFromText = () => {
+    const v = parseFloat(String(textEl.value).replace(suffix, ''));
+    if (!Number.isFinite(v)) return;
+    rangeEl.value = v;
+    syncFromRange();
+  };
+  rangeEl.addEventListener('input', syncFromRange);
+  textEl.addEventListener('change', syncFromText);
+  syncFromRange();
+}
+bindRangePair('export-quality', 'export-quality-text');
+bindRangePair('export-scale', 'export-scale-text', 'x');
+document.getElementById('btn-save-graph').onclick = exportCurrentPage;
+
+async function bootGraphPage() {
+  try {
+    // 先恢复 analysis 传来的图层
+    const ok = await restoreFromAnalysisPayload();
+    if (!ok) {
+      console.warn('未能恢复 analysis 图层数据');
+    }
+
+    // 再加载徐汇边界
+    const res = await fetch('xuhui.json');
+    const data = await res.json();
+
+    xuhuiBounds = computeFeatureCollectionBounds(data);
+    pool['xuhui_boundary'] = data;
+
+    displayLayers['xuhui_boundary'] = {
+      layer: L.layerGroup().addTo(map),
+      conf: {
+        c: '#2BB5BE',
+        isLine: false,
+        fillOpacity: 0.05,
+        weight: 1.5,
+        visible: true,
+        label: '徐汇区边界',
+        containerId: 'aoi-list-ui'
+      },
+      uiEl: null,
+      on: true
+    };
+
+    initLayerControl('xuhui_boundary', '#2BB5BE', 'aoi-list-ui', '徐汇区边界', false, true);
+    refreshMap();
+    updateAllLayerBounds();
+  } catch (err) {
+    console.error('graph 页面初始化失败:', err);
+  }
+}
+
+bootGraphPage();
+</script>
+<div id="pie-tip" style="
+  position:fixed;
+  display:none;
+  background:rgba(0,0,0,0.9);
+  color:#fff;
+  padding:8px 14px;
+  border-radius:10px;
+  font-size:12px;
+  pointer-events:none;
+  z-index:9999;
+  backdrop-filter:blur(10px);
+  border:1px solid rgba(255,255,255,0.1);
+  font-weight:600;
+"></div>
+</body>
+</html>

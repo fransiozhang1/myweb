@@ -451,8 +451,11 @@ const createUI = (id, color, type, container, label) => {
         document.onmousemove=(e)=>{ if(!drag) return; win.style.left=(e.clientX+off[0])+'px'; win.style.top=(e.clientY+off[1])+'px'; win.style.bottom='auto'; win.style.right='auto'; };
         document.onmouseup=()=>drag=false;
     });
-    fetch('xuhui.json').then(r => r.json()).then(data => L.geoJSON(data, { style: { color: "#2BB5BE", weight: 1.5, fillOpacity: 0.05 }}).addTo(map));
-    // --- 新增：加载街景图层 UI ---
+    fetch(`xuhui.json?v=${Date.now()}`)
+  .then(r => r.json())
+  .then(data => L.geoJSON(data, {
+    style: { color: "#2BB5BE", weight: 3, fillOpacity: 0.05 }
+  }).addTo(map));
 createUI('街景语义分割图点', '#2BB5BE', 'street', document.getElementById('street-view-list-ui'));
 
 // 自动加载翻译后的 AOI 图层管理 UI

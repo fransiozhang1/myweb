@@ -33,6 +33,16 @@
     </svg>
     路网分析
 </button>
+<button id="btn-go-graph" class="big-action-btn">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <path d="M4 19h16"/>
+        <path d="M7 16V8"/>
+        <path d="M12 16V5"/>
+        <path d="M17 16V11"/>
+        <path d="M20 8l-3-3-3 3"/>
+    </svg>
+    前往出图页面
+</button>
     </div>
 </div>
 
@@ -99,6 +109,7 @@
             <select id="road-analysis-mode">
     <option value="service_area">真实路程范围筛选</option>
     <option value="choice_center">选择度分析</option>
+    <option value="integration">整合度分析</option>
 </select>
 
 <div id="choice-source-box" style="display:none; margin-top:12px;">
@@ -159,17 +170,19 @@
 <div id="layer-menu" class="floating-window" style="top: 35px; right: 100px; width: 320px;">
     <div class="win-header"><span>当前分析图层</span><span class="close-win">×</span></div>
     <div style="padding:20px; overflow-y:auto; flex:1;">
-        <div class="group-label">城市空间要素 (AOI)</div>
-        <div id="aoi-list-ui"></div> 
+        
 
-        <div class="group-label" style="margin-top: 20px;">城市道路分析轨道</div>
-        <div id="road-layers-container"></div> 
+        
 
         <div class="group-label" style="margin-top: 20px;">街景语义分析轨道</div>
         <div id="street-list-ui"></div>
         
         <div class="group-label" style="margin-top: 20px;">POI 与 房产轨道</div>
         <div id="active-category-list"></div> 
+        <div class="group-label">城市空间要素 (AOI)</div>
+        <div id="aoi-list-ui"></div> 
+        <div class="group-label" style="margin-top: 20px;">城市道路分析轨道</div>
+        <div id="road-layers-container"></div> 
     </div>
 </div>
 
@@ -285,7 +298,8 @@ const pool = {};
 let roadAnalysisPicking = false;
 let roadOriginMarker = null;
 let roadOriginLatLng = null;
-
+let indexedRoadGraph = null;
+let indexedRoadGraphSource = null;
 let roadGraph = null;
 let roadEdgeMeta = [];
 let roadAnalysisLayer = L.layerGroup().addTo(map);
@@ -333,6 +347,41 @@ state.activeLayers.forEach(name => {
         isDeep: false 
     };
 });
+
+
+function openGraphTransferDB() {
+    return new Promise((resolve, reject) => {
+        const req = indexedDB.open('GraphTransferDB', 1);
+
+        req.onupgradeneeded = (e) => {
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains('payloads')) {
+                db.createObjectStore('payloads');
+            }
+        };
+
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+    });
+}
+
+async function idbSet(key, value) {
+    const db = await openGraphTransferDB();
+
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction('payloads', 'readwrite');
+        const store = tx.objectStore('payloads');
+        store.put(value, key);
+
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+    });
+}
+
+async function saveGraphExportPayload() {
+    const payload = buildGraphSnapshotPayload();
+    await idbSet('graph_export_payload', payload);
+}
 
 // 升级版清洗逻辑：非贪婪匹配 + 深度去噪
 const normalize = (n) => {
@@ -453,6 +502,18 @@ setupBtn('btn-marker', () => map.pm.enableDraw('Marker'));
 document.getElementById('tool-eraser').onclick = () => map.pm.toggleGlobalRemovalMode();
 document.querySelectorAll('.close-win').forEach(c => c.onclick = deactivateAll);
 
+
+document.getElementById('btn-go-graph').onclick = async () => {
+    try {
+        await saveGraphExportPayload();
+        window.location.href = 'graph.html';
+    } catch (err) {
+        console.error(err);
+        alert('跳转出图页面失败，请查看 console');
+    }
+};
+
+
 function getRoadAnalysisSourceLayers() {
     return Object.keys(displayLayers).filter(name => {
         const conf = displayLayers[name]?.conf || {};
@@ -460,6 +521,7 @@ function getRoadAnalysisSourceLayers() {
 
         if (!conf.isGeneratedRoadAnalysis) return false;
         if (conf.isChoiceResult) return false;
+        if (conf.isIntegrationResult) return false;
         if (!fc || !Array.isArray(fc.features)) return false;
 
         return fc.features.some(f => f.properties && f.properties.isRoadAnalysisOrigin);
@@ -502,7 +564,7 @@ function refreshRoadAnalysisModeUI() {
     const distanceBox = document.getElementById('service-area-distance-box');
     const originBox = document.getElementById('service-area-origin-box');
 
-    if (mode === 'choice_center') {
+    if (mode === 'choice_center' || mode === 'integration') {
         if (choiceBox) choiceBox.style.display = 'block';
         if (distanceBox) distanceBox.style.display = 'none';
         if (originBox) originBox.style.display = 'none';
@@ -998,6 +1060,49 @@ function buildRoadGraphFromGeneratedLayer(layerName) {
     roadEdgeMeta = edgeMeta;
 }
 
+
+function buildIndexedRoadGraph() {
+    const keys = Object.keys(roadGraph || {});
+    const nodeCount = keys.length;
+
+    const keyToIndex = new Map();
+    keys.forEach((k, i) => keyToIndex.set(k, i));
+
+    const adj = Array.from({ length: nodeCount }, () => []);
+    keys.forEach((fromKey, fromIdx) => {
+        const edges = roadGraph[fromKey] || [];
+        edges.forEach(e => {
+            const toIdx = keyToIndex.get(e.to);
+            if (toIdx === undefined) return;
+            adj[fromIdx].push({
+                to: toIdx,
+                w: e.w,
+                edgeId: e.edgeId
+            });
+        });
+    });
+
+    const edgeEnds = roadEdgeMeta.map(edge => {
+        const k1 = latlngKey(edge.a.lat, edge.a.lng);
+        const k2 = latlngKey(edge.b.lat, edge.b.lng);
+        return {
+            edgeId: edge.edgeId,
+            i1: keyToIndex.get(k1),
+            i2: keyToIndex.get(k2)
+        };
+    });
+
+    indexedRoadGraph = {
+        keys,
+        keyToIndex,
+        adj,
+        edgeEnds,
+        nodeCount
+    };
+
+    return indexedRoadGraph;
+}
+
 function getChoiceColor(norm) {
 
     // 蓝 → 红色带（冷 → 热）
@@ -1094,6 +1199,139 @@ function runCenterChoiceAnalysis(centerKey) {
     };
 }
 
+
+function runAllDistancesFromIndex(startIdx, G, dist, seen, done, stampRef) {
+    const stamp = ++stampRef.value;
+    const heap = new MinHeap();
+
+    dist[startIdx] = 0;
+    seen[startIdx] = stamp;
+    heap.push({ idx: startIdx, dist: 0 });
+
+    let sumDist = 0;
+    let reachable = 0;
+
+    while (heap.size() > 0) {
+        const cur = heap.pop();
+        if (!cur) break;
+
+        const u = cur.idx;
+        if (done[u] === stamp) continue;
+        done[u] = stamp;
+
+        if (u !== startIdx) {
+            sumDist += cur.dist;
+            reachable++;
+        }
+
+        const nbrs = G.adj[u];
+        for (let i = 0; i < nbrs.length; i++) {
+            const e = nbrs[i];
+            const v = e.to;
+            const nd = cur.dist + e.w;
+
+            if (seen[v] !== stamp || nd < dist[v]) {
+                dist[v] = nd;
+                seen[v] = stamp;
+                heap.push({ idx: v, dist: nd });
+            }
+        }
+    }
+
+    return { sumDist, reachable };
+}
+
+function runAllDistancesFromNode(startKey) {
+    if (!roadGraph || !roadGraph[startKey]) return {};
+
+    const dist = {};
+    const visited = new Set();
+    const heap = new MinHeap();
+
+    dist[startKey] = 0;
+    heap.push({ key: startKey, dist: 0 });
+
+    while (heap.size() > 0) {
+        const cur = heap.pop();
+        if (!cur) break;
+        if (visited.has(cur.key)) continue;
+
+        visited.add(cur.key);
+
+        for (const edge of roadGraph[cur.key] || []) {
+            const nd = cur.dist + edge.w;
+            if (dist[edge.to] === undefined || nd < dist[edge.to]) {
+                dist[edge.to] = nd;
+                heap.push({ key: edge.to, dist: nd });
+            }
+        }
+    }
+
+    return dist;
+}
+
+
+
+
+async function runIntegrationAnalysis(progressCb = null) {
+    const G = indexedRoadGraph || buildIndexedRoadGraph();
+    if (!G || !G.nodeCount) {
+        return {
+            nodeScore: new Map(),
+            edgeScore: new Map(),
+            maxScore: 0,
+            nodeCount: 0
+        };
+    }
+
+    const n = G.nodeCount;
+    const nodeScoreArr = new Float64Array(n);
+
+    // 复用数组，避免每轮 new 对象
+    const dist = new Float64Array(n);
+    const seen = new Uint32Array(n);
+    const done = new Uint32Array(n);
+    const stampRef = { value: 0 };
+
+    let maxScore = 0;
+
+    for (let s = 0; s < n; s++) {
+        const { sumDist, reachable } = runAllDistancesFromIndex(
+            s, G, dist, seen, done, stampRef
+        );
+
+        const score = sumDist > 0 ? (reachable / sumDist) : 0;
+        nodeScoreArr[s] = score;
+        if (score > maxScore) maxScore = score;
+
+        // 每 8 个节点让出一次主线程，避免页面彻底卡死
+        if (progressCb && (s % 8 === 0 || s === n - 1)) {
+            progressCb(s + 1, n);
+            await new Promise(resolve => requestAnimationFrame(resolve));
+        }
+    }
+
+    const nodeScore = new Map();
+    G.keys.forEach((key, i) => {
+        nodeScore.set(key, nodeScoreArr[i]);
+    });
+
+    const edgeScore = new Map();
+    G.edgeEnds.forEach(item => {
+        if (item.i1 === undefined || item.i2 === undefined) return;
+        const score = (nodeScoreArr[item.i1] + nodeScoreArr[item.i2]) / 2;
+        edgeScore.set(item.edgeId, score);
+    });
+
+    return {
+        nodeScore,
+        edgeScore,
+        maxScore,
+        nodeCount: n
+    };
+}
+
+
 function choiceResultToGeoJSON(edgeUse, maxCount, centerLatLng, resultLabel) {
     const features = [];
 
@@ -1154,7 +1392,80 @@ function choiceResultToGeoJSON(edgeUse, maxCount, centerLatLng, resultLabel) {
     };
 }
 
+function getIntegrationColor(norm) {
+    if (norm >= 0.90) return "#7f0000";
+    if (norm >= 0.75) return "#b30000";
+    if (norm >= 0.60) return "#e34a33";
+    if (norm >= 0.45) return "#fc8d59";
+    if (norm >= 0.30) return "#91bfdb";
+    if (norm >= 0.15) return "#4575b4";
+    if (norm > 0)    return "#313695";
+    return "#d1d5db";
+}
 
+function getIntegrationWidth(norm) {
+    if (norm >= 0.95) return 6.8;
+    if (norm >= 0.85) return 6.0;
+    if (norm >= 0.75) return 5.2;
+    if (norm >= 0.65) return 4.6;
+    if (norm >= 0.55) return 4.0;
+    if (norm >= 0.45) return 3.5;
+    if (norm >= 0.35) return 3.0;
+    if (norm >= 0.20) return 2.5;
+    return 2.0;
+}
+
+function integrationResultToGeoJSON(edgeScore, maxScore, originLatLng, resultLabel) {
+    const features = [];
+
+    roadEdgeMeta.forEach(edge => {
+        const score = edgeScore.get(edge.edgeId) || 0;
+        const norm = maxScore > 0 ? score / maxScore : 0;
+
+        features.push({
+            type: "Feature",
+            properties: {
+                name: edge.feature?.properties?.name || resultLabel,
+                type: edge.layerName,
+                sourceLayer: edge.layerName,
+                generated: true,
+                isIntegrationLine: true,
+                integrationScore: Number(score.toFixed(8)),
+                integrationNorm: norm,
+                integrationColor: getIntegrationColor(norm),
+                integrationWidth: getIntegrationWidth(norm)
+            },
+            geometry: {
+                type: "LineString",
+                coordinates: [
+                    [edge.a.lng, edge.a.lat],
+                    [edge.b.lng, edge.b.lat]
+                ]
+            }
+        });
+    });
+
+    if (originLatLng) {
+        features.push({
+            type: "Feature",
+            properties: {
+                name: `${resultLabel} - 起点`,
+                generated: true,
+                isChoiceOrigin: true,
+                pointRadius: 11
+            },
+            geometry: {
+                type: "Point",
+                coordinates: [originLatLng.lng, originLatLng.lat]
+            }
+        });
+    }
+
+    return {
+        type: "FeatureCollection",
+        features
+    };
+}
 
 
 function findNearestRoadNode(latlng) {
@@ -1174,6 +1485,8 @@ function findNearestRoadNode(latlng) {
 
     return { key: bestKey, dist: bestDist };
 }
+
+
 
 class MinHeap {
     constructor() { this.arr = []; }
@@ -1468,6 +1781,88 @@ function runChoiceAnalysis() {
 }
 
 
+async function runIntegrationAnalysisFromLayer() {
+
+    const runBtn = document.getElementById('btn-run-road-analysis');
+    runBtn.disabled = true;
+
+    try {
+
+        const sourceLayerName = document.getElementById('choice-source-layer').value;
+        if (!sourceLayerName) {
+            alert('请先选择一个来源图层');
+            return;
+        }
+
+        const centerLatLng = getOriginFromGeneratedRoadLayer(sourceLayerName);
+        if (!centerLatLng) {
+            alert('来源图层中没有找到中心点');
+            return;
+        }
+
+        buildRoadGraphFromGeneratedLayer(sourceLayerName);
+
+        if (!roadGraph || !Object.keys(roadGraph).length) {
+            alert('来源图层范围内没有可用的路网');
+            return;
+        }
+
+        // 建立索引图
+        buildIndexedRoadGraph();
+
+        const statusEl = document.getElementById('road-origin-status');
+        statusEl.innerText = '整合度分析中：正在进行全局最短路计算...';
+
+        const result = await runIntegrationAnalysis((done, total) => {
+            statusEl.innerText = `整合度分析中：${done}/${total} 个节点`;
+        });
+
+        if (!result.edgeScore.size) {
+            alert('整合度分析失败：没有生成结果');
+            return;
+        }
+
+        const resultName = `整合度分析结果_${Date.now()}`;
+        const resultLabel = `整合度分析结果（${sourceLayerName}）`;
+
+        const resultGeoJSON = integrationResultToGeoJSON(
+            result.edgeScore,
+            result.maxScore,
+            centerLatLng,
+            resultLabel
+        );
+
+        pool[resultName] = resultGeoJSON;
+
+        initLayerControl(
+            resultName,
+            '#2563EB',
+            'road-layers-container',
+            resultLabel,
+            true
+        );
+
+        displayLayers[resultName].conf.isGeneratedRoadAnalysis = true;
+        displayLayers[resultName].conf.isIntegrationResult = true;
+        displayLayers[resultName].conf.isRoadLike = true;
+
+        refreshMap();
+
+        statusEl.innerText =
+            `整合度分析完成：共 ${result.nodeCount} 个节点`;
+
+    } catch (err) {
+
+        console.error(err);
+        alert('整合度分析发生错误，请查看 console');
+
+    } finally {
+
+        runBtn.disabled = false;
+
+    }
+}
+
 document.getElementById('btn-run-road-analysis').onclick = () => {
     const mode = document.getElementById('road-analysis-mode').value;
 
@@ -1481,8 +1876,134 @@ document.getElementById('btn-run-road-analysis').onclick = () => {
         return;
     }
 
+    if (mode === 'integration') {
+        runIntegrationAnalysisFromLayer();
+        return;
+    }
+
     alert('未知的路网分析模式');
 };
+
+
+function buildGraphSnapshotPayload() {
+    const layerStates = {};
+    const renderedPool = {};
+
+    for (const name in displayLayers) {
+        const dl = displayLayers[name];
+        const conf = dl?.conf || {};
+        const srcFc = pool[name];
+        if (!srcFc || !Array.isArray(srcFc.features)) continue;
+        if (!conf.visible) continue;
+
+        const isR = !!ROAD_SETTING[name] || !!conf.isRoadLike;
+        const isA = aoiConfig[name];
+        const reg = deepFilterRegistry[name];
+
+        const filteredFeatures = srcFc.features
+            .filter(f => {
+                if (!reg || !reg.isDeep) return true;
+
+                const p = f.properties || {};
+                const featureName = [
+                    p.name && p.name !== "None" ? p.name : "",
+                    p.type || "",
+                    p.fclass || "",
+                    p.address || ""
+                ].join(" ");
+
+                const matchStr = normalize(featureName);
+
+                const isKeywordMatch = reg.kws.some(kw => {
+                    const tk = normalize(kw);
+                    return tk && (matchStr.includes(tk) || tk.includes(matchStr));
+                });
+
+                if (!isKeywordMatch) return false;
+                return hasCsvRowForFeature(p);
+            })
+            .map(f => {
+                const p = f.properties || {};
+                const csvRow = findCsvRowByFeature(p) || {};
+
+                const newProps = { ...p };
+
+                // 1. 保留当前深度筛选字段
+                if (reg && reg.activeFields && reg.activeFields.size > 0) {
+                    reg.activeFields.forEach(field => {
+                        if (csvRow[field] !== undefined && csvRow[field] !== null && csvRow[field] !== "") {
+                            newProps[`__csv__${field}`] = csvRow[field];
+                        }
+                    });
+                }
+
+                // 2. 把当前交互分析结果直接算好塞进 properties
+                const calcResults = [];
+                activeCalculations.forEach(calc => {
+                    if (!calc.layerNames.includes(name)) return;
+
+                    const calcConfig = INDICATOR_CONFIG[calc.configKey];
+                    if (!calcConfig || typeof calcConfig.calc !== "function") return;
+
+                    const mergedData = { ...p, ...csvRow };
+                    const rawResult = calcConfig.calc(mergedData, calc.params);
+
+                    if (rawResult !== undefined && rawResult !== null && !Number.isNaN(rawResult)) {
+                        calcResults.push({
+                            name: calc.name,
+                            value: rawResult
+                        });
+                    }
+                });
+
+                newProps.__calcResults = calcResults;
+
+                return {
+                    ...f,
+                    properties: newProps
+                };
+            });
+
+        if (!filteredFeatures.length) continue;
+
+        renderedPool[name] = {
+            type: "FeatureCollection",
+            features: filteredFeatures
+        };
+
+        const labelText =
+            dl?.uiEl?.querySelector('span')?.textContent?.trim() || name;
+
+        const containerId =
+            dl?.uiEl?.parentElement?.id || 'active-category-list';
+
+        layerStates[name] = {
+            conf: JSON.parse(JSON.stringify({
+                ...conf,
+                label: labelText,
+                containerId,
+                visible: true,
+                isRoadLike: isR,
+                isAoiLike: !!isA,
+                aoiName: isA?.n || null
+            }))
+        };
+    }
+    return {
+        version: 4,
+        createdAt: Date.now(),
+        mapView: {
+            center: {
+                lat: map.getCenter().lat,
+                lng: map.getCenter().lng
+            },
+            zoom: map.getZoom()
+        },
+        pool: renderedPool,
+        layerStates
+    };
+}
+
 
 
 // --- 5. 渲染引擎：核心修复（不再强制依赖 CSV） ---
@@ -1530,14 +2051,23 @@ function refreshMap() {
 
                 if (f.geometry?.type === "Point") return undefined;
 
-                if (p.isChoiceLine) {
-                    return {
-                        color: p.choiceColor || conf.c,
-                        weight: p.choiceWidth || 3,
-                        opacity: 0.95,
-                        lineJoin: 'round'
-                    };
-                }
+                if (p.isIntegrationLine) {
+    return {
+        color: p.integrationColor || conf.c,
+        weight: p.integrationWidth || 3,
+        opacity: 0.95,
+        lineJoin: 'round'
+    };
+}
+
+if (p.isChoiceLine) {
+    return {
+        color: p.choiceColor || conf.c,
+        weight: p.choiceWidth || 3,
+        opacity: 0.95,
+        lineJoin: 'round'
+    };
+}
 
                 if (isR) {
                     const roadLineW = ROAD_SETTING[name]?.lineW || 3;
@@ -1575,8 +2105,7 @@ function refreshMap() {
                     return L.circleMarker(latlng, {
                         radius: getZoomScaledRadius(p.pointRadius || conf.pointRadius || 11),
                         fillColor: "#111827",
-                        color: "#ffffff",
-                        weight: 3,
+                        stroke:false,
                         fillOpacity: 0.95
                     });
                 }
@@ -1584,8 +2113,7 @@ function refreshMap() {
                 return L.circleMarker(latlng, {
                     radius: getZoomScaledRadius(conf.pointRadius || 7),
                     fillColor: conf.c,
-                    color: "#fff",
-                    weight: 2,
+                    stroke:false,
                     fillOpacity: 0.9
                 });
             },
@@ -1612,15 +2140,23 @@ function refreshMap() {
                     h += `<div><b>经度:</b> ${f.geometry.coordinates[0].toFixed(6)}</div>`;
                     h += `<div><b>纬度:</b> ${f.geometry.coordinates[1].toFixed(6)}</div>`;
 
-                } else if (p.isChoiceLine) {
-                    h += `<div class="popup-info-row">选择度分析</div>`;
-                    h += `<div><b>选择度次数:</b> ${p.choiceCount}</div>`;
-                    h += `<div><b>归一化值:</b> ${(p.choiceNorm || 0).toFixed(3)}</div>`;
-                    if (p.sourceLayer) {
-                        h += `<div><b>来源道路类型:</b> ${p.sourceLayer}</div>`;
-                    }
+                } else if (p.isIntegrationLine) {
+    h += `<div class="popup-info-row">整合度分析</div>`;
+    h += `<div><b>整合度值:</b> ${(p.integrationScore ?? 0).toFixed(8)}</div>`;
+    h += `<div><b>归一化值:</b> ${(p.integrationNorm || 0).toFixed(3)}</div>`;
+    if (p.sourceLayer) {
+        h += `<div><b>来源道路类型:</b> ${p.sourceLayer}</div>`;
+    }
 
-                } else if (isR) {
+} else if (p.isChoiceLine) {
+    h += `<div class="popup-info-row">选择度分析</div>`;
+    h += `<div><b>选择度次数:</b> ${p.choiceCount}</div>`;
+    h += `<div><b>归一化值:</b> ${(p.choiceNorm || 0).toFixed(3)}</div>`;
+    if (p.sourceLayer) {
+        h += `<div><b>来源道路类型:</b> ${p.sourceLayer}</div>`;
+    }
+
+} else if (isR) {
                     h += `<div class="popup-info-row">道路属性</div>`;
                     h += `<div><b>道路等级:</b> ${name}</div>`;
                     if (p.name && p.name !== "None") h += `<div><b>名称:</b> ${p.name}</div>`;
@@ -1716,8 +2252,7 @@ map.on('zoomend', () => {
         map.removeLayer(roadOriginMarker);
         roadOriginMarker = L.circleMarker(roadOriginLatLng, {
             radius: getZoomScaledRadius(11),
-            color: "#ffffff",
-            weight: 3,
+            stroke: false,
             fillColor: "#111827",
             fillOpacity: 0.95
         }).addTo(map);
@@ -2084,7 +2619,12 @@ document.querySelectorAll('.win-header').forEach(h => {
     document.onmousemove = (e) => { if(!dr) return; win.style.left = (e.clientX + of[0]) + 'px'; win.style.top = (e.clientY + of[1]) + 'px'; win.style.bottom = 'auto'; win.style.right = 'auto'; };
     document.onmouseup = () => dr = false;
 });
-fetch('xuhui.json').then(r => r.json()).then(data => L.geoJSON(data, { style: { color: "#2BB5BE", weight: 1.5, fillOpacity: 0.05 }}).addTo(map));
+fetch(`xuhui.json?v=${Date.now()}`)
+  .then(r => r.json())
+  .then(data => L.geoJSON(data, {
+    style: { color: "#2BB5BE", weight: 3, fillOpacity: 0.05 }
+  }).addTo(map));
+
 </script>
 <div id="pie-tip"></div>
 </body>
