@@ -20,17 +20,59 @@
         #map { width: 100vw; height: 100vh; z-index: 1; }
 
         /* --- 左上角 HUD 与 分析入口 --- */
-        #header-hud { position: absolute; top: 30px; left: 35px; z-index: 2000; display: flex; flex-direction: column; gap: 20px; pointer-events: none; }
-        #header-hud * { pointer-events: auto; }
-        #header h1 { margin: 0; font-size: 28px; font-weight: 800; color: #1e293b; letter-spacing: -1px; }
-        #header p { margin: 4px 0 0; font-size: 11px; color: #94a3b8; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; }
-        
+        #header-hud {
+    position: absolute;
+    top: 30px;
+    left: 35px;
+    z-index: 2000;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+#header h1 {
+    margin: 0;
+    font-size: 25px;
+    font-weight: 800;
+    color: #1e293b;
+    letter-spacing: -0.8px;
+}
+
+#header p {
+    margin: 3px 0 0;
+    font-size: 10px;
+    color: #94a3b8;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.8px;
+}
         #btn-analysis-entry { 
-            background: var(--primary); color: white; border: none; padding: 14px 28px; 
-            border-radius: 16px; font-weight: 800; cursor: pointer; box-shadow: var(--shadow); 
-            transition: 0.3s; display: flex; align-items: center; gap: 12px; font-size: 15px;
-        }
-        #btn-analysis-entry:hover { transform: translateY(-3px); filter: brightness(1.1); }
+    background: var(--primary);
+    color: white;
+    border: none;
+    padding: 11px 18px;
+    border-radius: 14px;
+    font-weight: 800;
+    cursor: pointer;
+    box-shadow: 0 10px 28px rgba(43,181,190,0.22);
+    transition: 0.22s;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+    width: fit-content;
+}
+
+#btn-analysis-entry:hover {
+    transform: translateY(-2px);
+    filter: brightness(1.04);
+}
+
+#btn-analysis-entry svg {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+}
 
         /* --- 右侧功能工具栏 (分组) --- */
         .toolbar-group { position: absolute; right: 30px; z-index: 2000; display: flex; flex-direction: column; gap: 15px; }
@@ -97,6 +139,34 @@
     border-radius:10px; font-size:12px; pointer-events:none; z-index:9999; 
     backdrop-filter:blur(10px); border:1px solid rgba(255,255,255,0.1); font-weight:600; 
 }
+.left-action-btn {
+    background: var(--primary);
+    color: white;
+    border: none;
+    padding: 11px 18px;
+    border-radius: 14px;
+    font-weight: 800;
+    cursor: pointer;
+    box-shadow: 0 10px 28px rgba(43,181,190,0.22);
+    transition: 0.22s;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+    width: fit-content;
+    pointer-events: auto;
+}
+
+.left-action-btn:hover {
+    transform: translateY(-2px);
+    filter: brightness(1.04);
+}
+
+.left-action-btn svg {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+}
     </style>
 </head>
 <body>
@@ -106,10 +176,19 @@
         <h1>大徐家汇数智化平台</h1>
         <p>Spatial Management Console</p>
     </div>
-    <button id="btn-analysis-entry">
+    <button id="btn-analysis-entry" class="left-action-btn">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
         进入数据分析
     </button>
+    <button id="btn-api-key-entry" class="left-action-btn">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+        <path d="M21 2l-2 2"></path>
+        <path d="M7.5 7.5a4 4 0 1 1 5.7 5.6l-1.2 1.2"></path>
+        <path d="M14 6l4 4"></path>
+        <path d="M3 21l6-1 10-10-5-5L4 15l-1 6z"></path>
+    </svg>
+    输入 API Key
+</button>
 </div>
 
 <div id="confirm-modal">
@@ -121,12 +200,15 @@
             <button style="flex:1; padding:12px; border-radius:12px; background:var(--primary); color:white; border:none; cursor:pointer;" onclick="goToAnalysis()">确认进入</button>
         </div>
     </div>
+    
 </div>
+
 
 <div id="analysis-tools" class="toolbar-group">
     <div class="tool-btn" id="btn-layer" title="图层控制"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
     <div class="tool-btn" id="btn-filter" title="多项筛选"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg></div>
-    <div class="tool-btn" id="btn-chat" title="AI 助手"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+    <div class="tool-btn" id="btn-upload-table" title="上传表格点位"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4"></path><path d="M8 8l4-4 4 4"></path><path d="M20 16.5v2a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5v-2"></path></svg></div>
+
 </div>
 
 <div id="editor-tools" class="toolbar-group">
@@ -158,12 +240,32 @@
     </div>
 </div>
 
-<div id="chat-window" class="floating-window">
-    <div class="win-header"><span>AI 数智助理</span><span class="close-win">×</span></div>
-    <div id="chat-content"><div class="msg ai">您好！我是大徐家汇助理。</div></div>
-    <div id="chat-input-area">
-        <input type="text" id="chat-in" placeholder="问我问题...">
-        <button id="btn-chat-send" style="background:var(--primary); color:white; border:none; padding:10px; border-radius:10px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
+<div id="upload-table-win" class="floating-window" style="top: 190px; right: 100px; width: 380px;">
+    <div class="win-header"><span>上传表格生成点图层</span><span class="close-win">×</span></div>
+    <div style="padding:20px; display:flex; flex-direction:column; gap:14px;">
+        <div>
+            <div class="group-label" style="margin-top:0;">1. 上传文件</div>
+            <input id="table-file-input" type="file" accept=".csv,.xlsx,.xls" style="width:100%; padding:10px; border:1px solid #e2e8f0; border-radius:12px; box-sizing:border-box;">
+        </div>
+
+        <div>
+            <div class="group-label" style="margin-top:0;">2. 图层名称</div>
+            <input id="table-layer-name" type="text" placeholder="例如：自定义POI数据" style="width:100%; padding:12px; border:1px solid #e2e8f0; border-radius:12px; box-sizing:border-box;">
+        </div>
+
+        <div>
+            <div class="group-label" style="margin-top:0;">3. 经度字段</div>
+            <select id="table-lng-field" style="width:100%; padding:12px; border:1px solid #e2e8f0; border-radius:12px; box-sizing:border-box;"></select>
+        </div>
+
+        <div>
+            <div class="group-label" style="margin-top:0;">4. 纬度字段</div>
+            <select id="table-lat-field" style="width:100%; padding:12px; border:1px solid #e2e8f0; border-radius:12px; box-sizing:border-box;"></select>
+        </div>
+
+        <button id="btn-build-table-layer" style="background:var(--primary); color:white; border:none; padding:13px 16px; border-radius:14px; font-weight:800; cursor:pointer; font-size:14px;">
+            生成点图层
+        </button>
     </div>
 </div>
 
@@ -172,11 +274,42 @@
     <input type="text" id="marker-name-in" placeholder="输入名称...">
     <button id="btn-save-marker">保存标注</button>
 </div>
+<div id="api-key-win" class="floating-window" style="display:none; top: 180px; left: 35px; width: 380px;">
+    <div class="win-header">
+        <span>输入 API Key</span>
+        <span class="close-win" onclick="closeApiKeyModal()">×</span>
+    </div>
+    <div style="padding:20px; display:flex; flex-direction:column; gap:14px;">
+        <div id="api-key-status" style="font-size:12px; color:#64748b;">
+            当前状态：未设置
+        </div>
+
+        <input
+            id="api-key-input"
+            type="password"
+            placeholder="请输入 API Key"
+            style="width:100%; padding:12px; border:1px solid #e2e8f0; border-radius:12px; box-sizing:border-box;"
+        >
+
+        <div style="display:flex; gap:10px;">
+            <button id="btn-save-api-key" style="flex:1; background:var(--primary); color:white; border:none; padding:12px; border-radius:12px; font-weight:800; cursor:pointer;">
+                保存
+            </button>
+            <button id="btn-clear-api-key" style="flex:1; background:#f8fafc; color:#334155; border:1px solid #e2e8f0; padding:12px; border-radius:12px; font-weight:800; cursor:pointer;">
+                清除
+            </button>
+        </div>
+
+        <button id="btn-save-api-key-and-continue" style="display:none;"></button>
+    </div>
+</div>
 
 <div id="map"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/@geoman-io/leaflet-geoman-free@latest/dist/leaflet-geoman.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
 <script>
 
@@ -197,6 +330,80 @@ const aoiConfig = {
 
     // 街景颜色配置
 const svColors = { "road": "#808080", "sidewalk": "#FF00FF", "vegetation": "#228B22", "sky": "#87CEEB", "building": "#A52A2A", "car": "#0000FF", "person": "#FF0000" };
+
+const API_KEY_STORAGE_KEY = 'user_api_key';
+
+function getApiKey() {
+    return localStorage.getItem(API_KEY_STORAGE_KEY) || '';
+}
+
+function saveApiKey(key) {
+    localStorage.setItem(API_KEY_STORAGE_KEY, key.trim());
+}
+
+function clearApiKey() {
+    localStorage.removeItem(API_KEY_STORAGE_KEY);
+}
+
+function hasApiKey() {
+    return !!getApiKey();
+}
+
+function maskApiKey(key) {
+    if (!key) return '未设置';
+    if (key.length <= 8) return '已设置';
+    return key.slice(0, 4) + '****' + key.slice(-4);
+}
+
+function updateApiKeyStatus() {
+    const el = document.getElementById('api-key-status');
+    if (!el) return;
+    el.textContent = `当前状态：${maskApiKey(getApiKey())}`;
+}
+
+function openApiKeyModal() {
+    const modal = document.getElementById('api-key-win');
+    const input = document.getElementById('api-key-input');
+    if (!modal || !input) return;
+
+    input.value = getApiKey();
+    modal.style.display = 'flex';
+    updateApiKeyStatus();
+}
+
+function closeApiKeyModal() {
+    const modal = document.getElementById('api-key-win');
+    if (modal) modal.style.display = 'none';
+}
+
+function ensureApiKeyThen(callback) {
+    const key = getApiKey();
+    if (key) {
+        callback(key);
+        return;
+    }
+
+    openApiKeyModal();
+
+    const confirmBtn = document.getElementById('btn-save-api-key-and-continue');
+    if (confirmBtn) {
+        confirmBtn.onclick = () => {
+            const input = document.getElementById('api-key-input');
+            const value = (input?.value || '').trim();
+
+            if (!value) {
+                alert('请输入 API Key');
+                return;
+            }
+
+            saveApiKey(value);
+            closeApiKeyModal();
+            updateApiKeyStatus();
+            callback(value);
+        };
+    }
+}
+
 
 // 饼图生成引擎
 function generatePieChart(props) {
@@ -234,16 +441,22 @@ window.hideTip = () => { document.getElementById('pie-tip').style.display = 'non
     window.addEventListener('keydown', (e) => { if(e.key === 'Escape') deactivateAll(); });
 
     const setupBtn = (id, action) => {
-        document.getElementById(id).onclick = () => {
-            const wasActive = document.getElementById(id).classList.contains('active');
-            deactivateAll();
-            if(!wasActive) { action(); document.getElementById(id).classList.add('active'); }
-        };
+    const btn = document.getElementById(id);
+    if (!btn) return;   // 没有这个按钮就直接跳过，避免报错
+
+    btn.onclick = () => {
+        const wasActive = btn.classList.contains('active');
+        deactivateAll();
+        if (!wasActive) {
+            action();
+            btn.classList.add('active');
+        }
     };
+};
 
     setupBtn('btn-layer', () => document.getElementById('layer-menu').style.display = 'flex');
     setupBtn('btn-filter', () => document.getElementById('filter-manager').style.display = 'flex');
-    setupBtn('btn-chat', () => document.getElementById('chat-window').style.display = 'flex');
+    setupBtn('btn-upload-table', () => document.getElementById('upload-table-win').style.display = 'flex');
     setupBtn('btn-ruler', () => map.pm.enableDraw('Line', { measurements: { displayUnit: 'metric', showLength: true } }));
     setupBtn('btn-poly', () => map.pm.enableDraw('Polygon', { measurements: { displayUnit: 'metric', showArea: true } }));
     setupBtn('btn-marker', () => map.pm.enableDraw('Marker'));
@@ -268,18 +481,109 @@ window.hideTip = () => { document.getElementById('pie-tip').style.display = 'non
     // 4. 分析跳转逻辑
     document.getElementById('btn-analysis-entry').onclick = () => document.getElementById('confirm-modal').style.display='flex';
     function closeModal() { document.getElementById('confirm-modal').style.display='none'; }
-function goToAnalysis() {
-    const state = {
-        keywords: keywords,
-        activeLayers: Object.keys(activeLayers)
-    };
+    const APP_DB_NAME = 'xjh_app_db';
 
-    localStorage.setItem('analysis_state', JSON.stringify(state));
-    window.location.href = 'analysis.html';
+document.getElementById('btn-api-key-entry').onclick = () => {
+    openApiKeyModal();
+};
+
+document.getElementById('btn-save-api-key').onclick = () => {
+    const input = document.getElementById('api-key-input');
+    const value = (input?.value || '').trim();
+
+    if (!value) {
+        alert('请输入 API Key');
+        return;
+    }
+
+    saveApiKey(value);
+    updateApiKeyStatus();
+    closeApiKeyModal();
+    alert('API Key 已保存');
+};
+
+document.getElementById('btn-clear-api-key').onclick = () => {
+    clearApiKey();
+    updateApiKeyStatus();
+    document.getElementById('api-key-input').value = '';
+    alert('API Key 已清除');
+};
+updateApiKeyStatus();
+    
+const APP_DB_STORE = 'kv_store';
+
+function openAppDB() {
+    return new Promise((resolve, reject) => {
+        const req = indexedDB.open(APP_DB_NAME, 1);
+
+        req.onupgradeneeded = () => {
+            const db = req.result;
+            if (!db.objectStoreNames.contains(APP_DB_STORE)) {
+                db.createObjectStore(APP_DB_STORE);
+            }
+        };
+
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+    });
+}
+
+async function idbSet(key, value) {
+    const db = await openAppDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(APP_DB_STORE, 'readwrite');
+        const store = tx.objectStore(APP_DB_STORE);
+        const req = store.put(value, key);
+
+        req.onsuccess = () => resolve(true);
+        req.onerror = () => reject(req.error);
+    });
+}
+
+async function idbGet(key) {
+    const db = await openAppDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(APP_DB_STORE, 'readonly');
+        const store = tx.objectStore(APP_DB_STORE);
+        const req = store.get(key);
+
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+    });
+}
+async function goToAnalysis() {
+    try {
+        const state = {
+            keywords: keywords,
+            activeLayers: Object.keys(activeLayers),
+            hasCustomLayers: true
+        };
+
+        localStorage.setItem('analysis_state', JSON.stringify(state));
+
+        const customLayerPayload = {};
+
+        Object.keys(uploadedLayerMeta).forEach(layerId => {
+            if (!pool[layerId]) return;
+
+            customLayerPayload[layerId] = {
+                meta: uploadedLayerMeta[layerId],
+                data: pool[layerId]
+            };
+        });
+
+        await idbSet('analysis_custom_layers', customLayerPayload);
+
+        window.location.href = 'analysis.html';
+    } catch (err) {
+        console.error(err);
+        alert('进入分析页面失败：' + err.message);
+    }
 }
 
     // 5. 数据核心与多重筛选
     let keywords = []; const activeLayers = {}, pool = {};
+    const uploadedLayerMeta = {};
 function updateLayers() {
     for(let n in activeLayers) {
         const conf = activeLayers[n].conf;
@@ -398,51 +702,44 @@ function updateLayers() {
 // 修改后的 createUI 函数：增加 displayName 兼容逻辑
 const createUI = (id, color, type, container, label) => {
     if (!container) return;
-    
-    // 核心修复：如果 label 不存在，就使用 id 作为显示名称
-    const displayName = label || id; 
 
+    const displayName = label || id;
     const div = document.createElement('div');
     div.style = "display:flex; align-items:center; padding:10px; cursor:pointer;";
-    
-    // 使用 displayName 替代之前的 label
+
     div.innerHTML = `
         <input type="checkbox" style="margin-right:12px; width:16px; height:16px;">
         <div style="width:8px; height:8px; border-radius:50%; background:${color}; margin-right:10px;"></div>
         <span style="font-size:13px; color:#1e293b; font-weight:600;">${displayName}</span>
     `;
-    
-    div.querySelector('input').onchange = (e) => toggle(id, color, type, e.target.checked);
+
+    div.querySelector('input').onchange = (e) => {
+        const checked = e.target.checked;
+
+        // 对已存在于 pool 的自定义点图层，直接显隐，不重新 fetch
+        if (type === 'poi' && pool[id] && !poiNames.includes(id) && id !== '房产数据') {
+            if (checked) {
+                activeLayers[id] = { layer: L.layerGroup().addTo(map), conf: { c: color, t: type } };
+                updateLayers();
+            } else if (activeLayers[id]) {
+                map.removeLayer(activeLayers[id].layer);
+                delete activeLayers[id];
+            }
+            return;
+        }
+
+        toggle(id, color, type, checked);
+    };
+
     container.appendChild(div);
 };
+
+
+
     createUI('房产数据', '#FF7E5F', 'house', document.getElementById('house-list-ui'));
     poiNames.forEach((n,i) => createUI(n, `hsl(${(i * 137.5) % 360}, 65%, 55%)`, 'poi', document.getElementById('poi-list-ui')));
 
-    // AI 流式
-    const API_KEY = "sk-953b1a97918949d2a18c9a07a14729d0";
-    async function chat() {
-        const box = document.getElementById('chat-in'), text = box.value.trim(), con = document.getElementById('chat-content');
-        if(!text) return; con.innerHTML += `<div class="msg user">${text}</div>`; box.value=""; con.scrollTop=con.scrollHeight;
-        const ai = document.createElement('div'); ai.className='msg ai'; ai.innerText="..."; con.appendChild(ai);
-        try {
-            const res = await fetch("https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions", {
-                method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${API_KEY}` },
-                body: JSON.stringify({ model: "qwen-plus", messages: [{ role: "user", content: text }], stream: true })
-            });
-            const reader = res.body.getReader(), dec = new TextDecoder(); let full = "";
-            while(true) {
-                const { done, value } = await reader.read(); if(done) break;
-                dec.decode(value).split("\n").forEach(line => {
-                    if(line.startsWith("data: ") && line !== "data: [DONE]") {
-                        try { full += JSON.parse(line.substring(6)).choices[0].delta.content || ""; ai.innerText = full; con.scrollTop=con.scrollHeight; } catch(e){}
-                    }
-                });
-            }
-        } catch(e) { ai.innerText="助手请求失败。"; }
-    }
-    document.getElementById('btn-chat-send').onclick = chat;
-    document.getElementById('chat-in').onkeypress=(e)=>{if(e.key==='Enter')chat();};
-
+    
     // 窗口交互
     document.querySelectorAll('.close-win').forEach(c => c.onclick = deactivateAll);
     document.querySelectorAll('.win-header').forEach(h => {
@@ -454,9 +751,237 @@ const createUI = (id, color, type, container, label) => {
     fetch(`xuhui.json?v=${Date.now()}`)
   .then(r => r.json())
   .then(data => L.geoJSON(data, {
-    style: { color: "#2BB5BE", weight: 3, fillOpacity: 0.05 }
+    style: {
+        color: "#2BB5BE",
+        weight: 3,
+        fillColor: "#2BB5BE",
+        fillOpacity: 0.08
+      }
   }).addTo(map));
 createUI('街景语义分割图点', '#2BB5BE', 'street', document.getElementById('street-view-list-ui'));
+
+
+
+let uploadedTableRows = [];
+let uploadedTableHeaders = [];
+let customPoiColorIndex = 0;
+
+function guessCoordField(headers, type) {
+    const lower = headers.map(h => String(h).toLowerCase());
+    const keywords = type === 'lng'
+        ? ['lng', 'lon', 'longitude', '经度', 'x', 'jd']
+        : ['lat', 'latitude', '纬度', 'y', 'wd'];
+
+    const idx = lower.findIndex(h => keywords.some(k => h.includes(k)));
+    return idx >= 0 ? headers[idx] : '';
+}
+
+function fillCoordFieldSelectors(headers) {
+    const lngSel = document.getElementById('table-lng-field');
+    const latSel = document.getElementById('table-lat-field');
+    if (!lngSel || !latSel) return;
+
+    lngSel.innerHTML = '';
+    latSel.innerHTML = '';
+
+    headers.forEach(h => {
+        const op1 = document.createElement('option');
+        op1.value = h;
+        op1.textContent = h;
+        lngSel.appendChild(op1);
+
+        const op2 = document.createElement('option');
+        op2.value = h;
+        op2.textContent = h;
+        latSel.appendChild(op2);
+    });
+
+    const guessLng = guessCoordField(headers, 'lng');
+    const guessLat = guessCoordField(headers, 'lat');
+    if (guessLng) lngSel.value = guessLng;
+    if (guessLat) latSel.value = guessLat;
+}
+
+function parseCSVFile(file) {
+    return new Promise((resolve, reject) => {
+        Papa.parse(file, {
+            header: true,
+            skipEmptyLines: true,
+            complete: (res) => resolve(res.data || []),
+            error: reject
+        });
+    });
+}
+
+function parseExcelFile(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const data = new Uint8Array(e.target.result);
+                const wb = XLSX.read(data, { type: 'array' });
+                const firstSheet = wb.Sheets[wb.SheetNames[0]];
+                const rows = XLSX.utils.sheet_to_json(firstSheet, { defval: '' });
+                resolve(rows);
+            } catch (err) {
+                reject(err);
+            }
+        };
+        reader.onerror = reject;
+        reader.readAsArrayBuffer(file);
+    });
+}
+
+async function parseTableFile(file) {
+    const name = file.name.toLowerCase();
+    if (name.endsWith('.csv')) {
+        return await parseCSVFile(file);
+    }
+    if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
+        return await parseExcelFile(file);
+    }
+    throw new Error('仅支持 CSV / XLSX / XLS 文件');
+}
+
+document.getElementById('table-file-input').addEventListener('change', async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+        const rows = await parseTableFile(file);
+        if (!rows.length) {
+            alert('文件中没有可用数据');
+            return;
+        }
+
+        uploadedTableRows = rows;
+        uploadedTableHeaders = Object.keys(rows[0] || {});
+        fillCoordFieldSelectors(uploadedTableHeaders);
+
+        const nameInput = document.getElementById('table-layer-name');
+        if (!nameInput.value.trim()) {
+            nameInput.value = file.name.replace(/\.(csv|xlsx|xls)$/i, '');
+        }
+    } catch (err) {
+        console.error(err);
+        alert('文件解析失败：' + err.message);
+    }
+});
+
+function buildPointFeatureCollectionFromTable(rows, lngField, latField) {
+    const features = [];
+
+    rows.forEach((row, idx) => {
+        const lng = Number(row[lngField]);
+        const lat = Number(row[latField]);
+
+        if (!Number.isFinite(lng) || !Number.isFinite(lat)) return;
+
+        const props = { ...row };
+
+        Object.keys(props).forEach(k => {
+            const v = props[k];
+            if (typeof v === 'string') {
+                const n = Number(v);
+                if (v.trim() !== '' && Number.isFinite(n)) props[k] = n;
+            }
+        });
+
+        if (!props.name) {
+            props.name = props.名称 || props.NAME || props.Name || `表格点 ${idx + 1}`;
+        }
+
+        features.push({
+            type: 'Feature',
+            geometry: {
+                type: 'Point',
+                coordinates: [lng, lat]
+            },
+            properties: props
+        });
+    });
+
+    return {
+        type: 'FeatureCollection',
+        features
+    };
+}
+
+function getCustomPoiColor() {
+    const hue = (customPoiColorIndex * 67) % 360;
+    customPoiColorIndex++;
+    return `hsl(${hue}, 68%, 54%)`;
+}
+
+document.getElementById('btn-build-table-layer').onclick = () => {
+    const layerNameInput = document.getElementById('table-layer-name');
+    const lngField = document.getElementById('table-lng-field').value;
+    const latField = document.getElementById('table-lat-field').value;
+
+    const layerName = layerNameInput.value.trim();
+    if (!uploadedTableRows.length) {
+        alert('请先上传表格文件');
+        return;
+    }
+
+    if (!layerName) {
+        alert('请输入图层名称');
+        return;
+    }
+
+    if (!lngField || !latField) {
+        alert('请选择经度和纬度字段');
+        return;
+    }
+
+    if (lngField === latField) {
+        alert('经度字段和纬度字段不能相同');
+        return;
+    }
+
+    const fc = buildPointFeatureCollectionFromTable(uploadedTableRows, lngField, latField);
+    if (!fc.features.length) {
+        alert('没有生成有效点位，请检查经纬度字段是否正确');
+        return;
+    }
+
+    const layerId = `custom_poi_${Date.now()}`;
+const color = getCustomPoiColor();
+
+pool[layerId] = fc;
+activeLayers[layerId] = {
+    layer: L.layerGroup().addTo(map),
+    conf: {
+        c: color,
+        t: 'poi',
+        customUpload: true,
+        label: layerName
+    }
+};
+
+uploadedLayerMeta[layerId] = {
+    label: layerName,
+    color: color,
+    type: 'poi',
+    customUpload: true
+};
+
+createUI(layerId, color, 'poi', document.getElementById('poi-list-ui'), layerName);
+
+    const poiItems = document.getElementById('poi-list-ui');
+    if (poiItems?.lastElementChild) {
+        const cb = poiItems.lastElementChild.querySelector('input');
+        if (cb) cb.checked = true;
+    }
+
+    updateLayers();
+
+    const bounds = L.geoJSON(fc).getBounds();
+    if (bounds.isValid()) map.fitBounds(bounds.pad(0.2));
+
+    alert(`已生成新图层：${layerName}（${fc.features.length}个点）`);
+    deactivateAll();
+};
 
 // 自动加载翻译后的 AOI 图层管理 UI
 // 确保 AOI 初始化时颜色与配置一致

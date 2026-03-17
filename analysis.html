@@ -16,6 +16,15 @@
     </div>
     
     <div class="hud-btn-group" style="display: flex; flex-direction: column; gap: 20px;">
+        <button id="btn-api-key-entry" class="big-action-btn">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+        <path d="M21 2l-2 2"></path>
+        <path d="M7.5 7.5a4 4 0 1 1 5.7 5.6l-1.2 1.2"></path>
+        <path d="M14 6l4 4"></path>
+        <path d="M3 21l6-1 10-10-5-5L4 15l-1 6z"></path>
+    </svg>
+    输入 API Key
+</button>
         <button id="btn-deep-filter" class="big-action-btn">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15.5 19l-7-7 7-7"/><path d="M8.5 12h13"/></svg>
             AI 独立深度筛选
@@ -32,6 +41,17 @@
         <path d="M14 19v-6h4l2-2v8"/>
     </svg>
     路网分析
+</button>
+<button id="btn-range-filter" class="big-action-btn">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">
+        <path d="M4 6h16"/>
+        <path d="M7 12h10"/>
+        <path d="M10 18h4"/>
+        <path d="M6 4v4"/>
+        <path d="M12 10v4"/>
+        <path d="M18 16v4"/>
+    </svg>
+    数据范围裁剪
 </button>
 <button id="btn-go-graph" class="big-action-btn">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -99,7 +119,35 @@
     </div>
 </div>
 
+<div id="api-key-win" class="floating-window" style="display:none; top: 180px; left: 35px; width: 380px;">
+    <div class="win-header">
+        <span>输入 API Key</span>
+        <span class="close-win" onclick="closeApiKeyModal()">×</span>
+    </div>
+    <div style="padding:20px; display:flex; flex-direction:column; gap:14px;">
+        <div id="api-key-status" style="font-size:12px; color:#64748b;">
+            当前状态：未设置
+        </div>
 
+        <input
+            id="api-key-input"
+            type="password"
+            placeholder="请输入 API Key"
+            style="width:100%; padding:12px; border:1px solid #e2e8f0; border-radius:12px; box-sizing:border-box;"
+        >
+
+        <div style="display:flex; gap:10px;">
+            <button id="btn-save-api-key" style="flex:1; background:var(--primary); color:white; border:none; padding:12px; border-radius:12px; font-weight:800; cursor:pointer;">
+                保存
+            </button>
+            <button id="btn-clear-api-key" style="flex:1; background:#f8fafc; color:#334155; border:1px solid #e2e8f0; padding:12px; border-radius:12px; font-weight:800; cursor:pointer;">
+                清除
+            </button>
+        </div>
+
+        <button id="btn-save-api-key-and-continue" style="display:none;"></button>
+    </div>
+</div>
 
 <div id="road-analysis-win" class="floating-window" style="top: 360px; left: 35px; width: 420px; max-height: 75vh;">
     <div class="win-header"><span>路网分析</span><span class="close-win">×</span></div>
@@ -154,6 +202,32 @@
         </button>
     </div>
 </div>
+
+
+<div id="range-filter-win" class="floating-window" style="top: 510px; left: 35px; width: 420px; max-height: 75vh;">
+    <div class="win-header"><span>数据范围裁剪</span><span class="close-win">×</span></div>
+    <div style="padding:22px; overflow-y:auto; flex:1;">
+        <div class="step-box">
+            <div class="group-label" style="margin-top:0;">1. 选择要裁剪的图层</div>
+            <div id="range-filter-layer-targets" style="max-height:180px; overflow-y:auto;"></div>
+        </div>
+
+        <div class="step-box">
+            <div class="group-label" style="margin-top:0;">2. 范围来源</div>
+            <div style="font-size:12px; color:#64748b; line-height:1.6;">
+                使用 <b>xuhui.json</b> 中的范围面进行裁剪。<br>
+                点：仅保留落在范围内的点<br>
+                线：仅保留与范围相交的线段<br>
+                面：仅保留与范围重叠的部分
+            </div>
+        </div>
+
+        <button id="btn-run-range-filter" style="background:var(--accent); color:white; border:none; padding:15px; border-radius:16px; font-weight:800; cursor:pointer; width:100%; font-size:15px;">
+            执行范围裁剪
+        </button>
+    </div>
+</div>
+
 
 
 <div id="analysis-tools" class="toolbar-group">
@@ -253,9 +327,91 @@ const ROAD_MAP = {
     'unclassified': '城市支路',
     'road': '城市支路'
 };
-const API_KEY = "sk-953b1a97918949d2a18c9a07a14729d0";
 // 街景语义颜色配置
 const svColors = { "road": "#808080", "sidewalk": "#FF00FF", "vegetation": "#228B22", "sky": "#87CEEB", "building": "#A52A2A", "car": "#0000FF", "person": "#FF0000" };
+
+const API_KEY_STORAGE_KEY = 'user_api_key';
+
+function getApiKey() {
+    return localStorage.getItem(API_KEY_STORAGE_KEY) || '';
+}
+
+function saveApiKey(key) {
+    localStorage.setItem(API_KEY_STORAGE_KEY, key.trim());
+}
+
+function clearApiKey() {
+    localStorage.removeItem(API_KEY_STORAGE_KEY);
+}
+
+function hasApiKey() {
+    return !!getApiKey();
+}
+
+function maskApiKey(key) {
+    if (!key) return '未设置';
+    if (key.length <= 8) return '已设置';
+    return key.slice(0, 4) + '****' + key.slice(-4);
+}
+
+function updateApiKeyStatus() {
+    const el = document.getElementById('api-key-status');
+    if (!el) return;
+    el.textContent = `当前状态：${maskApiKey(getApiKey())}`;
+}
+
+function openApiKeyModal() {
+    const modal = document.getElementById('api-key-win');
+    const input = document.getElementById('api-key-input');
+    if (!modal || !input) return;
+
+    input.value = getApiKey();
+    modal.style.display = 'flex';
+    updateApiKeyStatus();
+}
+
+function closeApiKeyModal() {
+    const modal = document.getElementById('api-key-win');
+    if (modal) modal.style.display = 'none';
+}
+
+function ensureApiKeyThen(callback) {
+    const key = getApiKey();
+    if (key) {
+        return callback(key);
+    }
+
+    openApiKeyModal();
+
+    return new Promise((resolve, reject) => {
+        const confirmBtn = document.getElementById('btn-save-api-key-and-continue');
+        if (!confirmBtn) {
+            reject(new Error('找不到继续按钮'));
+            return;
+        }
+
+        confirmBtn.onclick = async () => {
+            try {
+                const input = document.getElementById('api-key-input');
+                const value = (input?.value || '').trim();
+
+                if (!value) {
+                    alert('请输入 API Key');
+                    return;
+                }
+
+                saveApiKey(value);
+                closeApiKeyModal();
+                updateApiKeyStatus();
+
+                const result = await callback(value);
+                resolve(result);
+            } catch (err) {
+                reject(err);
+            }
+        };
+    });
+}
 
 function generatePieChart(props) {
     const data = Object.entries(props).filter(([k, v]) => typeof v === 'number' && v > 0.01 && !['lon', 'lat'].includes(k)).sort((a, b) => b[1] - a[1]).slice(0, 10);
@@ -303,6 +459,8 @@ let indexedRoadGraphSource = null;
 let roadGraph = null;
 let roadEdgeMeta = [];
 let roadAnalysisLayer = L.layerGroup().addTo(map);
+let rangeMaskGeoJSON = null;
+const originalLayerBackup = {};
 function getPoiColor(name) {
     const colorMap = {
         "餐饮服务": "#ef4444",
@@ -348,7 +506,6 @@ state.activeLayers.forEach(name => {
     };
 });
 
-
 function openGraphTransferDB() {
     return new Promise((resolve, reject) => {
         const req = indexedDB.open('GraphTransferDB', 1);
@@ -382,6 +539,7 @@ async function saveGraphExportPayload() {
     const payload = buildGraphSnapshotPayload();
     await idbSet('graph_export_payload', payload);
 }
+
 
 // 升级版清洗逻辑：非贪婪匹配 + 深度去噪
 const normalize = (n) => {
@@ -432,6 +590,92 @@ function detectNameColumnIndex(headers) {
     const idx = headers.findIndex(h => /名称|店名|name|小区|项目|楼盘|地址/i.test(h));
     return idx >= 0 ? idx : 0;
 }
+
+const APP_DB_NAME = 'xjh_app_db';
+const APP_DB_STORE = 'kv_store';
+
+
+
+function openAppDB() {
+    return new Promise((resolve, reject) => {
+        const req = indexedDB.open(APP_DB_NAME, 1);
+
+        req.onupgradeneeded = () => {
+            const db = req.result;
+            if (!db.objectStoreNames.contains(APP_DB_STORE)) {
+                db.createObjectStore(APP_DB_STORE);
+            }
+        };
+
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+    });
+}
+
+async function idbGet(key) {
+    const db = await openAppDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(APP_DB_STORE, 'readonly');
+        const store = tx.objectStore(APP_DB_STORE);
+        const req = store.get(key);
+
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+    });
+}
+
+
+async function restoreCustomLayersFromIndex() {
+    try {
+        const raw = localStorage.getItem('analysis_state');
+        const state = raw ? JSON.parse(raw) : {};
+
+        if (!state.hasCustomLayers) return;
+
+        const customLayers = await idbGet('analysis_custom_layers');
+        if (!customLayers) return;
+
+        const activeSet = new Set(state.activeLayers || []);
+
+        Object.keys(customLayers).forEach(layerId => {
+            if (!activeSet.has(layerId)) return;
+
+            const item = customLayers[layerId];
+            if (!item || !item.data) return;
+
+            const meta = item.meta || {};
+            const label = meta.label || layerId;
+            const color = meta.color || '#2bb5be';
+
+            pool[layerId] = item.data;
+
+            initLayerControl(
+                layerId,
+                color,
+                'active-category-list',
+                label,
+                false
+            );
+
+            if (displayLayers[layerId]) {
+                displayLayers[layerId].conf = {
+                    ...(displayLayers[layerId].conf || {}),
+                    c: color,
+                    visible: true,
+                    label: label,
+                    customUpload: true,
+                    isPoiLike: true
+                };
+            }
+        });
+
+        refreshMap();
+    } catch (err) {
+        console.warn('恢复 index 上传图层失败', err);
+    }
+}
+
+restoreCustomLayersFromIndex();
 
 function getFeatureCandidateKeys(p) {
     const rawCandidates = [
@@ -499,6 +743,10 @@ setupBtn('btn-road-analysis', () => {
 setupBtn('btn-ruler', () => map.pm.enableDraw('Line', { measurements: { showLength: true } }));
 setupBtn('btn-poly', () => map.pm.enableDraw('Polygon', { measurements: { showArea: true } }));
 setupBtn('btn-marker', () => map.pm.enableDraw('Marker'));
+setupBtn('btn-range-filter', () => {
+    renderRangeFilterUI();
+    document.getElementById('range-filter-win').style.display = 'flex';
+});
 document.getElementById('tool-eraser').onclick = () => map.pm.toggleGlobalRemovalMode();
 document.querySelectorAll('.close-win').forEach(c => c.onclick = deactivateAll);
 
@@ -512,6 +760,34 @@ document.getElementById('btn-go-graph').onclick = async () => {
         alert('跳转出图页面失败，请查看 console');
     }
 };
+
+
+document.getElementById('btn-api-key-entry').onclick = () => {
+    openApiKeyModal();
+};
+
+document.getElementById('btn-save-api-key').onclick = () => {
+    const input = document.getElementById('api-key-input');
+    const value = (input?.value || '').trim();
+
+    if (!value) {
+        alert('请输入 API Key');
+        return;
+    }
+
+    saveApiKey(value);
+    updateApiKeyStatus();
+    closeApiKeyModal();
+    alert('API Key 已保存');
+};
+
+document.getElementById('btn-clear-api-key').onclick = () => {
+    clearApiKey();
+    updateApiKeyStatus();
+    document.getElementById('api-key-input').value = '';
+    alert('API Key 已清除');
+};
+updateApiKeyStatus();
 
 
 function getRoadAnalysisSourceLayers() {
@@ -2304,6 +2580,366 @@ document.getElementById('deep-file-in').onchange = (e) => {
 
     reader.readAsText(file);
 };
+function getAllClipCandidateLayers() {
+    return Object.keys(displayLayers).filter(name => {
+        const fc = pool[name];
+        if (!fc || !Array.isArray(fc.features) || !fc.features.length) return false;
+
+        const conf = displayLayers[name]?.conf || {};
+        if (conf.isGeneratedRoadAnalysis) return false; // 可按需去掉
+        return true;
+    });
+}
+
+function renderRangeFilterUI() {
+    const wrap = document.getElementById('range-filter-layer-targets');
+    if (!wrap) return;
+
+    wrap.innerHTML = '';
+
+    const names = getAllClipCandidateLayers();
+    if (!names.length) {
+        wrap.innerHTML = `<div style="font-size:12px; color:#94a3b8;">暂无可裁剪图层</div>`;
+        return;
+    }
+
+    names.forEach(name => {
+        const label = displayLayers[name]?.conf?.label || name;
+        const row = document.createElement('label');
+        row.style.display = 'flex';
+        row.style.alignItems = 'center';
+        row.style.gap = '8px';
+        row.style.marginBottom = '8px';
+        row.style.fontSize = '13px';
+        row.style.color = '#334155';
+
+        row.innerHTML = `
+            <input type="checkbox" value="${name}">
+            <span title="${label}">${label}</span>
+        `;
+        wrap.appendChild(row);
+    });
+}
+
+async function loadRangeMask() {
+    if (rangeMaskGeoJSON) return rangeMaskGeoJSON;
+
+    const res = await fetch(`xuhui.json?v=${Date.now()}`);
+    if (!res.ok) {
+        throw new Error('无法读取 xuhui.json');
+    }
+
+    const data = await res.json();
+
+    function isClosedRing(coords) {
+        if (!Array.isArray(coords) || coords.length < 4) return false;
+        const first = coords[0];
+        const last = coords[coords.length - 1];
+        return first[0] === last[0] && first[1] === last[1];
+    }
+
+    function lineToPolygonFeature(feature) {
+        const geom = feature?.geometry;
+        if (!geom) return null;
+
+        // 已经是面
+        if (geom.type === 'Polygon' || geom.type === 'MultiPolygon') {
+            return feature;
+        }
+
+        // 单条闭合边界线 -> Polygon
+        if (geom.type === 'LineString') {
+            const coords = geom.coordinates;
+            if (!isClosedRing(coords)) {
+                throw new Error('xuhui.json 的 LineString 不是闭合线，无法转为裁剪面');
+            }
+            return {
+                type: 'Feature',
+                properties: { ...(feature.properties || {}) },
+                geometry: {
+                    type: 'Polygon',
+                    coordinates: [coords]
+                }
+            };
+        }
+
+        // 多条线：优先找闭合线；如果都不是闭合线，再尝试 polygonize
+        if (geom.type === 'MultiLineString') {
+            const closed = geom.coordinates.find(coords => isClosedRing(coords));
+            if (closed) {
+                return {
+                    type: 'Feature',
+                    properties: { ...(feature.properties || {}) },
+                    geometry: {
+                        type: 'Polygon',
+                        coordinates: [closed]
+                    }
+                };
+            }
+
+            try {
+                const polyFC = turf.polygonize(feature);
+                if (polyFC?.features?.length) {
+                    return polyFC.features[0];
+                }
+            } catch (e) {
+                console.warn('polygonize 失败:', e);
+            }
+
+            throw new Error('xuhui.json 的 MultiLineString 无法转为裁剪面');
+        }
+
+        return null;
+    }
+
+    // 兼容 FeatureCollection / Feature / Geometry
+    if (data.type === 'FeatureCollection') {
+        if (!data.features || !data.features.length) {
+            throw new Error('xuhui.json 中没有可用范围');
+        }
+
+        // 先找面
+        const polygonFeature = data.features.find(f =>
+            f?.geometry &&
+            (f.geometry.type === 'Polygon' || f.geometry.type === 'MultiPolygon')
+        );
+        if (polygonFeature) {
+            rangeMaskGeoJSON = polygonFeature;
+            return rangeMaskGeoJSON;
+        }
+
+        // 再尝试把第一个可用线要素转成面
+        for (const f of data.features) {
+            const converted = lineToPolygonFeature(f);
+            if (converted) {
+                rangeMaskGeoJSON = converted;
+                return rangeMaskGeoJSON;
+            }
+        }
+
+        throw new Error('xuhui.json 无法生成 Polygon 裁剪范围');
+    }
+
+    if (data.type === 'Feature') {
+        const converted = lineToPolygonFeature(data);
+        if (!converted) {
+            throw new Error('xuhui.json 不是可用的裁剪范围');
+        }
+        rangeMaskGeoJSON = converted;
+        return rangeMaskGeoJSON;
+    }
+
+    // 裸 geometry
+    if (data.type === 'Polygon' || data.type === 'MultiPolygon') {
+        rangeMaskGeoJSON = {
+            type: 'Feature',
+            properties: {},
+            geometry: data
+        };
+        return rangeMaskGeoJSON;
+    }
+
+    if (data.type === 'LineString') {
+        if (!isClosedRing(data.coordinates)) {
+            throw new Error('xuhui.json 的 LineString 不是闭合线，无法转为裁剪面');
+        }
+        rangeMaskGeoJSON = {
+            type: 'Feature',
+            properties: {},
+            geometry: {
+                type: 'Polygon',
+                coordinates: [data.coordinates]
+            }
+        };
+        return rangeMaskGeoJSON;
+    }
+
+    throw new Error('xuhui.json 中没有 Polygon / 可转为 Polygon 的闭合边界');
+}
+function clipFeatureByMask(feature, maskFeature) {
+    if (!feature || !feature.geometry) return null;
+
+    const geomType = feature.geometry.type;
+
+    try {
+        // 1) 点
+        if (geomType === 'Point') {
+            const inside = turf.booleanPointInPolygon(feature, maskFeature);
+            return inside ? feature : null;
+        }
+
+        // 2) 多点
+        if (geomType === 'MultiPoint') {
+            const kept = feature.geometry.coordinates.filter(coord => {
+                const pt = turf.point(coord);
+                return turf.booleanPointInPolygon(pt, maskFeature);
+            });
+
+            if (!kept.length) return null;
+
+            return {
+                type: 'Feature',
+                properties: { ...(feature.properties || {}) },
+                geometry: {
+                    type: 'MultiPoint',
+                    coordinates: kept
+                }
+            };
+        }
+
+        // 3) 线
+        if (geomType === 'LineString' || geomType === 'MultiLineString') {
+            const lines = geomType === 'LineString'
+                ? [feature.geometry.coordinates]
+                : feature.geometry.coordinates;
+
+            const keptSegments = [];
+
+            lines.forEach(coords => {
+                if (!coords || coords.length < 2) return;
+
+                let line = turf.lineString(coords);
+                const intersections = turf.lineIntersect(line, maskFeature);
+
+                let pieces = [line];
+
+                if (intersections.features.length) {
+                    intersections.features.forEach(pt => {
+                        const nextPieces = [];
+                        pieces.forEach(piece => {
+                            try {
+                                const split = turf.lineSplit(piece, pt);
+                                if (split.features.length > 1) {
+                                    nextPieces.push(...split.features);
+                                } else {
+                                    nextPieces.push(piece);
+                                }
+                            } catch {
+                                nextPieces.push(piece);
+                            }
+                        });
+                        pieces = nextPieces;
+                    });
+                }
+
+                pieces.forEach(piece => {
+                    const coords2 = piece.geometry.coordinates;
+                    if (!coords2 || coords2.length < 2) return;
+
+                    const mid = turf.midpoint(
+                        turf.point(coords2[0]),
+                        turf.point(coords2[coords2.length - 1])
+                    );
+
+                    if (turf.booleanPointInPolygon(mid, maskFeature)) {
+                        keptSegments.push(coords2);
+                    }
+                });
+            });
+
+            if (!keptSegments.length) return null;
+
+            if (keptSegments.length === 1) {
+                return {
+                    type: 'Feature',
+                    properties: { ...(feature.properties || {}) },
+                    geometry: {
+                        type: 'LineString',
+                        coordinates: keptSegments[0]
+                    }
+                };
+            }
+
+            return {
+                type: 'Feature',
+                properties: { ...(feature.properties || {}) },
+                geometry: {
+                    type: 'MultiLineString',
+                    coordinates: keptSegments
+                }
+            };
+        }
+
+        // 4) 面
+        if (geomType === 'Polygon' || geomType === 'MultiPolygon') {
+            const clipped = turf.intersect(
+                turf.featureCollection([feature, maskFeature])
+            );
+
+            if (!clipped) return null;
+
+            return {
+                type: 'Feature',
+                properties: { ...(feature.properties || {}) },
+                geometry: clipped.geometry
+            };
+        }
+
+        return null;
+    } catch (err) {
+        console.warn('裁剪失败，已跳过 feature:', err, feature);
+        return null;
+    }
+}
+
+function clipFeatureCollectionByMask(fc, maskFeature) {
+    if (!fc || !Array.isArray(fc.features)) return null;
+
+    const out = [];
+    fc.features.forEach(f => {
+        const clipped = clipFeatureByMask(f, maskFeature);
+        if (clipped) out.push(clipped);
+    });
+
+    return {
+        type: 'FeatureCollection',
+        features: out
+    };
+}
+
+document.getElementById('btn-run-range-filter').onclick = async () => {
+    try {
+        const checked = Array.from(
+            document.querySelectorAll('#range-filter-layer-targets input[type="checkbox"]:checked')
+        ).map(el => el.value);
+
+        if (!checked.length) {
+            alert('请先勾选至少一个图层');
+            return;
+        }
+
+        const mask = await loadRangeMask();
+
+        let report = [];
+
+        checked.forEach(name => {
+            const fc = pool[name];
+            if (!fc || !Array.isArray(fc.features)) return;
+
+            if (!originalLayerBackup[name]) {
+                originalLayerBackup[name] = JSON.parse(JSON.stringify(fc));
+            }
+
+            const beforeCount = fc.features.length;
+            const clipped = clipFeatureCollectionByMask(fc, mask);
+            const afterCount = clipped?.features?.length || 0;
+
+            report.push(`${name}: ${beforeCount} → ${afterCount}`);
+
+            if (clipped) {
+                pool[name] = clipped;
+            }
+        });
+
+        refreshMap();
+        deactivateAll();
+
+        alert('范围裁剪完成\\n' + report.join('\\n'));
+    } catch (err) {
+        console.error(err);
+        alert('范围裁剪失败：' + err.message);
+    }
+};
 
 document.getElementById('btn-run-deep').onclick = async () => {
     const selected = Array.from(document.querySelectorAll('.target-cb:checked')).map(cb => cb.value);
@@ -2332,27 +2968,32 @@ const nameList = lines
     .join(',');
 
             // --- 措施 2：调用北京地域低成本模型 Qwen-Doc-Turbo ---
-            const aiRes = await fetch("https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions", {
-                method: "POST", 
-                headers: {
-                    "Content-Type": "application/json", 
-                    "Authorization": `Bearer ${API_KEY}`
-                },
-                body: JSON.stringify({ 
-                    model: "qwen-doc-turbo", //
-                    messages: [
-                        { role: "system", content: "你是一个专业的城市规划助手。请从用户提供的名称列表中，提取出与当前选定分类相关的名称。" },
-                        { role: "user", content: `请从以下列表中提取相关名称，仅返回名称，用英文逗号分隔，严禁输出任何解释性文字或思考过程：${nameList}` }
-                    ],
-                    // --- 措施 3：关闭思考模式，节省 80% 输出费用 ---
-                    extra_body: {
-                        "enable_thinking": false //
-                    }
-                })
-            });
+            const aiRes = await ensureApiKeyThen(async (apiKey) => {
+    return await fetch("https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+            model: "qwen-doc-turbo",
+            messages: [
+                { role: "system", content: "你是一个专业的城市规划助手。请从用户提供的名称列表中，提取出与当前选定分类相关的名称。" },
+                { role: "user", content: `请从以下列表中提取相关名称，仅返回名称，用英文逗号分隔，严禁输出任何解释性文字或思考过程：${nameList}` }
+            ],
+            extra_body: {
+                enable_thinking: false
+            }
+        })
+    });
+});
 
-            const result = await aiRes.json();
-            if(result.error) throw new Error(result.error.message);
+if (!aiRes) {
+    throw new Error("AI 请求未成功发出");
+}
+
+const result = await aiRes.json();
+if (result.error) throw new Error(result.error.message);
 
             const rawContent = result.choices[0].message.content;
             const names = rawContent.replace(/\n/g, ",").split(/[，,]/)
@@ -2476,6 +3117,35 @@ window.deleteCalc = (id) => { activeCalculations = activeCalculations.filter(c =
 // analysis.html
 // analysis.html
 state.activeLayers.forEach(name => {
+    // 已经恢复好的图层，不再从静态文件重复加载
+    if (pool[name]) {
+        const isR0 = !!ROAD_SETTING[name];
+        const isA0 = aoiConfig[name];
+        const isS0 = name.includes('街景');
+
+        const color0 = isR0
+            ? ROAD_SETTING[name].color
+            : (isA0 ? isA0.c : getPoiColor(name));
+
+        const label0 = isA0
+            ? isA0.n
+            : (isS0 ? '街景语义分割图' : (displayLayers[name]?.conf?.label || name));
+
+        const container0 = isR0
+            ? 'road-layers-container'
+            : (isA0 ? 'aoi-list-ui' : (isS0 ? 'street-list-ui' : 'active-category-list'));
+
+        if (!displayLayers[name]) {
+            initLayerControl(name, color0, container0, label0, isR0);
+        }
+        return;
+    }
+
+    // 自定义上传图层不走静态文件加载
+    if (String(name).startsWith('custom_poi_')) {
+        return;
+    }
+
     const isR = !!ROAD_SETTING[name];
     const isA = aoiConfig[name];
     const isH = name.includes('房产');
@@ -2486,7 +3156,6 @@ state.activeLayers.forEach(name => {
     let label = isA ? isA.n : (isS ? '街景语义分割图' : name);
 
     if (isR) {
-        // 路网：3 个分片
         const files = [
             'shanghai_roads_nw_part1.json',
             'shanghai_roads_nw_part2.json',
@@ -2518,7 +3187,6 @@ state.activeLayers.forEach(name => {
         });
 
     } else if (isS) {
-        // 街景：双文件
         const files = ['street_view_data_1.json', 'street_view_data_2.json'];
         loadPromise = Promise.all(files.map(f => fetch(f).then(r => r.json()))).then(dataArray => ({
             type: "FeatureCollection",
@@ -2526,7 +3194,6 @@ state.activeLayers.forEach(name => {
         }));
 
     } else if (name === "buildings_a") {
-        // 建筑 AOI：三分卷
         const parts = ['part1', 'part2', 'part3'];
         loadPromise = Promise.all(
             parts.map(p =>
@@ -2583,6 +3250,10 @@ function initLayerControl(name, color, containerId, label, isR = false) {
     };
 
     const displayName = label || name;
+    const shortName = displayName.length > 9
+        ? displayName.slice(0, 9) + '...'
+        : displayName;
+
     const div = document.createElement('div');
     div.className = 'layer-item';
     div.dataset.layer = name;
@@ -2594,7 +3265,19 @@ function initLayerControl(name, color, containerId, label, isR = false) {
     div.innerHTML = `
         <input type="checkbox" checked style="flex-shrink:0;">
         ${legendHtml}
-        <span style="font-weight:600; font-size:13px; white-space:nowrap;">${displayName}</span>
+        <span
+            title="${displayName.replace(/"/g, '&quot;')}"
+            style="
+                font-weight:600;
+                font-size:13px;
+                flex:1;
+                min-width:0;
+                overflow:hidden;
+                text-overflow:ellipsis;
+                white-space:nowrap;
+                display:block;
+            "
+        >${shortName}</span>
     `;
 
     div.querySelector('input').onchange = (e) => {
@@ -2619,13 +3302,23 @@ document.querySelectorAll('.win-header').forEach(h => {
     document.onmousemove = (e) => { if(!dr) return; win.style.left = (e.clientX + of[0]) + 'px'; win.style.top = (e.clientY + of[1]) + 'px'; win.style.bottom = 'auto'; win.style.right = 'auto'; };
     document.onmouseup = () => dr = false;
 });
-fetch(`xuhui.json?v=${Date.now()}`)
-  .then(r => r.json())
-  .then(data => L.geoJSON(data, {
-    style: { color: "#2BB5BE", weight: 3, fillOpacity: 0.05 }
-  }).addTo(map));
+loadRangeMask()
+  .then(mask => {
+    L.geoJSON(mask, {
+      style: {
+        color: "#2BB5BE",
+        weight: 3,
+        fillColor: "#2BB5BE",
+        fillOpacity: 0.08
+      }
+    }).addTo(map);
+  })
+  .catch(err => {
+    console.warn('范围预览失败:', err);
+  });
 
 </script>
 <div id="pie-tip"></div>
+<script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
 </body>
 </html>

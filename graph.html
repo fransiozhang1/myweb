@@ -47,20 +47,201 @@
       box-sizing:border-box; z-index:1500; display:none;
     }
     .leaflet-popup-content { min-width:220px; }
+    html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+    background: #f8fafc;
+  }
+
+  :root {
+    --primary: #2bb5be;
+    --panel-bg: rgba(255,255,255,0.96);
+    --text-main: #1e293b;
+    --text-sub: #64748b;
+    --border: #e2e8f0;
+  }
+
+  #map {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    background: #f0f2f5;
+    z-index: 1;
+  }
+
+  .hud-btn-group {
+    position: fixed;
+    left: 24px;
+    top: 110px;
+    z-index: 1600;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .big-action-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 16px 22px;
+    border: none;
+    border-radius: 18px;
+    background: var(--primary);
+    color: white;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 10px 28px rgba(43,181,190,0.22);
+  }
+
+  .big-action-btn svg {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+  }
+
+  .toolbar-group {
+    position: fixed;
+    top: 42px;
+    right: 34px;
+    z-index: 1600;
+    display: flex;
+    gap: 12px;
+  }
+
+  .tool-btn {
+    width: 62px;
+    height: 62px;
+    border-radius: 18px;
+    background: rgba(255,255,255,0.96);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 10px 30px rgba(15,23,42,0.10);
+    cursor: pointer;
+    color: #64748b;
+  }
+
+  .tool-btn svg {
+    width: 24px;
+    height: 24px;
+  }
+
+  .floating-window {
+    position: fixed;
+    z-index: 1700;
+    background: rgba(255,255,255,0.97);
+    border: 1px solid #eef2f7;
+    border-radius: 22px;
+    box-shadow: 0 20px 48px rgba(15,23,42,0.14);
+    backdrop-filter: blur(10px);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .win-header {
+    height: 58px;
+    padding: 0 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-weight: 800;
+    color: var(--text-main);
+    border-bottom: 1px solid #eef2f7;
+    background: rgba(248,250,252,0.95);
+  }
+
+  .close-win {
+    cursor: pointer;
+    font-size: 22px;
+    color: #94a3b8;
+    line-height: 1;
+  }
+
+  .group-label {
+    font-size: 11px;
+    color: #94a3b8;
+    font-weight: 800;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    letter-spacing: 1px;
+  }
+
+  .step-box {
+    background: #fff;
+    border: 1px solid #eef2f7;
+    border-radius: 16px;
+    padding: 14px;
+  }
+
+  select, input {
+    width: 100%;
+    height: 42px;
+    border: 1px solid #dbe3ec;
+    border-radius: 12px;
+    padding: 0 12px;
+    font-size: 14px;
+    box-sizing: border-box;
+    background: white;
+  }
+
+  #layer-sort-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .layer-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #f8fafc;
+    border: 1px solid #eef2f7;
+    border-radius: 14px;
+    padding: 10px 12px;
+  }
+
+  .leaflet-control-container {
+    z-index: 1200;
+  }
+
+  #map-export-mask {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    border: 2px dashed rgba(255,255,255,0.65);
+    box-sizing: border-box;
+    z-index: 1500;
+    display: none;
+  }
+
+  .leaflet-popup-content {
+    min-width: 220px;
+  }
+
+
   </style>
 </head>
 
 
 
 <body>
+<div id="hud-left" style="display: flex; flex-direction: column;">
+    <div id="header" style="margin-bottom: 40px;">
+        <h1>大徐家汇数智化平台</h1>
+        <p>● 专业多轨数据分析</p>
+    </div>
+</div>
+<div class="hud-btn-group" style="display:flex; flex-direction:column; gap:20px;">
 
-<div id="hud-left" style="display:flex; flex-direction:column;">
-  <div id="header" style="margin-bottom: 40px;">
-    <h1>大徐家汇数智化平台</h1>
-    <p>● 出图与保存</p>
-  </div>
 
-  <div class="hud-btn-group" style="display:flex; flex-direction:column; gap:20px;">
+  
   <button id="btn-grid-panel" class="big-action-btn">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
       <path d="M3 3h18v18H3z"/>
@@ -70,6 +251,27 @@
       <path d="M3 15h18"/>
     </svg>
     创建格栅
+  </button>
+  <button id="btn-kde" class="big-action-btn">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+    <circle cx="12" cy="12" r="3"></circle>
+    <circle cx="12" cy="12" r="7"></circle>
+    <circle cx="12" cy="12" r="10"></circle>
+  </svg>
+  核密度分析
+</button>
+
+  <button id="btn-cluster-panel" class="big-action-btn">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3">
+      <circle cx="7" cy="8" r="2"></circle>
+      <circle cx="12" cy="12" r="2"></circle>
+      <circle cx="17" cy="9" r="2"></circle>
+      <circle cx="15" cy="17" r="2"></circle>
+      <path d="M8.8 9.2L10.5 10.8"></path>
+      <path d="M13.8 11.2L15.4 9.9"></path>
+      <path d="M12.8 13.7L14.2 15.3"></path>
+    </svg>
+    空间聚类
   </button>
 
   <button id="btn-export-panel" class="big-action-btn">
@@ -81,7 +283,6 @@
     导出
   </button>
 </div>
-</div>
 
 <div id="analysis-tools" class="toolbar-group">
   <div class="tool-btn" id="btn-layer-t" title="大类图层控制">
@@ -92,20 +293,8 @@
 <div id="layer-menu" class="floating-window" style="display:none; top: 35px; right: 100px; width: 320px;">
   <div class="win-header"><span>当前出图图层</span><span class="close-win">×</span></div>
   <div style="padding:20px; overflow-y:auto; flex:1;">
-    <div class="group-label">城市空间要素 (AOI)</div>
-    <div id="aoi-list-ui"></div>
-
-    <div class="group-label" style="margin-top:20px;">城市道路分析轨道</div>
-    <div id="road-layers-container"></div>
-
-    <div class="group-label" style="margin-top:20px;">街景语义分析轨道</div>
-    <div id="street-list-ui"></div>
-
-    <div class="group-label" style="margin-top:20px;">POI 与 房产轨道</div>
-    <div id="active-category-list"></div>
-
-    <div class="group-label" style="margin-top:20px;">全部当前图层</div>
-    <div id="current-layers-container"></div>
+    <div class="group-label">当前图层顺序（下方覆盖上方）</div>
+<div id="layer-sort-list"></div>
   </div>
 </div>
 
@@ -152,6 +341,14 @@
       <div class="export-row">
         <select id="grid-source-field"></select>
       </div>
+      <div class="group-label" style="margin-top:12px;">6. 颜色映射方式</div>
+<div class="export-row">
+  <select id="grid-color-mode">
+    <option value="linear" selected>线性</option>
+    <option value="log">对数</option>
+  </select>
+</div>
+
 
       <div class="panel-tip">
         将对每个格栅内的相关数据求平均值；无数据的格栅保持透明。
@@ -161,6 +358,113 @@
     <button id="btn-grid-calc" class="soft-btn">计算格栅平均值并着色</button>
   </div>
 </div>
+
+
+
+
+<div id="kde-win" class="floating-window" style="display:none; top: 170px; left: 34px; width: 430px; max-height: 78vh;">
+  <div class="win-header">
+    <span>核密度分析</span>
+    <span class="close-win">×</span>
+  </div>
+
+  <div style="padding:22px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:14px;">
+    <div class="group-label" style="margin-top:0;">选择点图层</div>
+    <div class="export-row">
+      <select id="kde-source-layer"></select>
+    </div>
+
+    <div class="group-label" style="margin-top:10px;">栅格大小（米）</div>
+    <div class="export-row">
+      <select id="kde-cell-size">
+        <option value="50">50 m</option>
+        <option value="100" selected>100 m</option>
+        <option value="200">200 m</option>
+        <option value="300">300 m</option>
+      </select>
+    </div>
+
+    <div class="group-label" style="margin-top:10px;">搜索半径（米）</div>
+    <div class="export-row">
+      <select id="kde-radius">
+        <option value="200">200 m</option>
+        <option value="400" selected>400 m</option>
+        <option value="800">800 m</option>
+        <option value="1200">1200 m</option>
+      </select>
+    </div>
+
+    <div class="panel-tip">
+      对 POI 点图层生成核密度热力面，颜色由冷到暖。
+    </div>
+
+    <button id="btn-run-kde" class="soft-btn">生成核密度图</button>
+  </div>
+</div>
+
+
+<div id="cluster-win" class="floating-window" style="display:none; top: 170px; left: 34px; width: 430px; max-height: 78vh;">
+  <div class="win-header"><span>空间聚类分析</span><span class="close-win">×</span></div>
+  <div style="padding:22px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:14px;">
+
+    <div class="step-box" style="margin-bottom:0;">
+      <div class="group-label" style="margin-top:0;">1. 聚类模式</div>
+      <div class="export-row">
+        <select id="cluster-mode">
+          <option value="spatial" selected>空间聚类</option>
+          <option value="attribute">属性聚类</option>
+          <option value="spatial_attribute">空间 + 属性聚类</option>
+        </select>
+      </div>
+
+      <div class="group-label" style="margin-top:12px;">2. 选择点图层</div>
+      <div class="export-row">
+        <select id="cluster-source-layer"></select>
+      </div>
+
+      <div id="cluster-field-wrap">
+        <div class="group-label" style="margin-top:12px;">3. 选择数值字段</div>
+        <div class="export-row">
+          <select id="cluster-source-field"></select>
+        </div>
+      </div>
+
+      <div id="cluster-spatial-params">
+        <div class="group-label" style="margin-top:12px;">空间搜索半径（米）</div>
+        <div class="export-row">
+          <input id="cluster-eps" class="input-coeff" type="number" min="10" step="10" value="300" />
+        </div>
+
+        <div class="group-label" style="margin-top:12px;">最小点数</div>
+        <div class="export-row">
+          <input id="cluster-minpts" class="input-coeff" type="number" min="2" step="1" value="5" />
+        </div>
+      </div>
+
+      <div id="cluster-k-wrap">
+        <div class="group-label" style="margin-top:12px;">聚类数量 K</div>
+        <div class="export-row">
+          <input id="cluster-k" class="input-coeff" type="number" min="2" step="1" value="4" />
+        </div>
+      </div>
+
+      <div id="cluster-weight-wrap">
+        <div class="group-label" style="margin-top:12px;">空间权重（0~1）</div>
+        <div class="export-row">
+          <input id="cluster-spatial-weight" class="input-coeff" type="number" min="0" max="1" step="0.1" value="0.7" />
+        </div>
+      </div>
+
+      <div class="panel-tip">
+        空间聚类适合识别商业中心；属性聚类适合按数值分组；空间+属性聚类适合同时考虑位置与数值强度。
+      </div>
+    </div>
+
+    <button id="btn-run-cluster" class="soft-btn">生成聚类图</button>
+  </div>
+</div>
+
+
 
 <div id="export-win" class="floating-window">
   <div class="win-header"><span>导出模块</span><span class="close-win">×</span></div>
@@ -215,6 +519,68 @@
 <div id="map"></div>
 <div id="map-export-mask"></div>
 
+<div id="kde-legend" style="
+  position:absolute;
+  right:34px;
+  bottom:34px;
+  z-index:1800;
+  display:none;
+  width:170px;
+  background:rgba(255,255,255,0.96);
+  border:1px solid #eef2f7;
+  border-radius:18px;
+  box-shadow:0 12px 36px rgba(0,0,0,0.12);
+  backdrop-filter:blur(10px);
+  padding:14px 14px 12px 14px;
+">
+  <div style="font-size:11px; color:#94a3b8; font-weight:800; letter-spacing:1px; text-transform:uppercase;">
+    核密度图例
+  </div>
+  <div id="kde-legend-title" style="margin-top:6px; font-size:13px; font-weight:700; color:#1e293b;">
+    -
+  </div>
+  <div style="margin-top:10px; display:flex; align-items:stretch; gap:10px;">
+    <div style="
+      width:18px;
+      height:160px;
+      border-radius:999px;
+      border:1px solid rgba(0,0,0,0.06);
+      background:linear-gradient(to top, #2c7bb6, #00a6ca, #00ccbc, #90eb9d, #f9d057, #d7191c);
+      flex-shrink:0;
+    "></div>
+    <div style="height:160px; display:flex; flex-direction:column; justify-content:space-between; font-size:12px; color:#334155;">
+      <div>高</div>
+      <div>中</div>
+      <div>低</div>
+    </div>
+  </div>
+</div>
+
+
+<div id="cluster-legend" style="
+  position:absolute;
+  right:34px;
+  bottom:240px;
+  z-index:1800;
+  display:none;
+  width:200px;
+  background:rgba(255,255,255,0.96);
+  border:1px solid #eef2f7;
+  border-radius:18px;
+  box-shadow:0 12px 36px rgba(0,0,0,0.12);
+  backdrop-filter:blur(10px);
+  padding:14px;
+">
+  <div style="font-size:11px; color:#94a3b8; font-weight:800; letter-spacing:1px; text-transform:uppercase;">
+    聚类图例
+  </div>
+  <div id="cluster-legend-title" style="margin-top:6px; font-size:13px; font-weight:700; color:#1e293b;">-</div>
+  <div id="cluster-legend-items" style="margin-top:10px; display:flex; flex-direction:column; gap:8px;"></div>
+</div>
+
+
+
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 const map = L.map('map', { zoomControl:false, renderer:L.canvas() }).setView([31.15, 121.43], 13);
@@ -236,10 +602,29 @@ const displayLayers = {};
 const pool = {};
 let xuhuiBounds = null;
 let allLayerBounds = null;
+let layerOrder = [];
 let gridPicking = false;
 let gridOriginLatLng = null;
 let gridOriginMarker = null;
 let currentGridLayerName = null;
+let currentKdeLayerName = null;
+let currentKdeLeafletLayer = null;
+let currentClusterLayerName = null;
+
+const CLUSTER_COLORS = [
+  '#e63946',
+  '#457b9d',
+  '#2a9d8f',
+  '#f4a261',
+  '#8338ec',
+  '#ff006e',
+  '#3a86ff',
+  '#6a994e',
+  '#bc6c25',
+  '#ef476f'
+];
+
+setupLayerSortDnD();
 
 function openGraphTransferDB() {
     return new Promise((resolve, reject) => {
@@ -294,9 +679,18 @@ const setupBtn = (id, action) => {
 };
 setupBtn('btn-layer-t', () => document.getElementById('layer-menu').style.display = 'flex');
 setupBtn('btn-export-panel', () => document.getElementById('export-win').style.display = 'flex');
+setupBtn('btn-kde', () => {
+  document.getElementById('kde-win').style.display = 'flex';
+  refreshKdeSourceOptions();
+});
 setupBtn('btn-grid-panel', () => {
   refreshGridSourceOptions();
   document.getElementById('grid-win').style.display = 'flex';
+});
+setupBtn('btn-cluster-panel', () => {
+  document.getElementById('cluster-win').style.display = 'flex';
+  refreshClusterSourceOptions();
+  refreshClusterPanelUI();
 });
 document.querySelectorAll('.close-win').forEach(c => c.onclick = deactivateAll);
 
@@ -318,6 +712,180 @@ document.getElementById('btn-pick-grid-origin').onclick = () => {
   document.getElementById('grid-origin-status').textContent = '请在地图上点击一个中心点';
 };
 
+
+
+document.getElementById('cluster-mode').onchange = refreshClusterPanelUI;
+
+document.getElementById('btn-run-cluster').onclick = () => {
+  const mode = document.getElementById('cluster-mode').value;
+  const sourceLayer = document.getElementById('cluster-source-layer').value;
+  const fieldName = document.getElementById('cluster-source-field').value;
+  const eps = parseFloat(document.getElementById('cluster-eps').value || '300');
+  const minPts = parseInt(document.getElementById('cluster-minpts').value || '5', 10);
+  const k = parseInt(document.getElementById('cluster-k').value || '4', 10);
+  const spatialWeight = parseFloat(document.getElementById('cluster-spatial-weight').value || '0.7');
+
+  if (!sourceLayer || !pool[sourceLayer]) {
+    alert('请选择有效的点图层');
+    return;
+  }
+
+  const features = getPointFeaturesFromLayer(sourceLayer);
+  if (!features.length) {
+    alert('所选图层没有点要素');
+    return;
+  }
+
+  if ((mode === 'attribute' || mode === 'spatial_attribute') && !fieldName) {
+    alert('当前模式需要选择一个数值字段');
+    return;
+  }
+
+  if (currentClusterLayerName && displayLayers[currentClusterLayerName]?.uiEl) {
+    displayLayers[currentClusterLayerName].uiEl.remove();
+    delete displayLayers[currentClusterLayerName];
+    delete pool[currentClusterLayerName];
+    layerOrder = layerOrder.filter(n => n !== currentClusterLayerName);
+    currentClusterLayerName = null;
+  }
+
+  const coords = features.map(f => {
+    const lat = f.geometry.coordinates[1];
+    const lng = f.geometry.coordinates[0];
+    return { lat, lng, ...toMetersXY(lat, lng, lat) };
+  });
+
+  let labels = [];
+
+  if (mode === 'spatial') {
+    const pts = coords.map(c => [c.x, c.y]);
+    labels = runDBSCAN(pts, eps, minPts, euclidean);
+  }
+
+  if (mode === 'attribute') {
+  const vals = features.map(f => getClusterFieldNumericValue(f, fieldName));
+  if (!vals.every(v => Number.isFinite(v))) {
+    alert('所选字段存在非数值，无法进行属性聚类');
+    return;
+  }
+  const nv = normalizeArray(vals);
+  const data = nv.map(v => [v]);
+  labels = runKMeans(data, k);
+}
+
+  if (mode === 'spatial_attribute') {
+  const vals = features.map(f => getClusterFieldNumericValue(f, fieldName));
+  if (!vals.every(v => Number.isFinite(v))) {
+    alert('所选字段存在非数值，无法进行空间+属性聚类');
+    return;
+  }
+
+  const xs = normalizeArray(coords.map(c => c.x));
+  const ys = normalizeArray(coords.map(c => c.y));
+  const vs = normalizeArray(vals);
+
+  const sw = Math.max(0, Math.min(1, spatialWeight));
+  const vw = 1 - sw;
+
+  const data = xs.map((x, i) => [
+    x * sw,
+    ys[i] * sw,
+    vs[i] * vw
+  ]);
+
+  labels = runKMeans(data, k);
+}
+
+  buildClusterResultLayer(sourceLayer, features, labels, mode, fieldName);
+};
+
+
+document.getElementById('btn-run-kde').onclick = () => {
+  const sourceLayer = document.getElementById('kde-source-layer').value;
+  const radiusMeters = parseFloat(document.getElementById('kde-radius').value || '400');
+
+  if (!sourceLayer || !pool[sourceLayer]) {
+    alert('请选择一个有效的点图层');
+    return;
+  }
+
+  const points = getPointFeaturesFromLayer(sourceLayer);
+  if (!points.length) {
+    alert('所选图层中没有可用于核密度分析的点数据');
+    return;
+  }
+
+  // 删除旧的 KDE 图层
+  if (currentKdeLeafletLayer && map.hasLayer(currentKdeLeafletLayer)) {
+    map.removeLayer(currentKdeLeafletLayer);
+    currentKdeLeafletLayer = null;
+  }
+
+  if (currentKdeLayerName && displayLayers[currentKdeLayerName]?.uiEl) {
+    displayLayers[currentKdeLayerName].uiEl.remove();
+    delete displayLayers[currentKdeLayerName];
+    delete pool[currentKdeLayerName];
+    layerOrder = layerOrder.filter(n => n !== currentKdeLayerName);
+  }
+
+  // 米转像素：用地图中心附近做近似
+  const center = map.getCenter();
+  const p1 = map.latLngToContainerPoint(center);
+  const p2 = map.latLngToContainerPoint([
+    center.lat + metersToLat(radiusMeters),
+    center.lng
+  ]);
+  const radiusPx = Math.max(12, Math.abs(p2.y - p1.y));
+
+  const heatData = points.map(f => {
+    const lat = f.geometry.coordinates[1];
+    const lng = f.geometry.coordinates[0];
+    return [lat, lng, 1];
+  });
+
+  const kdeName = `核密度_${sourceLayer}_${Date.now()}`;
+  currentKdeLayerName = kdeName;
+
+  currentKdeLeafletLayer = L.heatLayer(heatData, {
+    radius: radiusPx,
+    blur: Math.round(radiusPx * 0.85),
+    maxZoom: 18,
+    minOpacity: 0.22,
+    gradient: {
+      0.10: '#2c7bb6',
+      0.25: '#00a6ca',
+      0.45: '#00ccbc',
+      0.65: '#90eb9d',
+      0.82: '#f9d057',
+      1.00: '#d7191c'
+    }
+  }).addTo(map);
+
+  displayLayers[kdeName] = {
+    layer: currentKdeLeafletLayer,
+    conf: {
+      visible: true,
+      isKdeLayer: true,
+      c: '#d7191c',
+      label: `核密度 ${sourceLayer}`,
+      sourceLayer,
+      radiusMeters
+    },
+    uiEl: null,
+    on: true
+  };
+
+  initLayerControl(
+    kdeName,
+    '#d7191c',
+    'layer-sort-list',
+    `核密度 ${sourceLayer}`,
+    false,
+    true
+  );
+
+  updateKdeLegend(`核密度 ${sourceLayer}`);
+};
 
 map.on('click', (e) => {
   if (!gridPicking) return;
@@ -352,58 +920,64 @@ map.on('click', (e) => {
 
 
 async function restoreFromAnalysisPayload() {
-    ['aoi-list-ui', 'road-layers-container', 'street-list-ui', 'active-category-list', 'current-layers-container']
-  .forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.innerHTML = '';
+  // 只清空新的总图层列表
+  const listEl = document.getElementById('layer-sort-list');
+  if (listEl) listEl.innerHTML = '';
+
+  // 重置图层顺序
+  layerOrder = [];
+
+  const payload = await idbGet('graph_export_payload');
+  if (!payload || !payload.pool || !payload.layerStates) {
+    console.warn('没有读取到 analysis 传来的图层数据');
+    return false;
+  }
+
+  // 清空当前地图图层
+  Object.keys(displayLayers).forEach(name => {
+    if (displayLayers[name]?.layer) {
+  if (typeof displayLayers[name].layer.clearLayers === 'function') {
+    displayLayers[name].layer.clearLayers();
+  }
+  map.removeLayer(displayLayers[name].layer);
+}
   });
-    const payload = await idbGet('graph_export_payload');
-    if (!payload || !payload.pool || !payload.layerStates) {
-        console.warn('没有读取到 analysis 传来的图层数据');
-        return false;
-    }
 
-    // 清空当前
-    Object.keys(displayLayers).forEach(name => {
-        if (displayLayers[name]?.layer) {
-            displayLayers[name].layer.clearLayers();
-            map.removeLayer(displayLayers[name].layer);
-        }
-    });
+  for (const k in displayLayers) delete displayLayers[k];
+  for (const k in pool) delete pool[k];
 
-    for (const k in displayLayers) delete displayLayers[k];
-    for (const k in pool) delete pool[k];
+  // 恢复数据
+  Object.keys(payload.pool).forEach(name => {
+    pool[name] = payload.pool[name];
+  });
 
-    // 恢复“当前显示快照”
-    Object.keys(payload.pool).forEach(name => {
-        pool[name] = payload.pool[name];
-    });
+  // 恢复图层控制项
+  Object.keys(payload.layerStates).forEach(name => {
+    const meta = payload.layerStates[name];
+    const conf = meta?.conf || {};
+    const color = conf.c || '#2BB5BE';
+    const label = conf.label || name;
+    const isR = !!conf.isRoadLike;
 
-    Object.keys(payload.layerStates).forEach(name => {
-        const meta = payload.layerStates[name];
-        const conf = meta?.conf || {};
-        const color = conf.c || '#2BB5BE';
-        const label = conf.label || name;
-        const containerId = conf.containerId || 'active-category-list';
-        const isR = !!conf.isRoadLike;
+    // 这里不再按分类容器塞，统一塞进 layer-sort-list
+    initLayerControl(name, color, 'layer-sort-list', label, isR, true);
 
-        initLayerControl(name, color, containerId, label, isR);
-        Object.assign(displayLayers[name].conf, conf);
-        displayLayers[name].conf.visible = true;
+    Object.assign(displayLayers[name].conf, conf);
+    displayLayers[name].conf.visible = true;
 
-        const checkbox = displayLayers[name].uiEl?.querySelector('input');
-        if (checkbox) checkbox.checked = true;
-    });
+    const checkbox = displayLayers[name].uiEl?.querySelector('input');
+    if (checkbox) checkbox.checked = true;
+  });
 
-    if (payload.mapView?.center && Number.isFinite(payload.mapView?.zoom)) {
-        map.setView(
-            [payload.mapView.center.lat, payload.mapView.center.lng],
-            payload.mapView.zoom
-        );
-    }
+  if (payload.mapView?.center && Number.isFinite(payload.mapView?.zoom)) {
+    map.setView(
+      [payload.mapView.center.lat, payload.mapView.center.lng],
+      payload.mapView.zoom
+    );
+  }
 
-    refreshMap();
-    return true;
+  refreshMap();
+  return true;
 }
 
 function computeFeatureCollectionBounds(fc) {
@@ -425,6 +999,57 @@ function getLayerContainerId(item) {
   return 'current-layers-container';
 }
 
+function isPointLayerFeatureCollection(fc) {
+  if (!fc || !Array.isArray(fc.features) || !fc.features.length) return false;
+  return fc.features.some(f => f?.geometry?.type === 'Point');
+}
+
+function refreshKdeSourceOptions() {
+  const sel = document.getElementById('kde-source-layer');
+  if (!sel) return;
+
+  sel.innerHTML = '';
+
+  Object.keys(pool).forEach(name => {
+    const fc = pool[name];
+    if (!isPointLayerFeatureCollection(fc)) return;
+
+    const opt = document.createElement('option');
+    opt.value = name;
+    opt.textContent = displayLayers[name]?.conf?.label || name;
+    sel.appendChild(opt);
+  });
+
+  if (!sel.children.length) {
+    const opt = document.createElement('option');
+    opt.value = '';
+    opt.textContent = '没有可用的点图层';
+    sel.appendChild(opt);
+  }
+}
+
+function getPointFeaturesFromLayer(layerName) {
+  const fc = pool[layerName];
+  if (!fc || !Array.isArray(fc.features)) return [];
+
+  return fc.features.filter(f => f?.geometry?.type === 'Point');
+}
+
+function updateKdeLegend(layerName) {
+  const wrap = document.getElementById('kde-legend');
+  const title = document.getElementById('kde-legend-title');
+  if (!wrap || !title) return;
+
+  if (!layerName) {
+    wrap.style.display = 'none';
+    return;
+  }
+
+  title.textContent = layerName;
+  wrap.style.display = 'block';
+}
+
+
 function inferLayerStyle(fc, item) {
   const conf = item.conf || {};
   const sample = fc?.features?.find(f => f?.geometry)?.geometry?.type || '';
@@ -434,14 +1059,30 @@ function inferLayerStyle(fc, item) {
 }
 
 function initLayerControl(name, color, containerId, label, isR = false, checked = true) {
-  displayLayers[name] = displayLayers[name] || { layer: L.layerGroup().addTo(map), conf: {}, uiEl: null, on: checked };
+  displayLayers[name] = displayLayers[name] || {
+    layer: L.layerGroup().addTo(map),
+    conf: {},
+    uiEl: null,
+    on: checked
+  };
+
   displayLayers[name].on = checked;
   displayLayers[name].conf.visible = checked;
 
+  if (!layerOrder.includes(name)) {
+    layerOrder.push(name);
+  }
+
   const displayName = label || name;
+  const shortName = displayName.length > 9
+    ? displayName.slice(0, 9) + '...'
+    : displayName;
+
   const div = document.createElement('div');
   div.className = 'layer-item';
   div.dataset.layer = name;
+  div.draggable = true;
+  div.style.cursor = 'grab';
 
   const legendHtml = isR
     ? `<div class="legend-line" style="background:${color}; width:20px; height:3px; border-radius:1px; margin-right:12px; flex-shrink:0;"></div>`
@@ -450,18 +1091,95 @@ function initLayerControl(name, color, containerId, label, isR = false, checked 
   div.innerHTML = `
     <input type="checkbox" ${checked ? 'checked' : ''} style="flex-shrink:0;">
     ${legendHtml}
-    <span style="font-weight:600; font-size:13px; white-space:nowrap;">${displayName}</span>
+    <span class="layer-name"></span>
+    <span style="font-size:12px; color:#94a3b8; flex-shrink:0;">☰</span>
   `;
 
-  div.querySelector('input').onchange = (e) => {
-    displayLayers[name].on = e.target.checked;
-    displayLayers[name].conf.visible = e.target.checked;
-    refreshMap();
-  };
+  const nameSpan = div.querySelector('.layer-name');
+  nameSpan.textContent = shortName;
+  nameSpan.title = displayName;
+  nameSpan.style.fontWeight = '600';
+  nameSpan.style.fontSize = '13px';
+  nameSpan.style.flex = '1';
+  nameSpan.style.minWidth = '0';
+  nameSpan.style.overflow = 'hidden';
+  nameSpan.style.textOverflow = 'ellipsis';
+  nameSpan.style.whiteSpace = 'nowrap';
+  nameSpan.style.display = 'block';
 
-  const container = document.getElementById(containerId) || document.getElementById('current-layers-container');
+div.querySelector('input').onchange = (e) => {
+  displayLayers[name].on = e.target.checked;
+  displayLayers[name].conf.visible = e.target.checked;
+
+  if (displayLayers[name]?.conf?.isClusterLayer) {
+    document.getElementById('cluster-legend').style.display = e.target.checked ? 'block' : 'none';
+  }
+
+  const item = displayLayers[name];
+  if (item?.conf?.isKdeLayer) {
+    if (e.target.checked) {
+      item.layer.addTo(map);
+      updateKdeLegend(item.conf.label || name);
+    } else {
+      map.removeLayer(item.layer);
+      document.getElementById('kde-legend').style.display = 'none';
+    }
+    return;
+  }
+
+  refreshMap();
+};
+
+  div.addEventListener('dragstart', () => {
+    div.classList.add('dragging');
+  });
+
+  div.addEventListener('dragend', () => {
+    div.classList.remove('dragging');
+    syncLayerOrderFromDOM();
+    refreshMap();
+  });
+
+  const container = document.getElementById('layer-sort-list');
   container.appendChild(div);
   displayLayers[name].uiEl = div;
+}
+
+function syncLayerOrderFromDOM() {
+  const container = document.getElementById('layer-sort-list');
+  if (!container) return;
+  layerOrder = [...container.querySelectorAll('.layer-item')].map(el => el.dataset.layer);
+}
+
+function setupLayerSortDnD() {
+  const container = document.getElementById('layer-sort-list');
+  if (!container) return;
+
+  container.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    const dragging = container.querySelector('.dragging');
+    if (!dragging) return;
+
+    const afterElement = getDragAfterElement(container, e.clientY);
+    if (!afterElement) {
+      container.appendChild(dragging);
+    } else {
+      container.insertBefore(dragging, afterElement);
+    }
+  });
+}
+
+function getDragAfterElement(container, y) {
+  const els = [...container.querySelectorAll('.layer-item:not(.dragging)')];
+
+  return els.reduce((closest, child) => {
+    const box = child.getBoundingClientRect();
+    const offset = y - box.top - box.height / 2;
+    if (offset < 0 && offset > closest.offset) {
+      return { offset, element: child };
+    }
+    return closest;
+  }, { offset: Number.NEGATIVE_INFINITY }).element;
 }
 
 function styleForFeature(p, conf) {
@@ -727,6 +1445,382 @@ function refreshGridSourceOptions() {
   refreshFields();
 }
 
+function isPointFeatureCollection(fc) {
+  if (!fc || !Array.isArray(fc.features)) return false;
+  return fc.features.some(f => f?.geometry?.type === 'Point');
+}
+
+function getPointFeaturesFromLayer(layerName) {
+  const fc = pool[layerName];
+  if (!fc || !Array.isArray(fc.features)) return [];
+  return fc.features.filter(f => f?.geometry?.type === 'Point');
+}
+
+function getClusterNumericFields(layerName) {
+  const fc = pool[layerName];
+  if (!fc || !Array.isArray(fc.features)) return [];
+
+  const keys = new Set();
+
+  fc.features.forEach(f => {
+    const p = f.properties || {};
+
+    // 1) 普通 properties 数值字段
+    Object.keys(p).forEach(k => {
+      const v = p[k];
+      if (typeof v === 'number' && Number.isFinite(v)) {
+        keys.add(k);
+      }
+    });
+
+    // 2) 关联 CSV 字段：__csv__xxx
+    Object.keys(p).forEach(k => {
+      if (!k.startsWith('__csv__')) return;
+
+      const raw = p[k];
+      const num = Number(raw);
+      if (raw !== '' && raw !== null && raw !== undefined && Number.isFinite(num)) {
+        keys.add(k);
+      }
+    });
+
+    // 3) 运算结果字段：__calcResults = [{ name, value }]
+    if (Array.isArray(p.__calcResults)) {
+      p.__calcResults.forEach(item => {
+        if (!item || !item.name) return;
+
+        const num = Number(item.value);
+        if (item.value !== '' && item.value !== null && item.value !== undefined && Number.isFinite(num)) {
+          keys.add(`__calc__${item.name}`);
+        }
+      });
+    }
+  });
+
+  return [...keys];
+}
+
+
+function getClusterFieldNumericValue(feature, fieldName) {
+  const p = feature?.properties || {};
+
+  // 1) 运算结果字段：__calc__字段名
+  if (fieldName.startsWith('__calc__')) {
+    const calcName = fieldName.replace('__calc__', '');
+    const arr = Array.isArray(p.__calcResults) ? p.__calcResults : [];
+    const found = arr.find(item => item && item.name === calcName);
+    if (!found) return NaN;
+
+    const num = Number(found.value);
+    return Number.isFinite(num) ? num : NaN;
+  }
+
+  // 2) CSV 字段：__csv__字段名
+  if (fieldName.startsWith('__csv__')) {
+    const num = Number(p[fieldName]);
+    return Number.isFinite(num) ? num : NaN;
+  }
+
+  // 3) 普通 numeric 字段
+  const num = Number(p[fieldName]);
+  return Number.isFinite(num) ? num : NaN;
+}
+
+function refreshClusterSourceOptions() {
+  const layerSel = document.getElementById('cluster-source-layer');
+  const fieldSel = document.getElementById('cluster-source-field');
+  if (!layerSel || !fieldSel) return;
+
+  layerSel.innerHTML = '';
+  fieldSel.innerHTML = '';
+
+  Object.keys(pool).forEach(name => {
+    if (!isPointFeatureCollection(pool[name])) return;
+
+    const op = document.createElement('option');
+    op.value = name;
+    op.textContent = displayLayers[name]?.conf?.label || name;
+    layerSel.appendChild(op);
+  });
+
+  function refreshFields() {
+  fieldSel.innerHTML = '';
+  const fields = getClusterNumericFields(layerSel.value);
+
+  fields.forEach(k => {
+    const op = document.createElement('option');
+    op.value = k;
+
+    if (k.startsWith('__csv__')) {
+      op.textContent = `CSV | ${k.replace('__csv__', '')}`;
+    } else if (k.startsWith('__calc__')) {
+      op.textContent = `运算 | ${k.replace('__calc__', '')}`;
+    } else {
+      op.textContent = `属性 | ${k}`;
+    }
+
+    fieldSel.appendChild(op);
+  });
+}
+
+  layerSel.onchange = () => {
+    refreshFields();
+    refreshClusterPanelUI();
+  };
+
+  refreshFields();
+}
+
+function refreshClusterPanelUI() {
+  const mode = document.getElementById('cluster-mode')?.value || 'spatial';
+
+  const fieldWrap = document.getElementById('cluster-field-wrap');
+  const spatialParams = document.getElementById('cluster-spatial-params');
+  const kWrap = document.getElementById('cluster-k-wrap');
+  const weightWrap = document.getElementById('cluster-weight-wrap');
+
+  if (fieldWrap) fieldWrap.style.display = (mode === 'spatial') ? 'none' : 'block';
+  if (spatialParams) spatialParams.style.display = (mode === 'attribute') ? 'none' : 'block';
+  if (kWrap) kWrap.style.display = (mode === 'spatial') ? 'none' : 'block';
+  if (weightWrap) weightWrap.style.display = (mode === 'spatial_attribute') ? 'block' : 'none';
+}
+
+function toMetersXY(lat, lng, refLat) {
+  return {
+    x: lngToMeters(lng, refLat),
+    y: latToMeters(lat)
+  };
+}
+
+function latToMeters(lat) {
+  return lat * 111320;
+}
+
+function lngToMeters(lng, lat) {
+  return lng * 111320 * Math.cos(lat * Math.PI / 180);
+}
+
+function euclidean(a, b) {
+  let s = 0;
+  for (let i = 0; i < a.length; i++) {
+    s += (a[i] - b[i]) * (a[i] - b[i]);
+  }
+  return Math.sqrt(s);
+}
+
+function normalizeArray(values) {
+  const valid = values.filter(v => Number.isFinite(v));
+  if (!valid.length) return values.map(() => 0);
+
+  const min = Math.min(...valid);
+  const max = Math.max(...valid);
+  const span = max - min || 1;
+
+  return values.map(v => Number.isFinite(v) ? (v - min) / span : 0);
+}
+
+function runDBSCAN(points, eps, minPts, distanceFn) {
+  const labels = new Array(points.length).fill(undefined);
+  let clusterId = 0;
+
+  function regionQuery(i) {
+    const neighbors = [];
+    for (let j = 0; j < points.length; j++) {
+      if (distanceFn(points[i], points[j]) <= eps) neighbors.push(j);
+    }
+    return neighbors;
+  }
+
+  for (let i = 0; i < points.length; i++) {
+    if (labels[i] !== undefined) continue;
+
+    const neighbors = regionQuery(i);
+    if (neighbors.length < minPts) {
+      labels[i] = -1;
+      continue;
+    }
+
+    labels[i] = clusterId;
+    const seeds = [...neighbors];
+
+    for (let k = 0; k < seeds.length; k++) {
+      const j = seeds[k];
+
+      if (labels[j] === -1) labels[j] = clusterId;
+      if (labels[j] !== undefined) continue;
+
+      labels[j] = clusterId;
+      const neighbors2 = regionQuery(j);
+
+      if (neighbors2.length >= minPts) {
+        neighbors2.forEach(n => {
+          if (!seeds.includes(n)) seeds.push(n);
+        });
+      }
+    }
+
+    clusterId++;
+  }
+
+  return labels;
+}
+
+function runKMeans(data, k, maxIter = 50) {
+  if (!data.length) return [];
+
+  k = Math.max(2, Math.min(k, data.length));
+
+  const centroids = data.slice(0, k).map(d => [...d]);
+  let labels = new Array(data.length).fill(0);
+
+  for (let iter = 0; iter < maxIter; iter++) {
+    let changed = false;
+
+    for (let i = 0; i < data.length; i++) {
+      let bestIdx = 0;
+      let bestDist = Infinity;
+
+      for (let c = 0; c < centroids.length; c++) {
+        const d = euclidean(data[i], centroids[c]);
+        if (d < bestDist) {
+          bestDist = d;
+          bestIdx = c;
+        }
+      }
+
+      if (labels[i] !== bestIdx) {
+        labels[i] = bestIdx;
+        changed = true;
+      }
+    }
+
+    const sums = centroids.map(c => new Array(c.length).fill(0));
+    const counts = centroids.map(() => 0);
+
+    for (let i = 0; i < data.length; i++) {
+      const lab = labels[i];
+      counts[lab]++;
+      for (let d = 0; d < data[i].length; d++) {
+        sums[lab][d] += data[i][d];
+      }
+    }
+
+    for (let c = 0; c < centroids.length; c++) {
+      if (!counts[c]) continue;
+      for (let d = 0; d < centroids[c].length; d++) {
+        centroids[c][d] = sums[c][d] / counts[c];
+      }
+    }
+
+    if (!changed) break;
+  }
+
+  return labels;
+}
+
+function updateClusterLegend(title, labels) {
+  const wrap = document.getElementById('cluster-legend');
+  const titleEl = document.getElementById('cluster-legend-title');
+  const itemsEl = document.getElementById('cluster-legend-items');
+  if (!wrap || !titleEl || !itemsEl) return;
+
+  titleEl.textContent = title || '-';
+  itemsEl.innerHTML = '';
+
+  const counts = {};
+  labels.forEach(v => {
+    const key = v === -1 ? 'noise' : `cluster_${v}`;
+    counts[key] = (counts[key] || 0) + 1;
+  });
+
+  Object.keys(counts).forEach(key => {
+    const row = document.createElement('div');
+    row.style.display = 'flex';
+    row.style.alignItems = 'center';
+    row.style.justifyContent = 'space-between';
+    row.style.gap = '8px';
+
+    const left = document.createElement('div');
+    left.style.display = 'flex';
+    left.style.alignItems = 'center';
+    left.style.gap = '8px';
+
+    const dot = document.createElement('span');
+    dot.style.width = '12px';
+    dot.style.height = '12px';
+    dot.style.borderRadius = '999px';
+    dot.style.display = 'inline-block';
+    dot.style.flexShrink = '0';
+    dot.style.background = key === 'noise'
+      ? '#94a3b8'
+      : CLUSTER_COLORS[parseInt(key.replace('cluster_', ''), 10) % CLUSTER_COLORS.length];
+
+    const text = document.createElement('span');
+    text.style.fontSize = '12px';
+    text.style.color = '#334155';
+    text.textContent = key === 'noise'
+      ? '噪声点'
+      : `Cluster ${key.replace('cluster_', '')}`;
+
+    const count = document.createElement('span');
+    count.style.fontSize = '12px';
+    count.style.color = '#64748b';
+    count.textContent = counts[key];
+
+    left.appendChild(dot);
+    left.appendChild(text);
+    row.appendChild(left);
+    row.appendChild(count);
+    itemsEl.appendChild(row);
+  });
+
+  wrap.style.display = 'block';
+}
+
+function buildClusterResultLayer(sourceLayer, features, labels, mode, fieldName) {
+  const resultName = `聚类_${sourceLayer}_${Date.now()}`;
+
+  const resultFeatures = features.map((f, i) => {
+    const label = labels[i];
+    const color = label === -1
+      ? '#94a3b8'
+      : CLUSTER_COLORS[label % CLUSTER_COLORS.length];
+
+    const p = { ...(f.properties || {}) };
+    p.clusterId = label;
+    p.clusterLabel = label === -1 ? '噪声点' : `Cluster ${label}`;
+    p.clusterColor = color;
+    p.clusterMode = mode;
+    if (fieldName) p.clusterField = fieldName;
+
+    return {
+      type: 'Feature',
+      geometry: JSON.parse(JSON.stringify(f.geometry)),
+      properties: p
+    };
+  });
+
+  pool[resultName] = {
+    type: 'FeatureCollection',
+    features: resultFeatures
+  };
+
+  initLayerControl(resultName, '#e63946', 'layer-sort-list', `聚类 ${sourceLayer}`, false, true);
+
+  Object.assign(displayLayers[resultName].conf, {
+    c: '#e63946',
+    visible: true,
+    isClusterLayer: true,
+    pointRadius: 5,
+    label: `聚类 ${sourceLayer}`
+  });
+
+  currentClusterLayerName = resultName;
+  refreshMap();
+  updateClusterLegend(`聚类 ${sourceLayer}`, labels);
+}
+
+
 function featureBounds(feature) {
   const layer = L.geoJSON(feature);
   const bounds = layer.getBounds();
@@ -777,18 +1871,34 @@ function getNumericValueFromFeature(feature, fieldName) {
   return null;
 }
 
-function getGridHeatColor(min, max, value) {
-  if (!Number.isFinite(value)) return 'transparent';
-  if (!Number.isFinite(min) || !Number.isFinite(max) || max <= min) return '#60a5fa';
+function normalizeGridValue(min, max, value, mode = 'linear') {
+  if (!Number.isFinite(value) || !Number.isFinite(min) || !Number.isFinite(max) || max <= min) {
+    return null;
+  }
 
-  const t = Math.max(0, Math.min(1, (value - min) / (max - min)));
+  if (mode === 'log') {
+    // 对数模式仅对正值严格有效；若有非正值，则退回线性
+    if (min > 0 && value > 0) {
+      const a = Math.log(min);
+      const b = Math.log(max);
+      const v = Math.log(value);
+      return Math.max(0, Math.min(1, (v - a) / (b - a)));
+    }
+  }
+
+  return Math.max(0, Math.min(1, (value - min) / (max - min)));
+}
+
+function getGridHeatColor(min, max, value, mode = 'linear') {
+  const t = normalizeGridValue(min, max, value, mode);
+  if (t === null) return 'transparent';
 
   if (t < 0.16) return '#2c7bb6'; // 冷蓝
   if (t < 0.33) return '#00a6ca'; // 蓝青
   if (t < 0.50) return '#00ccbc'; // 青绿
   if (t < 0.66) return '#90eb9d'; // 绿黄
   if (t < 0.82) return '#f9d057'; // 黄
-  return '#f29e2e';               // 橙热
+  return '#d7191c';               // 热红
 }
 
 function calcGridAverage(gridLayerName, sourceLayerName, fieldName) {
@@ -839,6 +1949,7 @@ document.getElementById('btn-grid-calc').onclick = () => {
 
   const sourceLayer = document.getElementById('grid-source-layer').value;
   const fieldName = document.getElementById('grid-source-field').value;
+  const colorMode = document.getElementById('grid-color-mode').value || 'linear';
 
   if (!sourceLayer || !fieldName) {
     alert('请选择数据图层和字段');
@@ -846,7 +1957,12 @@ document.getElementById('btn-grid-calc').onclick = () => {
   }
 
   calcGridAverage(currentGridLayerName, sourceLayer, fieldName);
+
+  const conf = displayLayers[currentGridLayerName]?.conf || {};
+  conf.gridColorMode = colorMode;
+
   refreshMap();
+  updateGridLegend(currentGridLayerName);
 };
 
 const svColors = {
@@ -858,6 +1974,8 @@ const svColors = {
   "car": "#0000FF",
   "person": "#FF0000"
 };
+
+
 
 function generatePieChart(props) {
   const data = Object.entries(props)
@@ -907,7 +2025,51 @@ window.hideTip = () => {
   if (t) t.style.display = 'none';
 };
 
+function formatLegendValue(v) {
+  if (!Number.isFinite(v)) return '-';
+  if (Math.abs(v) >= 1000) return v.toFixed(0);
+  if (Math.abs(v) >= 100) return v.toFixed(1);
+  if (Math.abs(v) >= 1) return v.toFixed(2);
+  return v.toFixed(4);
+}
 
+function getLegendMidValue(min, max, mode = 'linear') {
+  if (!Number.isFinite(min) || !Number.isFinite(max)) return null;
+
+  if (mode === 'log' && min > 0 && max > 0) {
+    return Math.exp((Math.log(min) + Math.log(max)) / 2);
+  }
+
+  return (min + max) / 2;
+}
+
+function updateGridLegend(gridLayerName) {
+  const wrap = document.getElementById('grid-legend');
+  if (!wrap) return;
+
+  const conf = displayLayers[gridLayerName]?.conf || {};
+  const min = conf.gridMin;
+  const max = conf.gridMax;
+  const mode = conf.gridColorMode || 'linear';
+
+  if (!Number.isFinite(min) || !Number.isFinite(max) || max <= min) {
+    wrap.style.display = 'none';
+    return;
+  }
+
+  const mid = getLegendMidValue(min, max, mode);
+
+  document.getElementById('grid-legend-title').textContent =
+    `${conf.gridSourceLayer || '-'} / ${conf.gridSourceField || '-'}`;
+  document.getElementById('grid-legend-mode').textContent =
+    `映射方式：${mode === 'log' ? '对数' : '线性'}`;
+
+  document.getElementById('grid-legend-max').textContent = formatLegendValue(max);
+  document.getElementById('grid-legend-mid').textContent = formatLegendValue(mid);
+  document.getElementById('grid-legend-min').textContent = formatLegendValue(min);
+
+  wrap.style.display = 'block';
+}
 
 function getZoomScaledRadius(baseRadius = 5) {
   const z = map.getZoom();
@@ -925,41 +2087,72 @@ function metersToLng(m, lat) {
 }
 
 function refreshMap() {
-    for (let name in displayLayers) {
-        const layerGroup = displayLayers[name].layer;
-        const conf = displayLayers[name].conf;
+    // 以 DOM 排序为准
+    syncLayerOrderFromDOM();
+
+    // 补齐那些可能没出现在排序面板里的图层
+    Object.keys(displayLayers).forEach(name => {
+        if (!layerOrder.includes(name)) layerOrder.push(name);
+    });
+
+    // 先清空所有图层内容，并且重新按 layerOrder 挂载到地图
+    layerOrder.forEach(name => {
+    const item = displayLayers[name];
+    if (!item?.layer) return;
+
+    const conf = item.conf || {};
+
+    if (!conf.isKdeLayer && typeof item.layer.clearLayers === 'function') {
+        item.layer.clearLayers();
+    }
+
+    if (map.hasLayer(item.layer)) {
+        map.removeLayer(item.layer);
+    }
+    item.layer.addTo(map);
+});
+
+    // 再按顺序重绘
+    layerOrder.forEach(name => {
+        const item = displayLayers[name];
+        if (!item) return;
+
+        const layerGroup = item.layer;
+        const conf = item.conf || {};
         const isR = !!conf.isRoadLike;
         const isA = !!conf.isAoiLike;
 
-        layerGroup.clearLayers();
-        if (!conf.visible || !pool[name]) continue;
+        if (!conf.visible || !pool[name]) return;
+        if (conf.isKdeLayer) return;
 
         L.geoJSON(pool[name], {
             coordsToLatLng: (c) => L.latLng(c[1], c[0]),
 
             style: (f) => {
                 const p = f.properties || {};
+
                 if (conf.isGridLayer) {
-  const val = f.properties?.gridValue;
+                    const val = f.properties?.gridValue;
 
-  if (f.properties?.hasValue) {
-    return {
-      color: '#475569',
-      weight: 0.8,
-      fillColor: getGridHeatColor(conf.gridMin, conf.gridMax, val),
-      fillOpacity: 0.42,
-      opacity: 0.9
-    };
-  }
+                    if (f.properties?.hasValue) {
+                        return {
+                            color: '#475569',
+                            weight: 0.8,
+                            fillColor: getGridHeatColor(conf.gridMin, conf.gridMax, val, conf.gridColorMode || 'linear'),
+                            fillOpacity: 0.42,
+                            opacity: 0.9
+                        };
+                    }
 
-  return {
-    color: '#94a3b8',
-    weight: 0.8,
-    fillColor: 'transparent',
-    fillOpacity: 0,
-    opacity: 0.65
-  };
-}
+                    return {
+                        color: '#94a3b8',
+                        weight: 0.8,
+                        fillColor: 'transparent',
+                        fillOpacity: 0,
+                        opacity: 0.65
+                    };
+                }
+
                 if (f.geometry?.type === "Point") return undefined;
 
                 if (p.isIntegrationLine) {
@@ -1012,7 +2205,7 @@ function refreshMap() {
 
                 if (isOriginPoint) {
                     return L.circleMarker(latlng, {
-                        radius: getZoomScaledRadius(p.pointRadius || conf.pointRadius || 6),
+                        radius: getZoomScaledRadius(5),
                         fillColor: "#111827",
                         stroke: false,
                         fillOpacity: 0.95
@@ -1020,31 +2213,31 @@ function refreshMap() {
                 }
 
                 return L.circleMarker(latlng, {
-                    radius: getZoomScaledRadius(conf.pointRadius || 4),
-                    fillColor: conf.c,
-                    stroke: false,
-                    fillOpacity: 0.9
-                });
+    radius: getZoomScaledRadius(p.clusterColor ? (conf.pointRadius || 5) : (conf.pointRadius || 4)),
+    fillColor: p.clusterColor || conf.c,
+    color: p.clusterColor || conf.c,
+    weight: p.clusterColor ? 1 : 0,
+    stroke: !!p.clusterColor,
+    fillOpacity: 0.9
+});
             },
 
             onEachFeature: (f, l) => {
     const p = f.properties || {};
 
     if (conf.isGridLayer) {
-      const val = p.gridValue;
-      let h = `<div class="popup-header"><h3>${conf.label || name}</h3></div>
-               <div style="padding:15px; font-size:12px;">`;
-      h += `<div class="popup-info-row">格栅统计</div>`;
-      h += `<div><b>来源图层:</b> ${conf.gridSourceLayer || '-'}</div>`;
-      h += `<div><b>统计字段:</b> ${conf.gridSourceField || '-'}</div>`;
-      h += `<div><b>平均值:</b> ${Number.isFinite(val) ? val.toFixed(2) : '无数据'}</div>`;
-      h += `<div><b>样本数:</b> ${p.gridCount || 0}</div>`;
-      h += `</div>`;
-      l.bindPopup(h, { maxWidth: 320 });
-      return;
+        const val = p.gridValue;
+        let h = `<div class="popup-header"><h3>${conf.label || name}</h3></div>
+                 <div style="padding:15px; font-size:12px;">`;
+        h += `<div class="popup-info-row">格栅统计</div>`;
+        h += `<div><b>来源图层:</b> ${conf.gridSourceLayer || '-'}</div>`;
+        h += `<div><b>统计字段:</b> ${conf.gridSourceField || '-'}</div>`;
+        h += `<div><b>平均值:</b> ${Number.isFinite(val) ? val.toFixed(2) : '无数据'}</div>`;
+        h += `<div><b>样本数:</b> ${p.gridCount || 0}</div>`;
+        h += `</div>`;
+        l.bindPopup(h, { maxWidth: 320 });
+        return;
     }
-
-    if (isR && f.geometry?.type !== "Point") l.bringToFront();
 
     const isOriginPoint = !!p.isRoadAnalysisOrigin || !!p.isChoiceOrigin;
 
@@ -1058,6 +2251,14 @@ function refreshMap() {
                 <h3>${title}</h3>
              </div>
              <div style="padding:15px; font-size:12px;">`;
+
+    // 先补聚类信息：注意，必须放在 let h 之后
+    if (p.clusterId !== undefined && p.clusterId !== null) {
+        h += `<div class="popup-info-row">聚类分析</div>`;
+        h += `<div><b>聚类结果:</b> ${p.clusterLabel || (p.clusterId === -1 ? '噪声点' : `Cluster ${p.clusterId}`)}</div>`;
+        if (p.clusterMode) h += `<div><b>聚类模式:</b> ${p.clusterMode}</div>`;
+        if (p.clusterField) h += `<div><b>属性字段:</b> ${p.clusterField}</div>`;
+    }
 
     if (isOriginPoint) {
         h += `<div class="popup-info-row">路网分析中心点</div>`;
@@ -1154,8 +2355,7 @@ function refreshMap() {
     l.bindPopup(h + `</div>`, { maxWidth: 320 });
 }
         }).addTo(layerGroup);
-    }
-
+    });
 }
 
 
@@ -1303,12 +2503,51 @@ async function exportCurrentPage() {
     if (cleanMap && controlContainer) controlContainer.style.display = 'none';
 
     const mapEl = document.getElementById('map');
-    const canvas = await html2canvas(mapEl, {
-      useCORS:true,
-      backgroundColor:'#f0f2f5',
-      scale,
-      logging:false
-    });
+const legendEl = document.getElementById('grid-legend');
+
+let legendWasMoved = false;
+let legendOriginalParent = null;
+let legendOriginalNextSibling = null;
+let legendOriginalStyle = null;
+
+if (legendEl && legendEl.style.display !== 'none') {
+  legendOriginalParent = legendEl.parentNode;
+  legendOriginalNextSibling = legendEl.nextSibling;
+  legendOriginalStyle = legendEl.getAttribute('style') || '';
+
+  // 临时挂到地图容器内，确保 html2canvas(#map) 能截到它
+  mapEl.appendChild(legendEl);
+  legendEl.style.position = 'absolute';
+  legendEl.style.right = '34px';
+  legendEl.style.bottom = '34px';
+  legendEl.style.left = 'auto';
+  legendEl.style.top = 'auto';
+  legendEl.style.zIndex = '1800';
+
+  legendWasMoved = true;
+}
+
+await waitMapIdle();
+
+const canvas = await html2canvas(mapEl, {
+  useCORS: true,
+  backgroundColor: '#f0f2f5',
+  scale,
+  logging: false
+});
+
+// 导出完成后恢复图例原位置
+if (legendWasMoved && legendEl && legendOriginalParent) {
+  if (legendOriginalNextSibling) {
+    legendOriginalParent.insertBefore(legendEl, legendOriginalNextSibling);
+  } else {
+    legendOriginalParent.appendChild(legendEl);
+  }
+
+  if (legendOriginalStyle !== null) {
+    legendEl.setAttribute('style', legendOriginalStyle);
+  }
+}
 
     const mime = format === 'png' ? 'image/png' : `image/${format}`;
     const ext = format === 'jpeg' ? 'jpg' : format;
@@ -1405,5 +2644,71 @@ bootGraphPage();
   border:1px solid rgba(255,255,255,0.1);
   font-weight:600;
 "></div>
+
+<div id="grid-legend" style="
+  position:absolute;
+  right:34px;
+  bottom:34px;
+  z-index:1800;
+  display:none;
+  width:170px;
+  background:rgba(255,255,255,0.96);
+  border:1px solid #eef2f7;
+  border-radius:18px;
+  box-shadow:0 12px 36px rgba(0,0,0,0.12);
+  backdrop-filter:blur(10px);
+  padding:14px 14px 12px 14px;
+">
+  <div style="font-size:11px; color:#94a3b8; font-weight:800; letter-spacing:1px; text-transform:uppercase;">
+    格栅图例
+  </div>
+  <div id="grid-legend-title" style="margin-top:6px; font-size:13px; font-weight:700; color:#1e293b;">
+    -
+  </div>
+  <div id="grid-legend-mode" style="margin-top:2px; font-size:11px; color:#64748b;">
+    -
+  </div>
+  <div style="margin-top:10px; display:flex; align-items:stretch; gap:10px;">
+    <div id="grid-legend-bar" style="
+      width:18px;
+      height:160px;
+      border-radius:999px;
+      border:1px solid rgba(0,0,0,0.06);
+      background:linear-gradient(to top, #2c7bb6, #00a6ca, #00ccbc, #90eb9d, #f9d057, #d7191c);
+      flex-shrink:0;
+    "></div>
+    <div style="height:160px; display:flex; flex-direction:column; justify-content:space-between; font-size:12px; color:#334155;">
+      <div id="grid-legend-max">-</div>
+      <div id="grid-legend-mid">-</div>
+      <div id="grid-legend-min">-</div>
+    </div>
+  </div>
+</div>
+
+<div id="cluster-legend" style="
+  position:absolute;
+  right:34px;
+  bottom:240px;
+  z-index:1800;
+  display:none;
+  width:200px;
+  background:rgba(255,255,255,0.96);
+  border:1px solid #eef2f7;
+  border-radius:18px;
+  box-shadow:0 12px 36px rgba(0,0,0,0.12);
+  backdrop-filter:blur(10px);
+  padding:14px;
+">
+  <div style="font-size:11px; color:#94a3b8; font-weight:800; letter-spacing:1px; text-transform:uppercase;">
+    聚类图例
+  </div>
+  <div id="cluster-legend-title" style="margin-top:6px; font-size:13px; font-weight:700; color:#1e293b;">
+    -
+  </div>
+  <div id="cluster-legend-items" style="margin-top:10px; display:flex; flex-direction:column; gap:8px;"></div>
+</div>
+
+
+<script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
 </body>
 </html>
