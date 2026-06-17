@@ -887,6 +887,426 @@ nav.nav--on-light .nav-sub li a:hover { color: rgba(0,0,0,.85); }
   background: rgba(0,0,0,.8);
 }
 
+/* ── ZONING MERGE CONTEXT (text left · image right) ── */
+#zoning-merge-context {
+  display: flex;
+  width: 100%;
+  height: 100vh;
+  min-height: 100vh;
+  line-height: 0;
+  overflow: hidden;
+  scroll-margin-top: 56px;
+}
+#zoning-merge-context .station-history-text {
+  flex: 0 0 45%;
+  width: 45%;
+  order: 1;
+  overflow-y: auto;
+  align-items: flex-start;
+  padding: clamp(72px, 9vh, 96px) clamp(28px, 3.2vw, 52px) clamp(28px, 4vh, 48px);
+  -webkit-overflow-scrolling: touch;
+}
+#zoning-merge-context .station-history-text p + p {
+  margin-top: 1.35em;
+}
+#zoning-merge-context .station-history-text p {
+  font-size: clamp(16px, 1.42vw, 24px);
+  line-height: 1.72;
+}
+#zoning-merge-context .station-history-visual {
+  flex: 0 0 55%;
+  width: 55%;
+  order: 2;
+}
+
+/* ── ZONING DISTRICT MAP (hover swap + click modal) ── */
+#zoning-district-map {
+  height: 100vh;
+  min-height: 100vh;
+  background: #000;
+  overflow: hidden;
+  scroll-margin-top: 56px;
+}
+.zoning-district-swap {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  line-height: 0;
+  cursor: pointer;
+}
+.zoning-district-swap-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center center;
+  display: block;
+}
+.zoning-district-swap-img--hover {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity .45s cubic-bezier(.22, 1, .36, 1);
+}
+.zoning-district-swap:hover .zoning-district-swap-img--hover,
+.zoning-district-swap:focus-visible .zoning-district-swap-img--hover {
+  opacity: 1;
+}
+.zoning-district-swap-hint {
+  position: absolute;
+  left: 50%;
+  bottom: clamp(18px, 3vh, 32px);
+  transform: translateX(-50%);
+  z-index: 2;
+  padding: 8px 16px;
+  border: 1px solid rgba(255, 255, 255, .28);
+  background: rgba(0, 0, 0, .52);
+  color: rgba(255, 255, 255, .78);
+  font-size: 11px;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  pointer-events: none;
+  transition: opacity .3s ease;
+}
+.zoning-district-swap:hover .zoning-district-swap-hint {
+  opacity: 0;
+}
+.zoning-district-modal-panel img {
+  width: 100%;
+  max-height: min(86vh, 920px);
+  object-fit: contain;
+  display: block;
+  margin: 0 auto;
+}
+.zoning-district-modal-caption {
+  margin-top: 18px;
+  font-family: var(--font-title);
+  font-size: clamp(15px, 1.35vw, 20px);
+  line-height: 1.75;
+  letter-spacing: .06em;
+  color: rgba(255, 255, 255, .88);
+  text-align: center;
+}
+
+/* ── POI DENSITY ANALYSIS ── */
+#poi-density-analysis {
+  background: #fff;
+  color: #141414;
+  min-height: 100vh;
+  scroll-margin-top: 56px;
+}
+.poi-density-layout {
+  display: flex;
+  align-items: stretch;
+  min-height: 100vh;
+  height: 100vh;
+}
+.poi-density-aside {
+  flex: 0 0 clamp(288px, 31vw, 372px);
+  padding: clamp(72px, 9vh, 96px) clamp(22px, 2.4vw, 36px) clamp(40px, 5vh, 64px);
+  border-right: 1px solid #e8e8e8;
+}
+.poi-density-aside .sec-label {
+  color: #8a8a8a;
+}
+.poi-density-title {
+  font-size: clamp(20px, 2.2vw, 34px);
+  font-weight: 700;
+  line-height: 1.28;
+  letter-spacing: .04em;
+  margin: 10px 0 30px;
+  color: #0a0a0a;
+  white-space: nowrap;
+}
+.poi-density-block + .poi-density-block {
+  margin-top: 30px;
+}
+.poi-density-block-head {
+  display: inline-block;
+  background: #0a0a0a;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .14em;
+  padding: 8px 14px;
+  margin-bottom: 16px;
+}
+.poi-density-group {
+  margin-bottom: 14px;
+}
+.poi-density-group:last-child {
+  margin-bottom: 0;
+}
+.poi-density-group strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  margin-bottom: 5px;
+  color: #111;
+}
+.poi-density-group p {
+  font-size: 12px;
+  line-height: 1.72;
+  color: #555;
+  margin: 0;
+  letter-spacing: .04em;
+}
+.poi-density-steps {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.78;
+  color: #444;
+  letter-spacing: .04em;
+}
+.poi-density-steps li + li {
+  margin-top: 10px;
+}
+.poi-density-steps strong {
+  color: #111;
+  font-weight: 600;
+}
+.poi-density-gradient {
+  display: inline;
+  font-weight: 600;
+  background: linear-gradient(90deg, #f1c40f 0%, #e67e22 52%, #c0392b 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.poi-density-visual {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: stretch;
+  justify-content: flex-end;
+  padding: clamp(56px, 7vh, 72px) clamp(8px, 1.2vw, 16px) clamp(24px, 3vh, 32px);
+  background: #fff;
+  overflow: hidden;
+}
+.poi-density-visual-inner {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  position: relative;
+}
+.poi-density-visual-inner.poi-density-swap {
+  justify-content: flex-end;
+}
+.poi-density-swap .poi-density-swap-base {
+  display: block;
+  height: 100%;
+  width: auto;
+  max-width: none;
+  flex-shrink: 0;
+  transition: opacity .45s cubic-bezier(.22, 1, .36, 1);
+}
+.poi-density-swap .poi-density-swap-hover {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center center;
+  opacity: 0;
+  transition: opacity .45s cubic-bezier(.22, 1, .36, 1);
+  pointer-events: none;
+}
+.poi-density-swap:hover .poi-density-swap-base,
+.poi-density-swap:focus-within .poi-density-swap-base {
+  opacity: 0;
+}
+.poi-density-swap:hover .poi-density-swap-hover,
+.poi-density-swap:focus-within .poi-density-swap-hover {
+  opacity: 1;
+}
+.poi-density-swap-caption {
+  position: absolute;
+  top: clamp(10px, 1.8vh, 20px);
+  left: clamp(10px, 1.4vw, 18px);
+  z-index: 4;
+  max-width: min(360px, 88%);
+  background: #000;
+  color: #fff;
+  padding: clamp(12px, 1.6vh, 16px) clamp(14px, 1.8vw, 18px);
+  font-family: var(--font-title);
+  font-size: clamp(11px, 1vw, 13px);
+  line-height: 1.75;
+  letter-spacing: .05em;
+  text-align: justify;
+  text-justify: inter-ideograph;
+  opacity: 0;
+  transform: translateY(-8px);
+  transition: opacity .38s ease, transform .38s ease;
+  pointer-events: none;
+}
+.poi-density-swap:hover .poi-density-swap-caption,
+.poi-density-swap:focus-within .poi-density-swap-caption {
+  opacity: 1;
+  transform: translateY(0);
+}
+.poi-density-visual img {
+  display: block;
+  height: 100%;
+  width: auto;
+  max-width: none;
+  flex-shrink: 0;
+}
+.poi-density-full {
+  display: none;
+  width: 100%;
+  padding: 0 clamp(22px, 4vw, 48px) clamp(40px, 5vh, 64px);
+}
+.poi-density-full.poi-density-swap {
+  position: relative;
+  margin: 0;
+  line-height: 0;
+  min-height: 280px;
+}
+.poi-density-full .poi-density-swap-base {
+  width: 100%;
+  height: auto;
+  display: block;
+  transition: opacity .45s cubic-bezier(.22, 1, .36, 1);
+}
+.poi-density-full .poi-density-swap-hover {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  opacity: 0;
+  transition: opacity .45s cubic-bezier(.22, 1, .36, 1);
+}
+.poi-density-full.poi-density-swap:hover .poi-density-swap-base,
+.poi-density-full.poi-density-swap:focus-within .poi-density-swap-base {
+  opacity: 0;
+}
+.poi-density-full.poi-density-swap:hover .poi-density-swap-hover,
+.poi-density-full.poi-density-swap:focus-within .poi-density-swap-hover {
+  opacity: 1;
+}
+.poi-density-full .poi-density-swap-caption {
+  left: clamp(14px, 3vw, 24px);
+  top: clamp(14px, 2vh, 24px);
+  max-width: min(360px, calc(100% - 28px));
+}
+.poi-density-full img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+@media (max-width: 960px) {
+  .poi-density-layout {
+    flex-direction: column;
+    min-height: 0;
+  }
+  .poi-density-aside {
+    flex: none;
+    border-right: none;
+    border-bottom: 1px solid #e8e8e8;
+    padding-bottom: clamp(28px, 4vh, 40px);
+  }
+  .poi-density-visual {
+    display: none;
+  }
+  .poi-density-full {
+    display: block;
+  }
+}
+
+/* ── POI MAJOR CATEGORY DENSITY ── */
+#poi-major-density {
+  background: #fff;
+  color: #141414;
+  scroll-margin-top: 56px;
+  padding: clamp(72px, 9vh, 96px) 0 0;
+}
+.poi-major-density-inner {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 0 clamp(28px, 4vw, 52px) clamp(36px, 5vh, 52px);
+}
+#poi-major-density .sec-label {
+  color: #8a8a8a;
+}
+.poi-major-density-title {
+  font-size: clamp(26px, 2.8vw, 38px);
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: .04em;
+  margin: 10px 0 clamp(28px, 4vh, 40px);
+  color: #0a0a0a;
+}
+.poi-major-density-lead {
+  font-family: var(--font-title);
+  font-size: clamp(15px, 1.35vw, 19px);
+  line-height: 1.82;
+  letter-spacing: .05em;
+  color: #333;
+  text-align: justify;
+  text-justify: inter-ideograph;
+  margin: 0 0 clamp(36px, 5vh, 52px);
+  max-width: 980px;
+}
+.poi-major-density-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(16px, 2.2vw, 28px);
+  align-items: end;
+}
+.poi-major-density-item {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.poi-major-density-item img {
+  width: 100%;
+  height: auto;
+  max-height: min(52vh, 520px);
+  object-fit: contain;
+  object-position: center bottom;
+  display: block;
+}
+.poi-major-density-strip-wrap {
+  background: #000;
+  width: 100%;
+  padding: clamp(40px, 5vh, 56px) clamp(28px, 4vw, 52px) clamp(56px, 7vh, 88px);
+  margin-top: clamp(8px, 1.5vh, 16px);
+}
+.poi-major-density-strip-inner {
+  max-width: 1320px;
+  margin: 0 auto;
+}
+.poi-major-density-strip {
+  margin: 0;
+  width: 100%;
+  line-height: 0;
+}
+.poi-major-density-strip img {
+  width: 100%;
+  height: auto;
+  display: block;
+  object-fit: contain;
+}
+@media (max-width: 860px) {
+  .poi-major-density-grid {
+    grid-template-columns: 1fr;
+    gap: 32px;
+    max-width: 420px;
+    margin: 0 auto;
+  }
+  .poi-major-density-item img {
+    max-height: none;
+  }
+}
+
 .tech-inner { max-width: 1200px; margin: 0 auto; }
 /* ── FLOW CHART ── */
 .flow-wrap {
@@ -2042,7 +2462,7 @@ nav.nav--on-light .nav-sub li a:hover { color: rgba(0,0,0,.85); }
 }
 #net-map { position: absolute; inset: 0; z-index: 1; }
 #net-counter {
-  position: absolute; bottom: 44px; right: 52px;
+  position: absolute; bottom: 88px; right: 52px;
   font-size: 13px; letter-spacing: .14em; color: rgba(255,255,255,.45);
   font-variant-numeric: tabular-nums; z-index: 10;
   font-family: inherit;
@@ -2050,15 +2470,41 @@ nav.nav--on-light .nav-sub li a:hover { color: rgba(0,0,0,.85); }
 #net-counter strong { color: rgba(255,255,255,.85); font-weight: 400; font-size: 17px; }
 #net-progress {
   position: absolute; bottom: 0; left: 0; right: 0;
-  height: 2px; background: rgba(255,255,255,.08); z-index: 10;
+  height: 3px; background: rgba(255,255,255,.1); z-index: 10;
 }
 #net-bar {
-  height: 100%; background: rgba(255,255,255,.55);
-  transition: width .35s ease; width: 20%;
+  height: 100%; background: rgba(255,255,255,.72);
+  transition: width .35s ease; width: 0%;
+}
+#net-controls {
+  position: absolute; bottom: 28px; left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: clamp(14px, 2vw, 22px);
+  z-index: 20;
+}
+.net-nav-btn {
+  width: 42px; height: 42px;
+  border: 1px solid rgba(255,255,255,.32);
+  border-radius: 50%;
+  background: rgba(0,0,0,.48);
+  color: rgba(255,255,255,.92);
+  font-size: 18px; line-height: 1;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .22s, border-color .22s, transform .22s;
+  backdrop-filter: blur(6px);
+  padding: 0;
+}
+.net-nav-btn:hover {
+  background: rgba(255,255,255,.14);
+  border-color: rgba(255,255,255,.62);
+}
+.net-nav-btn:active { transform: scale(.94); }
+.net-nav-btn:disabled {
+  opacity: .28; cursor: default; pointer-events: none;
 }
 #net-dots {
-  position: absolute; bottom: 36px; left: 50%; transform: translateX(-50%);
-  display: flex; gap: 14px; z-index: 20; align-items: center;
+  position: static; transform: none;
+  display: flex; gap: 14px; align-items: center;
 }
 .net-dot {
   width: 8px; height: 8px; border-radius: 50%;
@@ -2070,7 +2516,7 @@ nav.nav--on-light .nav-sub li a:hover { color: rgba(0,0,0,.85); }
 }
 .net-dot:hover:not(.active) { background: rgba(255,255,255,.55); }
 .net-caption {
-  position: absolute; left: 52px; bottom: 80px; z-index: 10;
+  position: absolute; left: 52px; bottom: 96px; z-index: 10;
   max-width: 420px; pointer-events: none;
   opacity: 0; transform: translateY(10px);
   transition: opacity .6s ease .15s, transform .6s ease .15s;
@@ -5114,11 +5560,30 @@ footer {
     linear-gradient(to right, rgba(9,9,9,.55) 0%, transparent 50%);
 }
 
+/* ── Function distribution cover ── */
+#function-distribution-overview { background: var(--black); }
+.function-distribution-cover .design-cover-bg img {
+  object-position: 50% 48%;
+  filter: brightness(.48) contrast(1.14) grayscale(.08);
+}
+.function-distribution-cover .cover-glow {
+  background: radial-gradient(ellipse 48% 38% at 50% 42%,
+    rgba(255,255,255,.14) 0%,
+    rgba(255,255,255,.04) 40%,
+    transparent 72%);
+}
+.function-distribution-cover .cover-vignette {
+  background:
+    linear-gradient(to top, rgba(9,9,9,.94) 0%, rgba(9,9,9,.32) 48%, transparent 72%),
+    linear-gradient(to right, rgba(9,9,9,.62) 0%, transparent 46%);
+}
+
 /* anchor scroll offset for fixed nav */
 section[id],
 .design-cover,
 #design-cover,
-#zoning-analysis-cover {
+#zoning-analysis-cover,
+#function-distribution-cover {
   scroll-margin-top: 56px;
 }
 .zoning-analysis-suite {
@@ -5297,13 +5762,17 @@ section[id],
     <li class="nav-item">
       <a href="#zoning-analysis-cover">业态分析</a>
       <ul class="nav-sub">
+        <li><a href="#zoning-merge-context">撤二建一</a></li>
+        <li><a href="#zoning-district-map">南北分区</a></li>
+        <li><a href="#poi-density-analysis">POI 密度</a></li>
+        <li><a href="#poi-major-density">POI 大类密度</a></li>
         <li><a href="#zoning-analysis-logic">功能分区逻辑</a></li>
         <li><a href="#zoning-analysis-verify">分区印证</a></li>
         <li><a href="#zoning-analysis-matrix">适配矩阵</a></li>
       </ul>
     </li>
     <li class="nav-item">
-      <a href="#net-gallery">功能分布</a>
+      <a href="#function-distribution-cover">功能分布</a>
       <ul class="nav-sub">
         <li><a href="#net-gallery">路网图示</a></li>
         <li><a href="#plan-gallery">方案图集</a></li>
@@ -5405,7 +5874,7 @@ section[id],
         <div class="c-zh">业态分析</div>
         <div class="c-arrow">→</div>
       </a>
-      <a class="c-card" href="#net-gallery">
+      <a class="c-card" href="#function-distribution-cover">
         <div class="c-num">04</div>
         <div class="c-en">Function Distribution</div>
         <div class="c-zh">功能分布</div>
@@ -6107,7 +6576,117 @@ section[id],
         <span class="design-tag">Matrix</span>
       </div>
     </div>
-    <a class="cover-scroll" href="#zoning-analysis-logic" style="text-decoration:none;color:inherit;">Scroll</a>
+    <a class="cover-scroll" href="#zoning-merge-context" style="text-decoration:none;color:inherit;">Scroll</a>
+  </div>
+</section>
+
+<!-- ══ ZONING MERGE CONTEXT ══ -->
+<section id="zoning-merge-context">
+  <div class="station-history-text">
+    <div>
+      <p>这一天，上海市正式宣布闸北、静安两区合并为新的静安区。流传已久的"静安、闸北撤二建一"终于坐实。此次合并引起上海民众的强烈关注，成为一等一的大事。联姻的两方，静安区高端商务集群、环境优雅，是沪上典型的富人区；闸北区曾经工业聚集，棚户区遍布，即使现在发展迅速，但难改上海人心中的"下等区"形象。差别如此之大的两区为什么会"联姻"？合并后将怎样改变我们的生活？今年8月27日，"静安闸北撤二建一"的传言在网上首次出现。据媒体报道，这则传言出自一房地产微信公众号发布的一篇文章，其中这样描述:"文件下来了，大概10月份执行，房价大涨的前奏，由闸北领导管理整个新静安区，静安区新金融中心为火车站北广场。"针对此次传言，静安区和闸北区纷纷透过沪上权威媒体否定了合并一说，并称，实属谣言，可能是房地产商借题炒作。但10天后，9月7日，上海市政府新闻办公室官方微博发博称：经向有关方面核实了解，关于闸北区、静安区"撤二建一"的工作正在酝酿和听取意见过程中。同一天，上海市委机关报《解放日报》也发布新闻：9月7日下午5:00，静安区和闸北区同时召开区党政负责干部会议。会上宣布，静安区与闸北区撤二建一，建设新"静安区"，区政府目前设在常德路370号。撤二建一后，两区强强联合，建立联合党委，下设三个党组。"撤二建一"的具体方案还需等中央审批。当天晚上，关于"静安、闸北合并"的消息刷屏上海每个市民微信、微博等社交网络，支持、反对和调侃的声音都有。闸北网友在盼望着能共享静安区优质的教育资源，而绝大多数的静安人因为长期的优越感对于这次合并不赞同。其实，近年来，在上海的区域规划中，此次行政区划调整并非首次。2000年，黄浦区和南市区合并；2009年，南汇区并入浦东新区；2011年，黄浦区和卢湾区合并为新的黄浦区。此次静安和闸北合并，虽然是上海行政区划的第四次调整，却是舆论反响最强烈的一次，因为属于典型的强区和弱区合并，牵扯到历史、现实等多方面因素。</p>
+    </div>
+  </div>
+  <div class="station-history-visual">
+    <img src="reference/zoning-merge-context.png" alt="静安闸北片区 — 新旧建筑对比">
+  </div>
+</section>
+
+<!-- ══ ZONING DISTRICT MAP ══ -->
+<section id="zoning-district-map">
+  <div class="zoning-district-swap" id="zoning-district-swap" role="button" tabindex="0" aria-label="查看静安闸北分区对照，点击查看详情">
+    <img class="zoning-district-swap-img" src="reference/zoning-district-map-1.png" alt="静安闸北卫星图 — 闸北区与静安区">
+    <img class="zoning-district-swap-img zoning-district-swap-img--hover" src="reference/zoning-district-map-2.png" alt="行政边界被打破后，经济断裂是否得到修复">
+    <span class="zoning-district-swap-hint">Hover · 悬停切换 · Click · 点击查看</span>
+  </div>
+</section>
+
+<div id="zoning-district-modal" class="station-history-modal" aria-hidden="true">
+  <div class="station-history-modal-backdrop" data-zoning-district-close></div>
+  <div class="station-history-modal-panel zoning-district-modal-panel" role="dialog" aria-modal="true" aria-label="老静安与老闸北对比数据">
+    <button type="button" class="station-history-modal-close" aria-label="关闭">×</button>
+    <img src="reference/zoning-district-chart.png" alt="老静安区与老闸北区面积、常住人口、GDP 对比">
+  </div>
+</div>
+
+<!-- ══ POI DENSITY ANALYSIS ══ -->
+<section id="poi-density-analysis" data-nav-theme="light">
+  <div class="poi-density-layout">
+    <aside class="poi-density-aside">
+      <p class="sec-label">03 · Business Type Analysis</p>
+      <h2 class="poi-density-title">POI分类和密度分析</h2>
+
+      <div class="poi-density-block">
+        <span class="poi-density-block-head">POI大类分类</span>
+        <div class="poi-density-group">
+          <strong>文化与教育</strong>
+          <p>科教文化、体育休闲、风景名胜</p>
+        </div>
+        <div class="poi-density-group">
+          <strong>公共服务与消费</strong>
+          <p>餐饮、购物、生活服务、医疗、公共设施、政府机构</p>
+        </div>
+        <div class="poi-density-group">
+          <strong>商业与服务</strong>
+          <p>公司企业、金融保险、室内设施</p>
+        </div>
+      </div>
+
+      <div class="poi-density-block">
+        <span class="poi-density-block-head">POI密度分析算法</span>
+        <ol class="poi-density-steps">
+          <li><strong>1. 数据读取：</strong>读取全部 POI 子类与地块数据。</li>
+          <li><strong>2. 坐标统一：</strong>检查并统一坐标系至 EPSG:3857。</li>
+          <li><strong>3. 空间匹配：</strong>将 POI 点位与地块进行空间关联。</li>
+          <li><strong>4. 统计计算：</strong>统计每个地块内的 POI 数量。</li>
+          <li><strong>5. 可视化表达：</strong>以 <span class="poi-density-gradient">Yellow → Orange → Red</span> 色带映射地块 POI 密度。</li>
+        </ol>
+      </div>
+    </aside>
+
+    <div class="poi-density-visual" aria-hidden="false">
+      <div class="poi-density-visual-inner poi-density-swap" id="poi-density-swap" tabindex="0" aria-label="悬停查看 POI 密度断崖分布">
+        <img class="poi-density-swap-base" src="reference/poi-density-analysis.png" alt="POI 密度分析 — 十二类业态分布图">
+        <img class="poi-density-swap-hover" src="reference/poi-density-analysis-hover.png" alt="三类 POI 分布与静安闸北分界线">
+        <p class="poi-density-swap-caption">从三种大类的POI分布来看，如果将老静安区和老闸北区的分界线画出，能明显看出南部POI分布密集，而北部的POI则略稀疏。尤其是红线两侧，似乎有一条密度的"断崖"鸿沟。</p>
+      </div>
+    </div>
+  </div>
+
+  <figure class="poi-density-full poi-density-swap" id="poi-density-swap-mobile" tabindex="0" aria-label="悬停查看 POI 密度断崖分布">
+    <img class="poi-density-swap-base" src="reference/poi-density-analysis.png" alt="POI分类和密度分析全页">
+    <img class="poi-density-swap-hover" src="reference/poi-density-analysis-hover.png" alt="三类 POI 分布与静安闸北分界线">
+    <p class="poi-density-swap-caption">从三种大类的POI分布来看，如果将老静安区和老闸北区的分界线画出，能明显看出南部POI分布密集，而北部的POI则略稀疏。尤其是红线两侧，似乎有一条密度的"断崖"鸿沟。</p>
+  </figure>
+</section>
+
+<!-- ══ POI MAJOR CATEGORY DENSITY ══ -->
+<section id="poi-major-density">
+  <div class="poi-major-density-inner" data-nav-theme="light">
+    <p class="sec-label">03 · Business Type Analysis</p>
+    <h2 class="poi-major-density-title">POI大类密度分析</h2>
+    <p class="poi-major-density-lead">上海火车站周边3 km范围内，三类POI呈现显著分异。公共服务与消费占绝对主导（约3.1万个点，单地块最高429个），高密度区呈少数热点集中，多与商业轴带、轨交枢纽邻近区重合，整体"南密北疏、中心突出"。文化与教育总量约4100个、峰值67，空间上较分散，热点规模小，呈点状镶嵌。商业与商务约4200个、峰值93，介于两者之间，分布更均匀，未见极端集聚。三类对比表明：该区域功能以消费服务为骨架，文化设施与商务办公为补充；规划上宜在消费热点区优化步行与公共服务承载，在文化、商务带适度提升配套密度与可达性。</p>
+
+    <div class="poi-major-density-grid">
+      <figure class="poi-major-density-item">
+        <img src="reference/poi-major-public-consumption.png" alt="公共服务与消费 POI 密度分布">
+      </figure>
+      <figure class="poi-major-density-item">
+        <img src="reference/poi-major-culture-education.png" alt="文化与教育 POI 密度分布">
+      </figure>
+      <figure class="poi-major-density-item">
+        <img src="reference/poi-major-business-services.png" alt="商业与服务 POI 密度分布">
+      </figure>
+    </div>
+
+  </div>
+
+  <div class="poi-major-density-strip-wrap" data-nav-theme="dark">
+    <div class="poi-major-density-strip-inner">
+      <figure class="poi-major-density-strip">
+        <img src="reference/poi-latitude-strip.png" alt="三类 POI 沿纬度方向密度分布 — 南密北疏">
+      </figure>
+    </div>
   </div>
 </section>
 
@@ -6198,6 +6777,31 @@ section[id],
   <div id="zoning-map" style="height:calc(100vh - 220px);"></div>
 </section>
 
+<!-- ══ FUNCTION DISTRIBUTION COVER ══ -->
+<section id="function-distribution-overview">
+  <div id="function-distribution-cover" class="design-cover function-distribution-cover">
+    <div class="design-cover-bg">
+      <img src="reference/function-distribution-cover.png" alt="功能分布 — 立体交通与线网织补">
+    </div>
+    <div class="cover-vignette"></div>
+    <div class="cover-glow"></div>
+    <div class="design-cover-num">04</div>
+    <div class="cover-content">
+      <p class="cover-eyebrow">04 · Function Distribution · 上海站片区</p>
+      <h1 class="cover-h1">功能<br><em>分布</em></h1>
+      <div class="rule"></div>
+      <p class="cover-sub">路网图示 · 方案图集 · 交互应用 · 立体织补</p>
+      <div class="design-cover-tags">
+        <span class="design-tag">Road Network</span>
+        <span class="design-tag">Plan Gallery</span>
+        <span class="design-tag">Interactive App</span>
+        <span class="design-tag">3D Stitching</span>
+      </div>
+    </div>
+    <a class="cover-scroll" href="#net-gallery" style="text-decoration:none;color:inherit;">Scroll</a>
+  </div>
+</section>
+
 <!-- ══ NET GALLERY ══ -->
 <section id="net-gallery">
   <div id="net-frame">
@@ -6228,12 +6832,16 @@ section[id],
       <div class="net-caption-text">根据控制网格生成建筑形态</div>
     </div>
     <div id="net-counter"><strong id="net-n">01</strong> &thinsp;/&thinsp; 05</div>
-    <div id="net-dots">
-      <button class="net-dot active" data-step="0"></button>
-      <button class="net-dot" data-step="1"></button>
-      <button class="net-dot" data-step="2"></button>
-      <button class="net-dot" data-step="3"></button>
-      <button class="net-dot" data-step="4"></button>
+    <div id="net-controls">
+      <button type="button" class="net-nav-btn" id="net-prev" aria-label="上一步">←</button>
+      <div id="net-dots">
+        <button type="button" class="net-dot active" data-step="0" aria-label="步骤 1"></button>
+        <button type="button" class="net-dot" data-step="1" aria-label="步骤 2"></button>
+        <button type="button" class="net-dot" data-step="2" aria-label="步骤 3"></button>
+        <button type="button" class="net-dot" data-step="3" aria-label="步骤 4"></button>
+        <button type="button" class="net-dot" data-step="4" aria-label="步骤 5"></button>
+      </div>
+      <button type="button" class="net-nav-btn" id="net-next" aria-label="下一步">→</button>
     </div>
     <div id="net-progress"><div id="net-bar"></div></div>
   </div>
@@ -8750,42 +9358,47 @@ try {
 ────────────────────────────────── */
 (function(){
   const gallery  = document.getElementById('net-gallery');
+  const frame    = document.getElementById('net-frame');
   const captions = document.querySelectorAll('.net-caption');
   const nEl      = document.getElementById('net-n');
   const barEl    = document.getElementById('net-bar');
+  const prevBtn  = document.getElementById('net-prev');
+  const nextBtn  = document.getElementById('net-next');
   const N        = 5;
+  const AUTO_MS  = 4800;
   let curIdx     = 0;
+  let autoTimer  = null;
+  let autoOn     = false;
+  let userPaused = false;
 
-  // Single Leaflet map
-  const netMap = darkMap('net-map', [31.2488, 121.4590], 15);
+  const netMap = darkMap('net-map', [31.2488, 121.4590], 17);
+  if (netMap.zoomControl) netMap.removeControl(netMap.zoomControl);
 
-  // SITE outline for spatial reference
   L.polygon(SITE_COORDS, {
     color:'#e63946', weight:2, opacity:.6,
     fillColor:'#e63946', fillOpacity:.04, interactive:false
   }).addTo(netMap);
 
-  // Cumulative layer configs per step
   const STEPS = [
-    [ // 01 lines — design context lines
+    [
       { file:'lines',     color:'#e8d5a3', weight:1.8, opacity:0.75 },
     ],
-    [ // 02 + road2 — vehicle road network
+    [
       { file:'lines',     color:'#e8d5a3', weight:1.2, opacity:0.35 },
       { file:'road2',     color:'#f4a261', weight:2.8, opacity:0.90 },
     ],
-    [ // 03 + walkway — pedestrian layer
+    [
       { file:'lines',     color:'#e8d5a3', weight:1.0, opacity:0.25 },
       { file:'road2',     color:'#f4a261', weight:2.0, opacity:0.50 },
       { file:'walkway',   color:'#00b4d8', weight:2.5, opacity:0.90 },
     ],
-    [ // 04 + net — dynamic grid
+    [
       { file:'lines',     color:'#e8d5a3', weight:0.8, opacity:0.20 },
       { file:'road2',     color:'#f4a261', weight:1.5, opacity:0.35 },
       { file:'walkway',   color:'#00b4d8', weight:1.5, opacity:0.45 },
       { file:'net',       color:'#9b5de5', weight:1.2, opacity:0.88 },
     ],
-    [ // 05 + buildings — building forms
+    [
       { file:'lines',     color:'#e8d5a3', weight:0.7, opacity:0.18 },
       { file:'road2',     color:'#f4a261', weight:1.2, opacity:0.28 },
       { file:'walkway',   color:'#00b4d8', weight:1.2, opacity:0.35 },
@@ -8794,14 +9407,13 @@ try {
     ],
   ];
 
-  // Preload all GeoJSON
   const geoData = {};
   const FILES = ['lines','road2','walkway','net','buildings'];
   let loaded = 0;
   FILES.forEach(name => {
     fetch(`data/${name}.geojson`).then(r=>r.json()).then(d=>{
       geoData[name] = d; loaded++;
-      if(loaded === FILES.length) _showStep(0);
+      if(loaded === FILES.length) goTo(0, { instant: true });
     }).catch(()=>{ loaded++; });
   });
 
@@ -8820,25 +9432,154 @@ try {
 
   const dots = document.querySelectorAll('.net-dot');
 
-  function goTo(idx){
-    if(idx === curIdx) return;
+  function _setBarInstant(pct) {
+    barEl.style.transition = 'none';
+    barEl.style.width = pct + '%';
+    void barEl.offsetWidth;
+  }
+
+  function _animateBar(fromPct, toPct, ms) {
+    _setBarInstant(fromPct);
+    barEl.style.transition = 'width ' + ms + 'ms linear';
+    barEl.style.width = toPct + '%';
+  }
+
+  function _updateNavButtons() {
+    if (prevBtn) prevBtn.disabled = curIdx <= 0;
+    if (nextBtn) nextBtn.disabled = curIdx >= N - 1;
+  }
+
+  function goTo(idx, opts){
+    opts = opts || {};
+    idx = ((idx % N) + N) % N;
+    if (idx === curIdx && !opts.force) return;
+
     captions[curIdx].classList.remove('active');
     dots[curIdx].classList.remove('active');
     curIdx = idx;
     captions[idx].classList.add('active');
     dots[idx].classList.add('active');
     nEl.textContent = String(idx + 1).padStart(2, '0');
-    barEl.style.width = ((idx + 1) / N * 100) + '%';
     _showStep(idx);
+    _updateNavButtons();
+
+    const endPct = ((idx + 1) / N) * 100;
+    if (opts.instant) {
+      _setBarInstant(endPct);
+    } else {
+      const startPct = (idx / N) * 100;
+      _animateBar(startPct, endPct, opts.animateMs || 350);
+    }
+  }
+
+  function clearAuto() {
+    if (autoTimer) {
+      clearTimeout(autoTimer);
+      autoTimer = null;
+    }
+  }
+
+  function scheduleAuto() {
+    clearAuto();
+    if (!autoOn || userPaused) return;
+
+    const fromPct = (curIdx / N) * 100;
+    const toPct = ((curIdx + 1) / N) * 100;
+    _animateBar(fromPct, toPct, AUTO_MS);
+
+    autoTimer = setTimeout(function () {
+      if (curIdx >= N - 1) {
+        goTo(0, { animateMs: 350 });
+      } else {
+        goTo(curIdx + 1, { animateMs: 350 });
+      }
+      scheduleAuto();
+    }, AUTO_MS);
+  }
+
+  function startAuto() {
+    autoOn = true;
+    userPaused = false;
+    scheduleAuto();
+  }
+
+  function pauseAuto() {
+    userPaused = true;
+    clearAuto();
+    _setBarInstant(((curIdx + 1) / N) * 100);
+  }
+
+  function resumeAutoLater() {
+    userPaused = false;
+    clearAuto();
+    autoTimer = setTimeout(function () {
+      if (autoOn) scheduleAuto();
+    }, 2800);
   }
 
   dots.forEach(dot => {
-    dot.addEventListener('click', () => goTo(parseInt(dot.dataset.step)));
+    dot.addEventListener('click', function () {
+      pauseAuto();
+      goTo(parseInt(dot.dataset.step, 10));
+      resumeAutoLater();
+    });
   });
 
-  new IntersectionObserver(entries=>{
-    if(entries[0].isIntersecting) netMap.invalidateSize();
-  }, {threshold:0.05}).observe(gallery);
+  if (prevBtn) {
+    prevBtn.addEventListener('click', function () {
+      if (curIdx <= 0) return;
+      pauseAuto();
+      goTo(curIdx - 1);
+      resumeAutoLater();
+    });
+  }
+
+  if (nextBtn) {
+    nextBtn.addEventListener('click', function () {
+      if (curIdx >= N - 1) return;
+      pauseAuto();
+      goTo(curIdx + 1);
+      resumeAutoLater();
+    });
+  }
+
+  if (frame) {
+    frame.addEventListener('mouseenter', pauseAuto);
+    frame.addEventListener('mouseleave', function () {
+      if (autoOn) resumeAutoLater();
+    });
+  }
+
+  document.addEventListener('keydown', function (e) {
+    if (!gallery) return;
+    const r = gallery.getBoundingClientRect();
+    if (r.bottom < 0 || r.top > window.innerHeight) return;
+    if (e.key === 'ArrowLeft' && curIdx > 0) {
+      e.preventDefault();
+      pauseAuto();
+      goTo(curIdx - 1);
+      resumeAutoLater();
+    } else if (e.key === 'ArrowRight' && curIdx < N - 1) {
+      e.preventDefault();
+      pauseAuto();
+      goTo(curIdx + 1);
+      resumeAutoLater();
+    }
+  });
+
+  new IntersectionObserver(function (entries) {
+    const visible = entries[0].isIntersecting;
+    if (visible) {
+      netMap.invalidateSize();
+      if (!autoOn) startAuto();
+      else if (!userPaused) scheduleAuto();
+    } else {
+      pauseAuto();
+      autoOn = false;
+    }
+  }, { threshold: 0.35 }).observe(gallery);
+
+  _updateNavButtons();
 })();
 
 /* ──────────────────────────────────
@@ -9716,6 +10457,41 @@ try {
 })();
 
 
+/* 业态分析 — 南北分区图 hover 切换 + 点击弹窗 */
+(function initZoningDistrictMap() {
+  const swap = document.getElementById('zoning-district-swap');
+  const modal = document.getElementById('zoning-district-modal');
+  if (!swap || !modal) return;
+
+  function openModal() {
+    modal.classList.add('is-open');
+    modal.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeModal() {
+    modal.classList.remove('is-open');
+    modal.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+  }
+
+  swap.addEventListener('click', openModal);
+  swap.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      openModal();
+    }
+  });
+  modal.querySelectorAll('[data-zoning-district-close]').forEach(function (el) {
+    el.addEventListener('click', closeModal);
+  });
+  modal.querySelector('.station-history-modal-close').addEventListener('click', closeModal);
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && modal.classList.contains('is-open')) closeModal();
+  });
+})();
+
+
 /* 城市肌理 — 热点弹窗 */
 (function initTextureHotspots() {
   const swap = document.getElementById('texture-swap');
@@ -9853,6 +10629,8 @@ try {
     '#tech',
     '#deadends',
     '#wool-algorithm',
+    '#poi-density-analysis',
+    '#poi-major-density .poi-major-density-inner',
     '.team-detail-right',
     '[data-nav-theme="light"]'
   ].join(',');
