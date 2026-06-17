@@ -625,6 +625,9 @@ main {
 }
 
 /* iframe embed (团队总站嵌入) */
+body.embed .immersive-top {
+  padding-right: 8px;
+}
 body.embed {
   overflow: hidden !important;
 }

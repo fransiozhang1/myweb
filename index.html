@@ -412,11 +412,11 @@ nav.nav--on-light .nav-sub li a:hover { color: rgba(0,0,0,.85); }
   min-height: 460px;
 }
 .team-grid {
-  display: flex;
-  gap: 48px;
-  align-items: flex-start;
-  justify-content: center;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: clamp(24px, 4vw, 48px);
+  align-items: start;
+  justify-items: center;
   transition:
     opacity .55s cubic-bezier(.22,1,.36,1),
     transform .55s cubic-bezier(.22,1,.36,1),
@@ -436,7 +436,8 @@ nav.nav--on-light .nav-sub li a:hover { color: rgba(0,0,0,.85); }
   display: block;
 }
 .team-avatar img {
-  width: 200px;
+  width: 100%;
+  max-width: 260px;
   height: auto;
   display: block;
   filter: grayscale(1) brightness(.9);
@@ -1759,8 +1760,9 @@ nav.nav--on-light .nav-sub li a:hover { color: rgba(0,0,0,.85); }
 }
 .texture-modal-close {
   position: absolute;
-  top: -36px;
-  right: 0;
+  top: 14px;
+  right: 14px;
+  z-index: 3;
   width: 26px;
   height: 26px;
   border: 1px solid rgba(255,255,255,.35);
@@ -4660,8 +4662,9 @@ footer {
 }
 .texture-modal-close {
   position: absolute;
-  top: -36px;
-  right: 0;
+  top: 14px;
+  right: 14px;
+  z-index: 3;
   width: 26px;
   height: 26px;
   border: 1px solid rgba(255,255,255,.35);
@@ -5808,7 +5811,7 @@ section[id],
 }
 .zoning-interact-toggle {
   position: absolute;
-  top: 14px;
+  bottom: 14px;
   right: 14px;
   z-index: 4;
   padding: 8px 14px;
@@ -6826,7 +6829,7 @@ section[id],
   <article id="zoning-analysis-logic" class="zoning-embed">
     <header class="zoning-embed-head">
       <div>
-        <span class="zoning-embed-kicker">Zoning Logic</span>
+        <span class="zoning-embed-kicker">分区逻辑</span>
         <h3 class="zoning-embed-title">功能分区逻辑</h3>
       </div>
       <p class="zoning-embed-desc">从 POI Cliff、Entropy、Flow 等指标识别功能密度断裂与分区边界。</p>
@@ -6840,7 +6843,7 @@ section[id],
   <article id="zoning-analysis-verify" class="zoning-embed">
     <header class="zoning-embed-head">
       <div>
-        <span class="zoning-embed-kicker">Verification</span>
+        <span class="zoning-embed-kicker">分区印证</span>
         <h3 class="zoning-embed-title">分区印证</h3>
       </div>
       <p class="zoning-embed-desc">用交通、界面、碎片化等剖面验证四类功能分区的空间合理性。</p>
@@ -6854,7 +6857,7 @@ section[id],
   <article id="zoning-analysis-matrix" class="zoning-embed">
     <header class="zoning-embed-head">
       <div>
-        <span class="zoning-embed-kicker">Function Matrix</span>
+        <span class="zoning-embed-kicker">功能矩阵</span>
         <h3 class="zoning-embed-title">功能适配矩阵</h3>
       </div>
       <p class="zoning-embed-desc">以矩阵方式呈现功能类型之间的适配强度，辅助推导复合业态策略。</p>
@@ -9569,7 +9572,7 @@ try {
     creative: { label:'文创产业园',  color:'#9b5de5' },
   };
 
-  const zMap = darkMap('zoning-map', [31.249, 121.455], 15);
+  const zMap = darkMap('zoning-map', [31.249, 121.455], 16);
 
   // SITE boundary — red thick line
   L.polygon(SITE_COORDS, {
@@ -9582,14 +9585,10 @@ try {
   const zLayers = {};
   Object.keys(ZONE_CFG).forEach(k => { zLayers[k] = L.layerGroup().addTo(zMap); });
 
-  // History stack for undo (each entry: {zone, layer})
+  // History stack (saved polygons from storage)
   const zHistory = [];
 
-  // Drawing state
   let zActive = 'cbd';
-  let zPts    = [];
-  let zPrev   = null; // preview polyline
-  let zDot    = null; // first-point marker
 
   // Style zone palette buttons
   document.querySelectorAll('.zone-btn').forEach(btn => {
@@ -9601,18 +9600,11 @@ try {
       btn.classList.add('active');
       zActive = btn.dataset.zone;
       _updateZoneHighlight(zActive);
-      _zCancel();
     });
   });
   // Initial active style
   const initBtn = document.querySelector('.zone-btn[data-zone="cbd"]');
   if(initBtn){ initBtn.style.background = ZONE_CFG.cbd.color + '33'; }
-
-  function _zCancel(){
-    zPts = [];
-    if(zPrev){ zMap.removeLayer(zPrev); zPrev = null; }
-    if(zDot){  zMap.removeLayer(zDot);  zDot  = null; }
-  }
 
   function _renderZone(id, data){
     const cfg = ZONE_CFG[data.zone]; if(!cfg||!data.coords?.length) return;
@@ -9627,49 +9619,6 @@ try {
     );
     zHistory.push({ zone:data.zone, layer:poly, id });
   }
-
-  function _zCommit(){
-    if(zPts.length < 3){ _zCancel(); return; }
-    const id = _uid();
-    storageSave('zoning', id, { zone:zActive, color:ZONE_CFG[zActive].color, coords:[...zPts] });
-    _zCancel();
-  }
-
-  function _updatePreview(latlng){
-    if(zPts.length === 0) return;
-    const pts = [...zPts, [latlng.lat, latlng.lng]];
-    if(zPrev) zMap.removeLayer(zPrev);
-    zPrev = L.polyline(pts, {
-      color: ZONE_CFG[zActive].color, weight: 1.5,
-      opacity: .6, dashArray: '5 4',
-    }).addTo(zMap);
-  }
-
-  zMap.on('click', e => {
-    const ll = [e.latlng.lat, e.latlng.lng];
-    zPts.push(ll);
-    if(zPts.length === 1){
-      zDot = L.circleMarker(ll, {
-        radius: 4, color: ZONE_CFG[zActive].color,
-        fillColor: ZONE_CFG[zActive].color, fillOpacity: 1, weight: 0,
-      }).addTo(zMap);
-    }
-    _updatePreview(e.latlng);
-  });
-
-  zMap.on('mousemove', e => { _updatePreview(e.latlng); });
-
-  zMap.on('dblclick', e => {
-    L.DomEvent.preventDefault(e);
-    // Remove the duplicate point added by the second click of dblclick
-    if(zPts.length > 1) zPts.pop();
-    _zCommit();
-  });
-
-  zMap.on('contextmenu', e => { _zCancel(); });
-
-  // Cursor style
-  zMap.getContainer().style.cursor = 'crosshair';
 
   // Trigger size refresh when section scrolls into view
   new IntersectionObserver(entries => {
@@ -10306,15 +10255,17 @@ try {
 
   var fadeObs = new IntersectionObserver(function (entries) {
     entries.forEach(function (entry) {
-      if (entry.isIntersecting) {
+      var ratio = entry.intersectionRatio;
+      if (entry.isIntersecting && ratio >= 0.12) {
         entry.target.classList.add('is-visible');
-        fadeObs.unobserve(entry.target);
+      } else if (!entry.isIntersecting || ratio < 0.04) {
+        entry.target.classList.remove('is-visible');
       }
     });
-  }, { threshold: 0, rootMargin: '0px 0px -2% 0px' });
+  }, { threshold: [0, 0.04, 0.12, 0.25] });
 
   fadeTargets.forEach(function (el) {
-    if (!el.classList.contains('is-visible')) fadeObs.observe(el);
+    fadeObs.observe(el);
   });
 })();
 

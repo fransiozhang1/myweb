@@ -116,7 +116,7 @@
       attributionControl: false,
     });
     L.tileLayer(DARK, { maxZoom: 19, attribution: ATTR }).addTo(map);
-    L.control.zoom({ position: "bottomright" }).addTo(map);
+    L.control.zoom({ position: "bottomright", zoomInTitle: "放大", zoomOutTitle: "缩小" }).addTo(map);
     return map;
   }
 

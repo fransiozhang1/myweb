@@ -18,13 +18,68 @@
       .replace(/"/g, "&quot;");
   }
 
+  function normalizeLabel(label) {
+    if (!label) return "";
+    var exact = {
+      "POI Cliff": "POI 断崖",
+      "Cliff": "断崖",
+      "Entropy": "熵值",
+      "Flow": "流量",
+      "Density": "密度",
+      "Matrix": "矩阵",
+      "Verification": "印证",
+      "Logic": "逻辑",
+      "Cluster": "聚类",
+      "Heatmap": "热力图",
+      "Grid": "网格",
+      "Boundary": "边界",
+      "Overlay": "叠加",
+      "Index": "指数",
+      "Score": "评分",
+      "Demand": "需求",
+      "Barrier": "阻隔",
+      "Detour": "绕行",
+      "Residential": "居住",
+      "Commercial": "商业",
+      "Office": "办公",
+      "Retail": "零售",
+      "Culture": "文化",
+      "Green": "绿地",
+      "Mixed Use": "混合功能",
+      "Mixed-Use": "混合功能",
+      "High-end Business": "高端商务",
+      "Quality Residential": "品质住宅",
+      "Leisure Commercial": "休闲商业",
+      "Culture & Creative": "文创文化",
+    };
+    if (exact[label]) return exact[label];
+    return String(label)
+      .replace(/POI Cliff/gi, "POI 断崖")
+      .replace(/\bEntropy\b/gi, "熵值")
+      .replace(/\bFlow\b/gi, "流量")
+      .replace(/\bCliff\b/gi, "断崖")
+      .replace(/\bDensity\b/gi, "密度")
+      .replace(/\bHeatmap\b/gi, "热力图")
+      .replace(/\bMatrix\b/gi, "矩阵")
+      .replace(/\bVerification\b/gi, "印证")
+      .replace(/\bLogic\b/gi, "逻辑")
+      .replace(/\bCluster\b/gi, "聚类")
+      .replace(/\bBoundary\b/gi, "边界")
+      .replace(/\bOverlay\b/gi, "叠加")
+      .replace(/\bIndex\b/gi, "指数")
+      .replace(/\bScore\b/gi, "评分")
+      .replace(/\bDemand\b/gi, "需求")
+      .replace(/\bBarrier\b/gi, "阻隔")
+      .replace(/\bDetour\b/gi, "绕行");
+  }
+
   function statRow(stats) {
     if (!stats || !stats.length) return "";
     return (
       "<div class=\"stat-row\">" +
       stats
         .map(function (s) {
-          return "<div class=\"stat-card\"><div class=\"label\">" + esc(s.label) + "</div><div class=\"value\">" + esc(s.value) + "</div></div>";
+          return "<div class=\"stat-card\"><div class=\"label\">" + esc(normalizeLabel(s.label)) + "</div><div class=\"value\">" + esc(s.value) + "</div></div>";
         })
         .join("") +
       "</div>"
@@ -75,7 +130,7 @@
       stats.slice(0, 4).forEach(function (s) {
         items.push(
           "<div class=\"hud-kv\"><span class=\"hud-k\">" +
-            esc(s.label) +
+            esc(normalizeLabel(s.label)) +
             "</span><span class=\"hud-v\">" +
             esc(s.value) +
             "</span></div>"
@@ -88,7 +143,7 @@
         : "";
     return (
       "<div class=\"hud-title\">" +
-      esc(tabLabel || "") +
+      esc(normalizeLabel(tabLabel || "")) +
       "</div><div class=\"hud-grid\">" +
       items.join("") +
       "</div>" +
@@ -215,7 +270,7 @@
   function renderIndex(p) {
     var cards = (p.links || [])
       .map(function (l) {
-        return "<a class=\"index-card\" href=\"#" + esc(l.id) + "\"><div class=\"num\">" + esc(l.num) + "</div><div class=\"label\">" + esc(l.label) + "</div></a>";
+        return "<a class=\"index-card\" href=\"#" + esc(l.id) + "\"><div class=\"num\">" + esc(l.num) + "</div><div class=\"label\">" + esc(normalizeLabel(l.label)) + "</div></a>";
       })
       .join("");
     return "<section class=\"section\" id=\"" + esc(p.id) + "\" data-nav data-accent=\"red\"><p class=\"sec-tag\">Index</p><h2 class=\"sec-title\">" + esc(p.title) + "</h2><div class=\"index-grid\">" + cards + "</div></section>";
@@ -257,7 +312,7 @@
           "\" data-tab-id=\"" +
           esc(t.id) +
           "\">" +
-          esc(t.label) +
+          esc(normalizeLabel(t.label)) +
           "</button>"
         );
       })
@@ -287,7 +342,7 @@
       "<div class=\"immersive-layer-tag\" id=\"layer-tag-" +
       esc(p.id) +
       "\">" +
-      esc(first.label) +
+      esc(normalizeLabel(first.label)) +
       "</div>" +
       "<div class=\"immersive-viewer-wrap\">" +
       immersiveViewerHtml(first, viewId) +
@@ -295,7 +350,7 @@
       "<div class=\"immersive-hud\" id=\"hud-" +
       esc(p.id) +
       "\">" +
-      compactHud(first.summary || p.summary, null, first.label) +
+      compactHud(first.summary || p.summary, null, normalizeLabel(first.label)) +
       "</div></div></section>"
     );
   }
@@ -307,7 +362,7 @@
     var tabBar = tabs
       .map(function (t, i) {
         var cls = "tab-btn" + (i === 0 ? " active" + (accent ? " " + accent : "") : "");
-        return "<button type=\"button\" class=\"" + cls + "\" data-tab=\"" + esc(p.id) + "\" data-tab-id=\"" + esc(t.id) + "\">" + esc(t.label) + "</button>";
+        return "<button type=\"button\" class=\"" + cls + "\" data-tab=\"" + esc(p.id) + "\" data-tab-id=\"" + esc(t.id) + "\">" + esc(normalizeLabel(t.label)) + "</button>";
       })
       .join("");
     var first = tabs[0];
@@ -659,8 +714,8 @@
     destroyViewer(viewId);
     var wrap = stage.querySelector(".immersive-viewer-wrap");
     if (wrap) wrap.innerHTML = immersiveViewerHtml(tab, viewId);
-    if (hud) hud.innerHTML = compactHud(tab.summary || page.summary, null, tab.label);
-    if (layerTag) layerTag.textContent = tab.label;
+    if (hud) hud.innerHTML = compactHud(tab.summary || page.summary, null, normalizeLabel(tab.label));
+    if (layerTag) layerTag.textContent = normalizeLabel(tab.label);
     if (tab.mapLayer) {
       var mapEl = stage.querySelector("[data-viewer-id=\"" + viewId + "\"]");
       if (mapEl) mountImmersiveMap(mapEl, viewId, tab.mapLayer);
