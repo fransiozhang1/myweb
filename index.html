@@ -2332,64 +2332,75 @@ nav.nav--on-light .nav-sub li a:hover { color: rgba(0,0,0,.85); }
 /* ── ZONING ── */
 #zoning { background: var(--black); min-height: 100vh; display: flex; flex-direction: column; }
 #zoning-map { flex: 1; min-height: 0; }
-.zone-palette {
-  display: flex; flex-wrap: wrap; gap: 8px;
-  padding: 14px 52px; background: rgba(0,0,0,.7);
-  border-bottom: 1px solid var(--mid);
-}
-.zone-btn {
-  padding: 6px 16px; border: 1.5px solid transparent;
-  border-radius: 20px; background: rgba(255,255,255,.05);
-  color: var(--dim); font-size: 13px; letter-spacing: .08em;
-  cursor: pointer; transition: all .18s;
-}
-.zone-btn:hover { color: var(--white); }
-.zone-btn.active {
-  color: #000; font-weight: 600;
-  border-color: transparent;
-}
-.zone-tools {
-  display: flex; align-items: center; gap: 10px;
-  padding: 8px 52px; background: rgba(0,0,0,.55);
-  border-bottom: 1px solid #1a1a1a;
-}
-.zone-tool-btn {
-  padding: 5px 14px; border: 1px solid #333;
-  border-radius: 4px; background: transparent;
-  color: var(--dim); font-size: 12px; letter-spacing: .08em;
-  cursor: pointer; transition: all .15s;
-}
-.zone-tool-btn:hover { color: var(--white); border-color: #555; }
-#zone-draw-hint {
-  font-size: 12px; letter-spacing: .06em; color: #555;
-  margin-left: auto;
-}
-.zone-active-label {
-  font-size: 12px; letter-spacing: .06em; color: var(--white);
-  padding: 3px 10px; border-radius: 3px; font-weight: 600;
+
+.zoning-plan-header {
+  padding: clamp(64px, 9vh, 88px) 52px 0;
 }
 
-/* ── PLAN GALLERY ── */
-.plan-spread {
-  height: 100vh; display: flex; position: relative;
-  background: #000; overflow: hidden;
+.zoning-plan-head {
+  max-width: 720px;
+  margin-bottom: clamp(24px, 3.5vh, 36px);
 }
-.plan-half {
-  width: 50%; height: 100%; position: relative; overflow: hidden;
+
+.zoning-plan-head .rule {
+  margin-top: 18px;
 }
-.plan-bg {
-  width: 100%; height: 100%;
-  background-size: cover; background-position: center;
-  position: relative;
-  transition: transform .6s ease;
+
+.zone-palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 0 0 clamp(20px, 3vh, 28px);
+  border-bottom: 1px solid var(--mid);
 }
-.plan-half:hover .plan-bg { transform: scale(1.015); }
-.plan-pg {
-  position: absolute; bottom: 18px; left: 18px;
-  font-size: 11px; letter-spacing: .14em; color: rgba(255,255,255,.28);
-  z-index: 10; font-variant-numeric: tabular-nums;
+
+.zone-btn {
+  padding: 10px 20px;
+  border: 1px solid var(--mid);
+  border-radius: 999px;
+  background: rgba(255,255,255,.03);
+  color: var(--dim);
+  font-size: 13px;
+  letter-spacing: .1em;
+  cursor: pointer;
+  transition: color .2s, border-color .2s, background .2s, transform .2s;
 }
-/* ── hotspot ── */
+
+.zone-btn:hover {
+  color: var(--white);
+  border-color: rgba(255,255,255,.22);
+  transform: translateY(-1px);
+}
+
+.zone-btn.active {
+  color: var(--white);
+  font-weight: 500;
+  border-color: transparent;
+  box-shadow: 0 8px 24px rgba(0,0,0,.28);
+}
+
+@media (max-width: 960px) {
+  .zoning-plan-header {
+    padding-left: 28px;
+    padding-right: 28px;
+  }
+
+  .zone-palette {
+    gap: 8px;
+  }
+
+  .zone-btn {
+    padding: 8px 14px;
+    font-size: 12px;
+  }
+
+  #interactive-app {
+    padding-left: 28px;
+    padding-right: 28px;
+  }
+}
+
+/* ── hotspot (plan / net overlays) ── */
 .hs {
   position: absolute; transform: translate(-50%,-50%);
   cursor: pointer; z-index: 20; width: 26px; height: 26px;
@@ -2583,76 +2594,84 @@ nav.nav--on-light .nav-sub li a:hover { color: rgba(0,0,0,.85); }
 
 /* ── PLAN GALLERY ── */
 #plan-gallery { background: #0a0a0a; }
-.plan-spread {
-  display: flex; height: 100vh; position: relative; gap: 0;
-}
-.plan-half {
-  flex: 1; width: 0; min-width: 0; position: relative; overflow: hidden;
-}
-.plan-half img {
-  width: 100%; height: 100%; object-fit: cover;
-  object-position: center; display: block;
-  /* zoom 1.5% from outer edge so inner edges overlap at the seam —
-     hides any baked-in white image border + subpixel flex gap */
-  transform: scale(1.015);
-}
-.plan-spread > .plan-half:first-child img { transform-origin: left center; }
-.plan-spread > .plan-half:last-child  img { transform-origin: right center; }
 
-/* hotspot */
-.hs {
-  position: absolute; z-index: 10;
-  width: 22px; height: 22px;
-  transform: translate(-50%,-50%);
-  cursor: pointer;
+#plan-gallery .plan-gallery-spread-frame {
+  display: flex;
+  width: 100%;
+  height: clamp(454px, 68vh, 734px);
+  border: 1px solid var(--mid);
+  background: var(--dark);
+  overflow: hidden;
 }
-.hs-dot {
-  position: absolute; inset: 0;
-  border-radius: 50%;
-  background: rgba(255,255,255,.85);
-  animation: hs-pulse 2.4s ease-in-out infinite;
+
+#plan-gallery .plan-gallery-half {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+  height: 100%;
+  border: none;
+  border-radius: 0;
+  cursor: zoom-in;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
 }
-.hs-ring {
-  position: absolute; inset: -6px;
-  border-radius: 50%;
-  border: 1.5px solid rgba(255,255,255,.5);
-  animation: hs-ring 2.4s ease-in-out infinite;
+
+#plan-gallery .plan-gallery-half:first-child {
+  border-right: 1px solid var(--mid);
+  justify-content: flex-end;
 }
-@keyframes hs-pulse {
-  0%,100%{ transform:scale(1); opacity:.9; }
-  50%{ transform:scale(1.25); opacity:.5; }
+
+#plan-gallery .plan-gallery-half:last-child {
+  justify-content: flex-start;
 }
-@keyframes hs-ring {
-  0%,100%{ transform:scale(1); opacity:.6; }
-  50%{ transform:scale(1.6); opacity:0; }
+
+#plan-gallery .plan-gallery-half img {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  display: block;
+  transform: none;
 }
-.hs-popup {
-  position: absolute; bottom: 32px; left: 50%; transform: translateX(-50%);
-  background: rgba(10,10,10,.92); border: 1px solid rgba(255,255,255,.18);
-  padding: 12px 16px; min-width: 180px; max-width: 240px;
-  pointer-events: none; opacity: 0; transition: opacity .2s;
+
+#plan-gallery .plan-gallery-half:hover img {
+  transform: none;
 }
-.hs-popup.open { opacity: 1; }
-.hs-popup-title { font-size: 16px; font-weight: 700; color: #fff; letter-spacing: .06em; margin-bottom: 8px; }
-.hs-popup-body { font-size: 14px; color: rgba(255,255,255,.82); line-height: 1.8; letter-spacing: .04em; }
 
 /* ── INTERACTIVE APP ── */
 #interactive-app {
-  min-height: 100vh; background: var(--black);
-  display: flex; flex-direction: column;
-  padding: 52px 52px 40px;
+  min-height: auto;
+  background: var(--black);
+  padding: 52px 52px 64px;
+  display: flex;
+  flex-direction: column;
 }
+
 .iapp-header {
-  display: flex; justify-content: space-between; align-items: flex-end;
-  margin-bottom: 28px; flex-wrap: wrap; gap: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 16px;
 }
+
 .iapp-open {
-  font-size: 13px; letter-spacing: .1em; color: var(--dim);
-  border: 1px solid var(--mid); padding: 8px 16px;
-  text-decoration: none; transition: color .25s, border-color .25s;
+  font-size: 13px;
+  letter-spacing: .1em;
+  color: var(--dim);
+  border: 1px solid var(--mid);
+  padding: 8px 16px;
+  text-decoration: none;
+  transition: color .25s, border-color .25s;
   white-space: nowrap;
 }
-.iapp-open:hover { color: var(--white); border-color: var(--dim); }
+
+.iapp-open:hover {
+  color: var(--white);
+  border-color: var(--dim);
+}
 
 /* ── FOOTER ── */
 footer {
@@ -3918,24 +3937,71 @@ footer {
 .design-gallery-lightbox-fig {
   flex: 1 1 auto;
   min-height: 0;
+  max-height: calc(96vh - 200px);
   display: flex;
   align-items: center;
   justify-content: center;
   background: var(--dark);
   border-bottom: 1px solid var(--mid);
   padding: 12px 16px;
-  min-height: min(82vh, 960px);
+  overflow: hidden;
 }
 .design-gallery-lightbox-fig img {
   max-width: 100%;
-  max-height: min(88vh, 1100px);
+  max-height: 100%;
   width: auto;
   height: auto;
   object-fit: contain;
   display: block;
 }
+
+.design-gallery-lightbox-spread {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-height: 100%;
+  gap: 0;
+}
+
+.design-gallery-lightbox-spread[hidden] {
+  display: none !important;
+}
+
+.design-gallery-lightbox-spread-half {
+  flex: 1;
+  min-width: 0;
+  max-height: 100%;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+
+.design-gallery-lightbox-spread-half:first-child {
+  justify-content: flex-end;
+}
+
+.design-gallery-lightbox-spread-half:last-child {
+  justify-content: flex-start;
+}
+
+.design-gallery-lightbox-spread-half img {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  display: block;
+}
+
+.design-gallery-lightbox-spread-half + .design-gallery-lightbox-spread-half {
+  border-left: 1px solid var(--mid);
+}
 .design-gallery-lightbox-caption {
   flex: 0 0 auto;
+  position: relative;
+  z-index: 1;
+  background: var(--gray);
   padding: 18px 52px 22px 24px;
 }
 .design-gallery-lightbox-title {
@@ -4039,8 +4105,9 @@ footer {
   .design-gallery-counter { width: 100%; text-align: center; margin-top: 4px; }
   .design-gallery-lightbox { padding: 8px; }
   .design-gallery-lightbox-dialog { max-width: 100%; max-height: 98vh; }
-  .design-gallery-lightbox-fig { min-height: 0; padding: 8px 10px; }
-  .design-gallery-lightbox-fig img { max-height: 78vh; }
+  .design-gallery-lightbox-fig { min-height: 0; max-height: calc(98vh - 180px); padding: 8px 10px; }
+  .design-gallery-lightbox-fig img,
+  .design-gallery-lightbox-spread-half img { max-height: 100%; }
   .design-gallery-lightbox-caption { padding: 14px 44px 18px 16px; }
 }
 
@@ -5279,31 +5346,85 @@ footer {
   }
 }
 
-/* ── Page fade-in on scroll ── */
+/* ── Page reveal motion ── */
 .page-fade {
   opacity: 0;
-  transition: opacity 0.75s ease;
+  transform: translate3d(0, var(--reveal-y, 34px), 0) scale(var(--reveal-scale, 1));
+  filter: blur(var(--reveal-blur, 10px));
+  clip-path: inset(var(--reveal-inset, 0) 0 0 0);
+  transition:
+    opacity var(--reveal-duration, .9s) cubic-bezier(.22,1,.36,1),
+    transform var(--reveal-duration, .9s) cubic-bezier(.22,1,.36,1),
+    filter var(--reveal-duration, .9s) cubic-bezier(.22,1,.36,1),
+    clip-path var(--reveal-duration, .9s) cubic-bezier(.22,1,.36,1);
+  will-change: opacity, transform, filter, clip-path;
 }
 .page-fade.is-visible {
   opacity: 1;
+  transform: translate3d(0, 0, 0) scale(1);
+  filter: blur(0);
+  clip-path: inset(0 0 0 0);
+}
+.page-fade[data-reveal="cover"] {
+  --reveal-y: 0px;
+  --reveal-scale: .975;
+  --reveal-blur: 14px;
+  --reveal-duration: 1.15s;
+}
+.page-fade[data-reveal="left"] {
+  --reveal-y: 0px;
+  transform: translate3d(-42px, 0, 0) scale(var(--reveal-scale, 1));
+}
+.page-fade[data-reveal="right"] {
+  --reveal-y: 0px;
+  transform: translate3d(42px, 0, 0) scale(var(--reveal-scale, 1));
+}
+.page-fade[data-reveal="gallery"],
+.page-fade[data-reveal="map"] {
+  --reveal-y: 18px;
+  --reveal-blur: 6px;
+  --reveal-inset: 8%;
+  --reveal-duration: 1s;
+}
+.page-fade[data-reveal="compact"] {
+  --reveal-y: 22px;
+  --reveal-blur: 4px;
+  --reveal-duration: .78s;
+}
+.page-fade.is-visible[data-reveal="left"],
+.page-fade.is-visible[data-reveal="right"] {
+  transform: translate3d(0, 0, 0) scale(1);
+}
+.reveal-child {
+  opacity: 0;
+  transform: translate3d(0, 18px, 0);
+  transition:
+    opacity .7s cubic-bezier(.22,1,.36,1),
+    transform .7s cubic-bezier(.22,1,.36,1);
+  transition-delay: var(--reveal-delay, 90ms);
+}
+.is-visible .reveal-child {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+}
+.reveal-child:nth-child(2n) {
+  transform: translate3d(0, 24px, 0);
+}
+.is-visible .reveal-child:nth-child(2n) {
+  transform: translate3d(0, 0, 0);
 }
 @media (prefers-reduced-motion: reduce) {
-  .page-fade {
+  .page-fade,
+  .reveal-child {
     opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+    clip-path: none !important;
     transition: none !important;
   }
 }
 
 /* ── Interactive app: link only, no embedded preview ── */
-#interactive-app {
-  min-height: auto;
-  padding: 52px 52px 64px;
-}
-.iapp-open {
-  font-size: 14px;
-  padding: 12px 22px;
-}
-
 /* ── Texture generation (肌理生成) ── */
 #texture-gen {
   min-height: 100vh;
@@ -6747,34 +6868,22 @@ section[id],
 
 <!-- ══ ZONING ══ -->
 <section id="zoning">
-  <div class="map-header">
-    <div>
+  <header class="zoning-plan-header">
+    <div class="zoning-plan-head">
       <p class="sec-label">02 · Design Proposal</p>
       <h2 class="sec-title">功能分区规划</h2>
+      <div class="rule"></div>
     </div>
-    <p class="map-desc">
-      选择分区类型后在地图上点击创建顶点，双击完成多边形，右键取消当前绘制。
-    </p>
-  </div>
+    <div class="zone-palette" id="zone-palette">
+      <button class="zone-btn active" data-zone="cbd"     style="--zc:#00b4d8">站城融合CBD</button>
+      <button class="zone-btn"        data-zone="res"     style="--zc:#f4a261">综合住宅区</button>
+      <button class="zone-btn"        data-zone="leisure" style="--zc:#52b788">休闲商业区</button>
+      <button class="zone-btn"        data-zone="park"    style="--zc:#2d9cdb">公园</button>
+      <button class="zone-btn"        data-zone="creative"style="--zc:#9b5de5">文创产业园</button>
+    </div>
+  </header>
 
-  <!-- Zone type palette -->
-  <div class="zone-palette" id="zone-palette">
-    <button class="zone-btn active" data-zone="cbd"     style="--zc:#00b4d8">站城融合CBD</button>
-    <button class="zone-btn"        data-zone="res"     style="--zc:#f4a261">综合住宅区</button>
-    <button class="zone-btn"        data-zone="leisure" style="--zc:#52b788">休闲商业区</button>
-    <button class="zone-btn"        data-zone="park"    style="--zc:#2d9cdb">公园</button>
-    <button class="zone-btn"        data-zone="creative"style="--zc:#9b5de5">文创产业园</button>
-  </div>
-
-  <!-- Tool bar -->
-  <div class="zone-tools">
-    <span class="zone-active-label" id="zone-active-label" style="background:#00b4d8">站城融合CBD</span>
-    <button class="zone-tool-btn" id="zone-undo">↩ 撤销上一个</button>
-    <button class="zone-tool-btn" id="zone-clear">清空全部</button>
-    <span id="zone-draw-hint">点击地图添加顶点 &nbsp;·&nbsp; 双击完成 &nbsp;·&nbsp; 右键取消</span>
-  </div>
-
-  <div id="zoning-map" style="height:calc(100vh - 220px);"></div>
+  <div id="zoning-map" style="height:calc(100vh - 200px);"></div>
 </section>
 
 <!-- ══ FUNCTION DISTRIBUTION COVER ══ -->
@@ -6849,330 +6958,188 @@ section[id],
 
 <!-- ══ PLAN GALLERY ══ -->
 <section id="plan-gallery">
-
-  <!-- 92 | 93 -->
-  <div class="plan-spread">
-    <div class="plan-half">
-      <img src="images/plan/92.webp" alt="总平面图南段">
-      <div class="hs" style="left:38%;top:45%">
-        <div class="hs-dot"></div><div class="hs-ring"></div>
-        <div class="hs-popup">
-          <div class="hs-popup-title">高架步行廊道系统</div>
-          <div class="hs-popup-body">主轴步行环路总长约1.2km，连接站前广场与CBD核心区，串联多个活动节点</div>
+  <article class="design-gallery plan-gallery-carousel">
+    <div class="design-gallery-header">
+      <p class="sec-label">04 · Function Distribution</p>
+      <h2 class="sec-title">方案图集</h2>
+      <div class="rule"></div>
+    </div>
+    <div class="design-gallery-wrap">
+      <div class="design-gallery-stage" data-gallery-stage="plan-gallery">
+        <button type="button" class="gallery-nav gallery-nav--prev" aria-label="上一组">←</button>
+        <div class="design-gallery-viewport">
+          <figure class="design-gallery-slide plan-gallery-spread is-active" data-desc="高架步行廊道系统：主轴步行环路总长约1.2km，连接站前广场与CBD核心区，串联多个活动节点。景观轴线：红色高架步道为南段视觉主轴，引导视线穿越铁路廊道至北侧城市界面。 步行环路闭合：北段环路将站域四个片区织成连续步行圈，步行直径约900m。铁路沿线激活：利用铁路防护绿带植入线性商业街廊，激活约800m消极边界。">
+            <div class="plan-gallery-spread-frame">
+              <button type="button" class="design-gallery-frame plan-gallery-half" data-desc="高架步行廊道系统：主轴步行环路总长约1.2km，连接站前广场与CBD核心区，串联多个活动节点。景观轴线：红色高架步道为南段视觉主轴，引导视线穿越铁路廊道至北侧城市界面。" data-num="92" aria-label="放大查看：总平面图南段">
+                <img src="images/plan/92.webp" alt="总平面图南段" draggable="false">
+              </button>
+              <button type="button" class="design-gallery-frame plan-gallery-half" data-desc="步行环路闭合：北段环路将站域四个片区织成连续步行圈，步行直径约900m。铁路沿线激活：利用铁路防护绿带植入线性商业街廊，激活约800m消极边界。" data-num="93" aria-label="放大查看：总平面图北段">
+                <img src="images/plan/93.webp" alt="总平面图北段" draggable="false">
+              </button>
+            </div>
+            <figcaption class="design-gallery-cap">
+              <span class="design-gallery-cap-title">总平面图南段 · 总平面图北段</span>
+              <span class="design-gallery-cap-type">92–93</span>
+            </figcaption>
+          </figure>
+          <figure class="design-gallery-slide plan-gallery-spread" data-desc="人车分流策略：地面100%步行化，机动车由东西两侧专属出入口进入地下车库，实现完全分流。地下车库接驳：地下两层停车，总容量约1200辆，全程与轨道交通换乘层直连。 立体交通组织：高架匝道与地面道路形成双环系统，有效消解铁路阻隔对通勤流线的影响。">
+            <div class="plan-gallery-spread-frame">
+              <button type="button" class="design-gallery-frame plan-gallery-half" data-desc="人车分流策略：地面100%步行化，机动车由东西两侧专属出入口进入地下车库，实现完全分流。地下车库接驳：地下两层停车，总容量约1200辆，全程与轨道交通换乘层直连。" data-num="94" aria-label="放大查看：地库出入口与车行流线">
+                <img src="images/plan/94.webp" alt="地库出入口与车行流线" draggable="false">
+              </button>
+              <button type="button" class="design-gallery-frame plan-gallery-half" data-desc="立体交通组织：高架匝道与地面道路形成双环系统，有效消解铁路阻隔对通勤流线的影响。" data-num="95" aria-label="放大查看：高架车行流线轴测">
+                <img src="images/plan/95.webp" alt="高架车行流线轴测" draggable="false">
+              </button>
+            </div>
+            <figcaption class="design-gallery-cap">
+              <span class="design-gallery-cap-title">地库出入口与车行流线 · 高架车行流线轴测</span>
+              <span class="design-gallery-cap-type">94–95</span>
+            </figcaption>
+          </figure>
+          <figure class="design-gallery-slide plan-gallery-spread" data-desc="TOD 站城融合：以上海火车站为核心，1500m步行半径内集聚商业、居住、公园多元业态。铁路景观廊道：将铁路防护带转化为绿色公共景观廊道，宽度30-60m，形成城市生态绿脊。 圆形生态剧场：中央圆形广场直径120m，融合表演、集会与日常休憩，成为片区公共生活焦点。中央公园：约4.2公顷公共绿地，兼顾雨洪调蓄功能，绿化率≥65%。">
+            <div class="plan-gallery-spread-frame">
+              <button type="button" class="design-gallery-frame plan-gallery-half" data-desc="TOD 站城融合：以上海火车站为核心，1500m步行半径内集聚商业、居住、公园多元业态。铁路景观廊道：将铁路防护带转化为绿色公共景观廊道，宽度30-60m，形成城市生态绿脊。" data-num="96" aria-label="放大查看：鸟瞰图一">
+                <img src="images/plan/96.webp" alt="鸟瞰图一" draggable="false">
+              </button>
+              <button type="button" class="design-gallery-frame plan-gallery-half" data-desc="圆形生态剧场：中央圆形广场直径120m，融合表演、集会与日常休憩，成为片区公共生活焦点。中央公园：约4.2公顷公共绿地，兼顾雨洪调蓄功能，绿化率≥65%。" data-num="97" aria-label="放大查看：鸟瞰图二">
+                <img src="images/plan/97.webp" alt="鸟瞰图二" draggable="false">
+              </button>
+            </div>
+            <figcaption class="design-gallery-cap">
+              <span class="design-gallery-cap-title">鸟瞰图一 · 鸟瞰图二</span>
+              <span class="design-gallery-cap-type">96–97</span>
+            </figcaption>
+          </figure>
+          <figure class="design-gallery-slide plan-gallery-spread" data-desc="弧形玻璃界面：连续弧形幕墙引导行人视线，创造具有方向感的空间序列，夜间透光成为城市灯塔。 慢行通廊：廊道净宽8m，两侧设置座椅与绿植，全天候开放，与地铁出入口直连。">
+            <div class="plan-gallery-spread-frame">
+              <button type="button" class="design-gallery-frame plan-gallery-half" data-desc="弧形玻璃界面：连续弧形幕墙引导行人视线，创造具有方向感的空间序列，夜间透光成为城市灯塔。" data-num="98" aria-label="放大查看：弧形玻璃幕墙廊道">
+                <img src="images/plan/98.webp" alt="弧形玻璃幕墙廊道" draggable="false">
+              </button>
+              <button type="button" class="design-gallery-frame plan-gallery-half" data-desc="慢行通廊：廊道净宽8m，两侧设置座椅与绿植，全天候开放，与地铁出入口直连。" data-num="99" aria-label="放大查看：步行廊道">
+                <img src="images/plan/99.webp" alt="步行廊道" draggable="false">
+              </button>
+            </div>
+            <figcaption class="design-gallery-cap">
+              <span class="design-gallery-cap-title">弧形玻璃幕墙廊道 · 步行廊道</span>
+              <span class="design-gallery-cap-type">98–99</span>
+            </figcaption>
+          </figure>
+          <figure class="design-gallery-slide plan-gallery-spread" data-desc="空中观景台：高架观景平台距地面6m，360°俯瞰园区与铁路景观，直径约30m。 高线草坪：将废弃铁路仓储用地改造为高线公园，保留原有工业结构骨架，覆以自然草甸。">
+            <div class="plan-gallery-spread-frame">
+              <button type="button" class="design-gallery-frame plan-gallery-half" data-desc="空中观景台：高架观景平台距地面6m，360°俯瞰园区与铁路景观，直径约30m。" data-num="100" aria-label="放大查看：圆形观景平台">
+                <img src="images/plan/100.webp" alt="圆形观景平台" draggable="false">
+              </button>
+              <button type="button" class="design-gallery-frame plan-gallery-half" data-desc="高线草坪：将废弃铁路仓储用地改造为高线公园，保留原有工业结构骨架，覆以自然草甸。" data-num="101" aria-label="放大查看：高架桥与草坪">
+                <img src="images/plan/101.webp" alt="高架桥与草坪" draggable="false">
+              </button>
+            </div>
+            <figcaption class="design-gallery-cap">
+              <span class="design-gallery-cap-title">圆形观景平台 · 高架桥与草坪</span>
+              <span class="design-gallery-cap-type">100–101</span>
+            </figcaption>
+          </figure>
+          <figure class="design-gallery-slide plan-gallery-spread" data-desc="城市天际线对话：高架步道以弧线造型呼应地块轮廓，与背景CBD玻璃塔楼形成尺度对比与对话。 空间渗透：建筑缝隙宽度控制在6-8m，形成穿越建筑群的微型通道网络，引入光线与风。">
+            <div class="plan-gallery-spread-frame">
+              <button type="button" class="design-gallery-frame plan-gallery-half" data-desc="城市天际线对话：高架步道以弧线造型呼应地块轮廓，与背景CBD玻璃塔楼形成尺度对比与对话。" data-num="102" aria-label="放大查看：高架弧线与CBD">
+                <img src="images/plan/102.webp" alt="高架弧线与CBD" draggable="false">
+              </button>
+              <button type="button" class="design-gallery-frame plan-gallery-half" data-desc="空间渗透：建筑缝隙宽度控制在6-8m，形成穿越建筑群的微型通道网络，引入光线与风。" data-num="103" aria-label="放大查看：建筑缝隙空间">
+                <img src="images/plan/103.webp" alt="建筑缝隙空间" draggable="false">
+              </button>
+            </div>
+            <figcaption class="design-gallery-cap">
+              <span class="design-gallery-cap-title">高架弧线与CBD · 建筑缝隙空间</span>
+              <span class="design-gallery-cap-type">102–103</span>
+            </figcaption>
+          </figure>
+          <figure class="design-gallery-slide plan-gallery-spread" data-desc="无障碍步行体系：全程无障碍设计，坡道坡度≤1:12，节点配置电梯接驳轨道交通各出入口。节点连接分析：步行系统连接6个地铁出入口、3处公交枢纽与2处共享单车停放站。 空间设计导则：净高≥4.5m · 遮阳率≥60% · 绿化率≥30% · 最小宽度6m · 照度≥50lux。">
+            <div class="plan-gallery-spread-frame">
+              <button type="button" class="design-gallery-frame plan-gallery-half" data-desc="无障碍步行体系：全程无障碍设计，坡道坡度≤1:12，节点配置电梯接驳轨道交通各出入口。节点连接分析：步行系统连接6个地铁出入口、3处公交枢纽与2处共享单车停放站。" data-num="104" aria-label="放大查看：高架步行道分析图">
+                <img src="images/plan/104.webp" alt="高架步行道分析图" draggable="false">
+              </button>
+              <button type="button" class="design-gallery-frame plan-gallery-half" data-desc="空间设计导则：净高≥4.5m · 遮阳率≥60% · 绿化率≥30% · 最小宽度6m · 照度≥50lux。" data-num="105" aria-label="放大查看：高架步道空间导则">
+                <img src="images/plan/105.webp" alt="高架步道空间导则" draggable="false">
+              </button>
+            </div>
+            <figcaption class="design-gallery-cap">
+              <span class="design-gallery-cap-title">高架步行道分析图 · 高架步道空间导则</span>
+              <span class="design-gallery-cap-type">104–105</span>
+            </figcaption>
+          </figure>
+          <figure class="design-gallery-slide plan-gallery-spread" data-desc="活力公共空间：高线公园日均吸引约8000人次，成为城市慢行旅游新目的地，带动周边商业活力。红色天桥：标志性红色结构桥以工业铁轨肌理为原型，成为场地视觉锚点。 圆形亭廊：直径18m钢构架，顶部覆绿，提供全天候遮蔽空间，兼作社区活动中心。">
+            <div class="plan-gallery-spread-frame">
+              <button type="button" class="design-gallery-frame plan-gallery-half" data-desc="活力公共空间：高线公园日均吸引约8000人次，成为城市慢行旅游新目的地，带动周边商业活力。红色天桥：标志性红色结构桥以工业铁轨肌理为原型，成为场地视觉锚点。" data-num="106" aria-label="放大查看：高线公园人群活动">
+                <img src="images/plan/106.webp" alt="高线公园人群活动" draggable="false">
+              </button>
+              <button type="button" class="design-gallery-frame plan-gallery-half" data-desc="圆形亭廊：直径18m钢构架，顶部覆绿，提供全天候遮蔽空间，兼作社区活动中心。" data-num="107" aria-label="放大查看：圆形亭廊与公园">
+                <img src="images/plan/107.webp" alt="圆形亭廊与公园" draggable="false">
+              </button>
+            </div>
+            <figcaption class="design-gallery-cap">
+              <span class="design-gallery-cap-title">高线公园人群活动 · 圆形亭廊与公园</span>
+              <span class="design-gallery-cap-type">106–107</span>
+            </figcaption>
+          </figure>
+          <figure class="design-gallery-slide plan-gallery-spread" data-desc="材料策略：采用FSC认证热处理木材铺装，配以本土耐旱植物带，免维护寿命≥20年。 垂直公共性：高架层与地面商业街通过双层界面互动，创造立体公共空间，激活全天候街道活力。">
+            <div class="plan-gallery-spread-frame">
+              <button type="button" class="design-gallery-frame plan-gallery-half" data-desc="材料策略：采用FSC认证热处理木材铺装，配以本土耐旱植物带，免维护寿命≥20年。" data-num="108" aria-label="放大查看：木质步道与绿化带">
+                <img src="images/plan/108.webp" alt="木质步道与绿化带" draggable="false">
+              </button>
+              <button type="button" class="design-gallery-frame plan-gallery-half" data-desc="垂直公共性：高架层与地面商业街通过双层界面互动，创造立体公共空间，激活全天候街道活力。" data-num="109" aria-label="放大查看：步道俯瞰商业广场">
+                <img src="images/plan/109.webp" alt="步道俯瞰商业广场" draggable="false">
+              </button>
+            </div>
+            <figcaption class="design-gallery-cap">
+              <span class="design-gallery-cap-title">木质步道与绿化带 · 步道俯瞰商业广场</span>
+              <span class="design-gallery-cap-type">108–109</span>
+            </figcaption>
+          </figure>
+          <figure class="design-gallery-slide plan-gallery-spread" data-desc="日常慢行体验：廊道净宽4m，按城市最佳步行街标准设计，通行舒适度评级A+。 夜间景观设计：全廊LED照明系统配合休憩节点暖光设计，步行体验延伸至夜间，安全指数高。">
+            <div class="plan-gallery-spread-frame">
+              <button type="button" class="design-gallery-frame plan-gallery-half" data-desc="日常慢行体验：廊道净宽4m，按城市最佳步行街标准设计，通行舒适度评级A+。" data-num="110" aria-label="放大查看：步道行走">
+                <img src="images/plan/110.webp" alt="步道行走" draggable="false">
+              </button>
+              <button type="button" class="design-gallery-frame plan-gallery-half" data-desc="夜间景观设计：全廊LED照明系统配合休憩节点暖光设计，步行体验延伸至夜间，安全指数高。" data-num="111" aria-label="放大查看：坐息空间与夜间照明">
+                <img src="images/plan/111.webp" alt="坐息空间与夜间照明" draggable="false">
+              </button>
+            </div>
+            <figcaption class="design-gallery-cap">
+              <span class="design-gallery-cap-title">步道行走 · 坐息空间与夜间照明</span>
+              <span class="design-gallery-cap-type">110–111</span>
+            </figcaption>
+          </figure>
+          <figure class="design-gallery-slide plan-gallery-spread" data-desc="遮蔽社区广场：覆盖面积约2400㎡，可容纳社区市集、临时展览、快闪活动等多元使用。 绿色终端：步道终点接入城市绿道系统，步行可达3处公共绿地，完成完整的慢行闭环。">
+            <div class="plan-gallery-spread-frame">
+              <button type="button" class="design-gallery-frame plan-gallery-half" data-desc="遮蔽社区广场：覆盖面积约2400㎡，可容纳社区市集、临时展览、快闪活动等多元使用。" data-num="112" aria-label="放大查看：有顶亭廊广场">
+                <img src="images/plan/112.webp" alt="有顶亭廊广场" draggable="false">
+              </button>
+              <button type="button" class="design-gallery-frame plan-gallery-half" data-desc="绿色终端：步道终点接入城市绿道系统，步行可达3处公共绿地，完成完整的慢行闭环。" data-num="113" aria-label="放大查看：步道尽端绿色公园">
+                <img src="images/plan/113.webp" alt="步道尽端绿色公园" draggable="false">
+              </button>
+            </div>
+            <figcaption class="design-gallery-cap">
+              <span class="design-gallery-cap-title">有顶亭廊广场 · 步道尽端绿色公园</span>
+              <span class="design-gallery-cap-type">112–113</span>
+            </figcaption>
+          </figure>
         </div>
+        <button type="button" class="gallery-nav gallery-nav--next" aria-label="下一组">→</button>
       </div>
-      <div class="hs" style="left:62%;top:30%">
-        <div class="hs-dot"></div><div class="hs-ring"></div>
-        <div class="hs-popup">
-          <div class="hs-popup-title">景观轴线</div>
-          <div class="hs-popup-body">红色高架步道为南段视觉主轴，引导视线穿越铁路廊道至北侧城市界面</div>
-        </div>
+      <div class="design-gallery-meta">
+        <div class="design-gallery-counter" id="plan-gallery-counter">01 / 11</div>
       </div>
     </div>
-    <div class="plan-half">
-      <img src="images/plan/93.webp" alt="总平面图北段">
-      <div class="hs" style="left:50%;top:40%">
-        <div class="hs-dot"></div><div class="hs-ring"></div>
-        <div class="hs-popup">
-          <div class="hs-popup-title">步行环路闭合</div>
-          <div class="hs-popup-body">北段环路将站域四个片区织成连续步行圈，步行直径约900m</div>
-        </div>
-      </div>
-      <div class="hs" style="left:30%;top:60%">
-        <div class="hs-dot"></div><div class="hs-ring"></div>
-        <div class="hs-popup">
-          <div class="hs-popup-title">铁路沿线激活</div>
-          <div class="hs-popup-body">利用铁路防护绿带植入线性商业街廊，激活约800m消极边界</div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- 94 | 95 -->
-  <div class="plan-spread">
-    <div class="plan-half">
-      <img src="images/plan/94.webp" alt="地库出入口与车行流线">
-      <div class="hs" style="left:45%;top:35%">
-        <div class="hs-dot"></div><div class="hs-ring"></div>
-        <div class="hs-popup">
-          <div class="hs-popup-title">人车分流策略</div>
-          <div class="hs-popup-body">地面100%步行化，机动车由东西两侧专属出入口进入地下车库，实现完全分流</div>
-        </div>
-      </div>
-      <div class="hs" style="left:70%;top:65%">
-        <div class="hs-dot"></div><div class="hs-ring"></div>
-        <div class="hs-popup">
-          <div class="hs-popup-title">地下车库接驳</div>
-          <div class="hs-popup-body">地下两层停车，总容量约1200辆，全程与轨道交通换乘层直连</div>
-        </div>
-      </div>
-    </div>
-    <div class="plan-half">
-      <img src="images/plan/95.webp" alt="高架车行流线轴测">
-      <div class="hs" style="left:55%;top:42%">
-        <div class="hs-dot"></div><div class="hs-ring"></div>
-        <div class="hs-popup">
-          <div class="hs-popup-title">立体交通组织</div>
-          <div class="hs-popup-body">高架匝道与地面道路形成双环系统，有效消解铁路阻隔对通勤流线的影响</div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- 96 | 97 -->
-  <div class="plan-spread">
-    <div class="plan-half">
-      <img src="images/plan/96.webp" alt="鸟瞰图一">
-      <div class="hs" style="left:50%;top:45%">
-        <div class="hs-dot"></div><div class="hs-ring"></div>
-        <div class="hs-popup">
-          <div class="hs-popup-title">TOD 站城融合</div>
-          <div class="hs-popup-body">以上海火车站为核心，1500m步行半径内集聚商业、居住、公园多元业态</div>
-        </div>
-      </div>
-      <div class="hs" style="left:25%;top:55%">
-        <div class="hs-dot"></div><div class="hs-ring"></div>
-        <div class="hs-popup">
-          <div class="hs-popup-title">铁路景观廊道</div>
-          <div class="hs-popup-body">将铁路防护带转化为绿色公共景观廊道，宽度30-60m，形成城市生态绿脊</div>
-        </div>
-      </div>
-    </div>
-    <div class="plan-half">
-      <img src="images/plan/97.webp" alt="鸟瞰图二">
-      <div class="hs" style="left:52%;top:38%">
-        <div class="hs-dot"></div><div class="hs-ring"></div>
-        <div class="hs-popup">
-          <div class="hs-popup-title">圆形生态剧场</div>
-          <div class="hs-popup-body">中央圆形广场直径120m，融合表演、集会与日常休憩，成为片区公共生活焦点</div>
-        </div>
-      </div>
-      <div class="hs" style="left:30%;top:62%">
-        <div class="hs-dot"></div><div class="hs-ring"></div>
-        <div class="hs-popup">
-          <div class="hs-popup-title">中央公园</div>
-          <div class="hs-popup-body">约4.2公顷公共绿地，兼顾雨洪调蓄功能，绿化率≥65%</div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- 98 | 99 -->
-  <div class="plan-spread">
-    <div class="plan-half">
-      <img src="images/plan/98.webp" alt="弧形玻璃幕墙廊道">
-      <div class="hs" style="left:50%;top:50%">
-        <div class="hs-dot"></div><div class="hs-ring"></div>
-        <div class="hs-popup">
-          <div class="hs-popup-title">弧形玻璃界面</div>
-          <div class="hs-popup-body">连续弧形幕墙引导行人视线，创造具有方向感的空间序列，夜间透光成为城市灯塔</div>
-        </div>
-      </div>
-    </div>
-    <div class="plan-half">
-      <img src="images/plan/99.webp" alt="步行廊道">
-      <div class="hs" style="left:50%;top:55%">
-        <div class="hs-dot"></div><div class="hs-ring"></div>
-        <div class="hs-popup">
-          <div class="hs-popup-title">慢行通廊</div>
-          <div class="hs-popup-body">廊道净宽8m，两侧设置座椅与绿植，全天候开放，与地铁出入口直连</div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- 100 | 101 -->
-  <div class="plan-spread">
-    <div class="plan-half">
-      <img src="images/plan/100.webp" alt="圆形观景平台">
-      <div class="hs" style="left:50%;top:40%">
-        <div class="hs-dot"></div><div class="hs-ring"></div>
-        <div class="hs-popup">
-          <div class="hs-popup-title">空中观景台</div>
-          <div class="hs-popup-body">高架观景平台距地面6m，360°俯瞰园区与铁路景观，直径约30m</div>
-        </div>
-      </div>
-    </div>
-    <div class="plan-half">
-      <img src="images/plan/101.webp" alt="高架桥与草坪">
-      <div class="hs" style="left:45%;top:38%">
-        <div class="hs-dot"></div><div class="hs-ring"></div>
-        <div class="hs-popup">
-          <div class="hs-popup-title">高线草坪</div>
-          <div class="hs-popup-body">将废弃铁路仓储用地改造为高线公园，保留原有工业结构骨架，覆以自然草甸</div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- 102 | 103 -->
-  <div class="plan-spread">
-    <div class="plan-half">
-      <img src="images/plan/102.webp" alt="高架弧线与CBD">
-      <div class="hs" style="left:40%;top:55%">
-        <div class="hs-dot"></div><div class="hs-ring"></div>
-        <div class="hs-popup">
-          <div class="hs-popup-title">城市天际线对话</div>
-          <div class="hs-popup-body">高架步道以弧线造型呼应地块轮廓，与背景CBD玻璃塔楼形成尺度对比与对话</div>
-        </div>
-      </div>
-    </div>
-    <div class="plan-half">
-      <img src="images/plan/103.webp" alt="建筑缝隙空间">
-      <div class="hs" style="left:50%;top:45%">
-        <div class="hs-dot"></div><div class="hs-ring"></div>
-        <div class="hs-popup">
-          <div class="hs-popup-title">空间渗透</div>
-          <div class="hs-popup-body">建筑缝隙宽度控制在6-8m，形成穿越建筑群的微型通道网络，引入光线与风</div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- 104 | 105 -->
-  <div class="plan-spread">
-    <div class="plan-half">
-      <img src="images/plan/104.webp" alt="高架步行道分析图">
-      <div class="hs" style="left:50%;top:40%">
-        <div class="hs-dot"></div><div class="hs-ring"></div>
-        <div class="hs-popup">
-          <div class="hs-popup-title">无障碍步行体系</div>
-          <div class="hs-popup-body">全程无障碍设计，坡道坡度≤1:12，节点配置电梯接驳轨道交通各出入口</div>
-        </div>
-      </div>
-      <div class="hs" style="left:75%;top:60%">
-        <div class="hs-dot"></div><div class="hs-ring"></div>
-        <div class="hs-popup">
-          <div class="hs-popup-title">节点连接分析</div>
-          <div class="hs-popup-body">步行系统连接6个地铁出入口、3处公交枢纽与2处共享单车停放站</div>
-        </div>
-      </div>
-    </div>
-    <div class="plan-half">
-      <img src="images/plan/105.webp" alt="高架步道空间导则">
-      <div class="hs" style="left:50%;top:45%">
-        <div class="hs-dot"></div><div class="hs-ring"></div>
-        <div class="hs-popup">
-          <div class="hs-popup-title">空间设计导则</div>
-          <div class="hs-popup-body">净高≥4.5m · 遮阳率≥60% · 绿化率≥30% · 最小宽度6m · 照度≥50lux</div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- 106 | 107 -->
-  <div class="plan-spread">
-    <div class="plan-half">
-      <img src="images/plan/106.webp" alt="高线公园人群活动">
-      <div class="hs" style="left:45%;top:42%">
-        <div class="hs-dot"></div><div class="hs-ring"></div>
-        <div class="hs-popup">
-          <div class="hs-popup-title">活力公共空间</div>
-          <div class="hs-popup-body">高线公园日均吸引约8000人次，成为城市慢行旅游新目的地，带动周边商业活力</div>
-        </div>
-      </div>
-      <div class="hs" style="left:70%;top:30%">
-        <div class="hs-dot"></div><div class="hs-ring"></div>
-        <div class="hs-popup">
-          <div class="hs-popup-title">红色天桥</div>
-          <div class="hs-popup-body">标志性红色结构桥以工业铁轨肌理为原型，成为场地视觉锚点</div>
-        </div>
-      </div>
-    </div>
-    <div class="plan-half">
-      <img src="images/plan/107.webp" alt="圆形亭廊与公园">
-      <div class="hs" style="left:50%;top:35%">
-        <div class="hs-dot"></div><div class="hs-ring"></div>
-        <div class="hs-popup">
-          <div class="hs-popup-title">圆形亭廊</div>
-          <div class="hs-popup-body">直径18m钢构架，顶部覆绿，提供全天候遮蔽空间，兼作社区活动中心</div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- 108 | 109 -->
-  <div class="plan-spread">
-    <div class="plan-half">
-      <img src="images/plan/108.webp" alt="木质步道与绿化带">
-      <div class="hs" style="left:50%;top:50%">
-        <div class="hs-dot"></div><div class="hs-ring"></div>
-        <div class="hs-popup">
-          <div class="hs-popup-title">材料策略</div>
-          <div class="hs-popup-body">采用FSC认证热处理木材铺装，配以本土耐旱植物带，免维护寿命≥20年</div>
-        </div>
-      </div>
-    </div>
-    <div class="plan-half">
-      <img src="images/plan/109.webp" alt="步道俯瞰商业广场">
-      <div class="hs" style="left:50%;top:40%">
-        <div class="hs-dot"></div><div class="hs-ring"></div>
-        <div class="hs-popup">
-          <div class="hs-popup-title">垂直公共性</div>
-          <div class="hs-popup-body">高架层与地面商业街通过双层界面互动，创造立体公共空间，激活全天候街道活力</div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- 110 | 111 -->
-  <div class="plan-spread">
-    <div class="plan-half">
-      <img src="images/plan/110.webp" alt="步道行走">
-      <div class="hs" style="left:50%;top:48%">
-        <div class="hs-dot"></div><div class="hs-ring"></div>
-        <div class="hs-popup">
-          <div class="hs-popup-title">日常慢行体验</div>
-          <div class="hs-popup-body">廊道净宽4m，按城市最佳步行街标准设计，通行舒适度评级A+</div>
-        </div>
-      </div>
-    </div>
-    <div class="plan-half">
-      <img src="images/plan/111.webp" alt="坐息空间与夜间照明">
-      <div class="hs" style="left:48%;top:55%">
-        <div class="hs-dot"></div><div class="hs-ring"></div>
-        <div class="hs-popup">
-          <div class="hs-popup-title">夜间景观设计</div>
-          <div class="hs-popup-body">全廊LED照明系统配合休憩节点暖光设计，步行体验延伸至夜间，安全指数高</div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- 112 | 113 -->
-  <div class="plan-spread" style="border-bottom:none;">
-    <div class="plan-half">
-      <img src="images/plan/112.webp" alt="有顶亭廊广场">
-      <div class="hs" style="left:50%;top:40%">
-        <div class="hs-dot"></div><div class="hs-ring"></div>
-        <div class="hs-popup">
-          <div class="hs-popup-title">遮蔽社区广场</div>
-          <div class="hs-popup-body">覆盖面积约2400㎡，可容纳社区市集、临时展览、快闪活动等多元使用</div>
-        </div>
-      </div>
-    </div>
-    <div class="plan-half">
-      <img src="images/plan/113.webp" alt="步道尽端绿色公园">
-      <div class="hs" style="left:50%;top:42%">
-        <div class="hs-dot"></div><div class="hs-ring"></div>
-        <div class="hs-popup">
-          <div class="hs-popup-title">绿色终端</div>
-          <div class="hs-popup-body">步道终点接入城市绿道系统，步行可达3处公共绿地，完成完整的慢行闭环</div>
-        </div>
-      </div>
-    </div>
-  </div>
-
+  </article>
 </section>
 
 <!-- ══ INTERACTIVE APP ══ -->
 <section id="interactive-app">
   <div class="iapp-header">
     <div>
-      <p class="sec-label">03 · Interactive Application</p>
-      <h2 class="sec-title">Form · Function · Flow</h2>
+      <p class="sec-label">04 · Interactive Application</p>
+      <h2 class="sec-title">成本计算平台</h2>
     </div>
-    <a class="iapp-open" href="https://form-function-flow.onrender.com/apps/site_design_platform/frontend/index.html" target="_blank" rel="noopener">在新标签页打开 ↗</a>
+    <a class="iapp-open" href="https://form-function-flow.onrender.com/apps/site_design_platform/frontend/index.html" target="_blank" rel="noopener">打开成本计算平台 ↗</a>
   </div>
 </section>
 
@@ -8493,6 +8460,14 @@ section[id],
   <div class="design-gallery-lightbox-dialog" role="dialog" aria-modal="true" aria-labelledby="design-gallery-lightbox-title">
     <button type="button" class="design-modal-close" id="design-gallery-lightbox-close" aria-label="关闭">×</button>
     <figure class="design-gallery-lightbox-fig">
+      <div class="design-gallery-lightbox-spread" id="design-gallery-lightbox-spread" hidden>
+        <div class="design-gallery-lightbox-spread-half">
+          <img id="design-gallery-lightbox-img-left" src="" alt="">
+        </div>
+        <div class="design-gallery-lightbox-spread-half">
+          <img id="design-gallery-lightbox-img-right" src="" alt="">
+        </div>
+      </div>
       <img id="design-gallery-lightbox-img" src="" alt="">
     </figure>
     <div class="design-gallery-lightbox-caption">
@@ -9625,8 +9600,6 @@ try {
       document.querySelectorAll('.zone-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       zActive = btn.dataset.zone;
-      document.getElementById('zone-active-label').textContent = cfg.label;
-      document.getElementById('zone-active-label').style.background = cfg.color;
       _updateZoneHighlight(zActive);
       _zCancel();
     });
@@ -9694,19 +9667,6 @@ try {
   });
 
   zMap.on('contextmenu', e => { _zCancel(); });
-
-  document.getElementById('zone-undo').addEventListener('click', () => {
-    _zCancel();
-    const last = zHistory.pop();
-    if(last){ zLayers[last.zone].removeLayer(last.layer); storageDelete('zoning', last.id); }
-  });
-
-  document.getElementById('zone-clear').addEventListener('click', () => {
-    _zCancel();
-    zHistory.length = 0;
-    Object.values(zLayers).forEach(lg => lg.clearLayers());
-    storageClear('zoning');
-  });
 
   // Cursor style
   zMap.getContainer().style.cursor = 'crosshair';
@@ -10125,25 +10085,6 @@ try {
   });
 })();
 
-/* ──────────────────────────────────
-   PLAN GALLERY HOTSPOTS
-────────────────────────────────── */
-(function(){
-  document.querySelectorAll('#plan-gallery .hs').forEach(hs => {
-    hs.addEventListener('click', e => {
-      e.stopPropagation();
-      const popup = hs.querySelector('.hs-popup');
-      const isOpen = popup.classList.contains('open');
-      // close all
-      document.querySelectorAll('#plan-gallery .hs-popup.open').forEach(p => p.classList.remove('open'));
-      if(!isOpen) popup.classList.add('open');
-    });
-  });
-  document.addEventListener('click', () => {
-    document.querySelectorAll('#plan-gallery .hs-popup.open').forEach(p => p.classList.remove('open'));
-  });
-})();
-
 /* 进入页面时：默认封面，无 hash 时清除锚点并回到顶部 */
 (function () {
   if ('scrollRestoration' in history) {
@@ -10266,7 +10207,7 @@ try {
   });
 })();
 
-/* Page fade-in — each section fades when scrolled into view */
+/* Page reveal — each section animates when scrolled into view */
 (function initPageFade() {
   if (typeof IntersectionObserver === 'undefined') return;
   var skipSectionIds = {
@@ -10296,17 +10237,67 @@ try {
         });
       }
       if (el.id === 'plan-gallery') {
-        el.querySelectorAll('.plan-spread').forEach(function (spread) {
-          fadeTargets.push(spread);
-        });
+        var gallery = el.querySelector('.design-gallery');
+        if (gallery) fadeTargets.push(gallery);
       }
       return;
     }
     fadeTargets.push(el);
   });
 
+  function revealKindFor(el) {
+    var owner = el.closest ? el.closest('section') : null;
+    var id = el.id || (owner && owner.id) || '';
+    if (el.classList.contains('design-cover') || /overview|cover/.test(id)) return 'cover';
+    if (el.classList.contains('map-section') || /map|zoning|traffic/.test(id)) return 'map';
+    if (el.classList.contains('design-gallery') || /gallery|texture-gen/.test(id)) return 'gallery';
+    if (el.classList.contains('split-content') || el.classList.contains('design-page-content')) return 'right';
+    if (/station-history|poi-density|wool|sampling|tech/.test(id)) return 'left';
+    if (/interactive-app|contents|team/.test(id)) return 'compact';
+    return 'up';
+  }
+
+  function primeRevealChildren(el) {
+    var childSelectors = [
+      '.cover-eyebrow',
+      '.cover-h1',
+      '.cover-sub',
+      '.cover-team',
+      '.design-tag',
+      '.sec-label',
+      '.sec-title',
+      '.rule',
+      '.map-desc',
+      '.c-card',
+      '.flow-src',
+      '.flow-node',
+      '.texture-copy-block',
+      '.triple-row',
+      '.step',
+      '.stat-card',
+      '.pg-card',
+      '.texgen-card',
+      '.zoning-embed',
+      '.zone-btn',
+      '.design-gallery-header',
+      '.design-gallery-wrap',
+      '.design-member',
+      '.design-principle',
+      '.design-control-row',
+      '.iapp-open',
+      '.team-avatar'
+    ].join(',');
+    Array.prototype.slice.call(el.querySelectorAll(childSelectors), 0, 28).forEach(function (child, i) {
+      if (child.closest('.leaflet-container, .design-gallery-lightbox, .design-modal, .station-history-modal, #texgen-modal')) return;
+      child.classList.add('reveal-child');
+      child.style.setProperty('--reveal-delay', String(Math.min(i, 10) * 70 + 90) + 'ms');
+    });
+  }
+
   fadeTargets.forEach(function (el) {
     var rect = el.getBoundingClientRect();
+    el.dataset.reveal = revealKindFor(el);
+    primeRevealChildren(el);
     if (rect.top < window.innerHeight * 0.92 && rect.bottom > 0) {
       el.classList.add('is-visible');
     }
@@ -10976,22 +10967,45 @@ initFunctionHighlight('design-liu-you-function', 'data/json/liu-you-function-reg
 (function () {
   const lightbox = document.getElementById('design-gallery-lightbox');
   const lbImg = document.getElementById('design-gallery-lightbox-img');
+  const lbSpread = document.getElementById('design-gallery-lightbox-spread');
+  const lbImgLeft = document.getElementById('design-gallery-lightbox-img-left');
+  const lbImgRight = document.getElementById('design-gallery-lightbox-img-right');
   const lbTitle = document.getElementById('design-gallery-lightbox-title');
   const lbDesc = document.getElementById('design-gallery-lightbox-desc');
   const lbType = document.getElementById('design-gallery-lightbox-type');
   const lbClose = document.getElementById('design-gallery-lightbox-close');
   let lbOpen = false;
 
-  function openLightbox(slide) {
-    const img = slide.querySelector('.design-gallery-frame img');
+  function openLightbox(slide, frame) {
     const title = slide.querySelector('.design-gallery-cap-title');
     const type = slide.querySelector('.design-gallery-cap-type');
-    if (!img) return;
-    lbImg.src = img.src;
-    lbImg.alt = img.alt || '';
-    lbTitle.textContent = title ? title.textContent : '';
-    lbDesc.textContent = slide.dataset.desc || '';
-    lbType.textContent = type ? type.textContent : '';
+    const isSpread = slide.classList.contains('plan-gallery-spread');
+
+    if (isSpread) {
+      const imgs = slide.querySelectorAll('.plan-gallery-half img');
+      if (imgs.length < 2) return;
+      lbImg.hidden = true;
+      lbSpread.hidden = false;
+      lbImgLeft.src = imgs[0].src;
+      lbImgLeft.alt = imgs[0].alt || '';
+      lbImgRight.src = imgs[1].src;
+      lbImgRight.alt = imgs[1].alt || '';
+      lbTitle.textContent = title ? title.textContent : '';
+      lbDesc.textContent = slide.dataset.desc || '';
+      lbType.textContent = type ? type.textContent : '';
+    } else {
+      frame = frame || slide.querySelector('.design-gallery-frame');
+      const img = frame?.querySelector('img');
+      if (!img) return;
+      lbSpread.hidden = true;
+      lbImg.hidden = false;
+      lbImg.src = img.src;
+      lbImg.alt = img.alt || '';
+      lbTitle.textContent = img.alt || (title ? title.textContent : '');
+      lbDesc.textContent = frame?.dataset.desc || slide.dataset.desc || '';
+      lbType.textContent = frame?.dataset.num || (type ? type.textContent : '');
+    }
+
     lightbox.classList.add('is-open');
     lightbox.setAttribute('aria-hidden', 'false');
     document.body.style.overflow = 'hidden';
@@ -11038,8 +11052,10 @@ initFunctionHighlight('design-liu-you-function', 'data/json/liu-you-function-reg
     if (meta && counter) meta.insertBefore(dotsWrap, counter);
 
     slides.forEach(slide => {
-      slide.querySelector('.design-gallery-frame')?.addEventListener('click', () => {
-        if (slide.classList.contains('is-active') && !animating) openLightbox(slide);
+      slide.querySelectorAll('.design-gallery-frame').forEach(frame => {
+        frame.addEventListener('click', () => {
+          if (slide.classList.contains('is-active') && !animating) openLightbox(slide, frame);
+        });
       });
     });
 
