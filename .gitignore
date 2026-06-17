@@ -1,0 +1,17 @@
+# 临时与工具目录
+cache/
+.claude/
+.vibe-science/
+
+# OS / 编辑器
+Thumbs.db
+Desktop.ini
+.DS_Store
+*.swp
+*.swo
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/

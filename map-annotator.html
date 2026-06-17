@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>地图标注工具 · Map Annotator</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+:root {
+  --bg: #0e0e10;
+  --panel: #16161a;
+  --border: #2a2a32;
+  --text: #e8e8ec;
+  --muted: #8a8a96;
+  --accent: #e63946;
+  --accent-dim: rgba(230,57,70,.15);
+  --point: #4cc9f0;
+  --poly: #e63946;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; font-family: "Segoe UI", system-ui, sans-serif; background: var(--bg); color: var(--text); }
+
+.app {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  height: 100%;
+}
+
+/* sidebar */
+.sidebar {
+  border-right: 1px solid var(--border);
+  background: var(--panel);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.sidebar-header {
+  padding: 20px 18px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.sidebar-header h1 {
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: .06em;
+}
+.sidebar-header p {
+  margin-top: 6px;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.tool-group {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+}
+.tool-group-title {
+  font-size: 10px;
+  letter-spacing: .14em;
+  color: var(--muted);
+  margin-bottom: 10px;
+  text-transform: uppercase;
+}
+.tool-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.btn {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+  padding: 8px 12px;
+  cursor: pointer;
+  letter-spacing: .04em;
+  transition: border-color .2s, background .2s;
+}
+.btn:hover { border-color: #444; }
+.btn.is-active {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: #fff;
+}
+.btn--primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.btn--primary:hover { filter: brightness(1.08); }
+.btn--ghost { color: var(--muted); }
+.btn:disabled { opacity: .4; cursor: not-allowed; }
+
+.hint {
+  margin-top: 10px;
+  font-size: 11px;
+  line-height: 1.65;
+  color: var(--muted);
+}
+.hint strong { color: var(--text); font-weight: 500; }
+
+.feature-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 12px 16px;
+}
+.feature-list-empty {
+  padding: 24px 8px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.7;
+}
+.feature-item {
+  border: 1px solid var(--border);
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: border-color .2s;
+}
+.feature-item:hover, .feature-item.is-selected {
+  border-color: var(--accent);
+}
+.feature-item-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.feature-badge {
+  font-size: 9px;
+  letter-spacing: .1em;
+  padding: 2px 6px;
+  border: 1px solid;
+}
+.feature-badge--point { color: var(--point); border-color: var(--point); }
+.feature-badge--polygon { color: var(--poly); border-color: var(--poly); }
+.feature-name { font-size: 12px; flex: 1; }
+.feature-meta { font-size: 10px; color: var(--muted); line-height: 1.5; }
+.feature-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+.feature-actions button {
+  font-size: 10px;
+  padding: 4px 8px;
+}
+
+.export-group {
+  padding: 14px 18px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.export-group textarea {
+  width: 100%;
+  height: 88px;
+  resize: vertical;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-family: ui-monospace, monospace;
+  font-size: 10px;
+  padding: 8px;
+  line-height: 1.5;
+}
+
+/* map */
+.map-wrap { position: relative; }
+#map { width: 100%; height: 100%; background: #1a1a1f; }
+
+.map-status {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  background: rgba(14,14,16,.92);
+  border: 1px solid var(--border);
+  padding: 8px 16px;
+  font-size: 11px;
+  letter-spacing: .06em;
+  pointer-events: none;
+  white-space: nowrap;
+}
+.map-status--point { border-color: var(--point); color: var(--point); }
+.map-status--polygon { border-color: var(--poly); color: var(--poly); }
+
+.draw-finish-bar {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  display: none;
+  gap: 8px;
+}
+.draw-finish-bar.is-visible { display: flex; }
+
+/* modal */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.65);
+  z-index: 2000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.modal-backdrop.is-open { display: flex; }
+.modal {
+  width: 100%;
+  max-width: 420px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  padding: 24px;
+}
+.modal h2 {
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+.modal-sub {
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 18px;
+}
+.field { margin-bottom: 14px; }
+.field label {
+  display: block;
+  font-size: 10px;
+  letter-spacing: .1em;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.field input, .field textarea, .field select {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 13px;
+  padding: 9px 11px;
+  font-family: inherit;
+}
+.field textarea { min-height: 72px; resize: vertical; }
+.field input:focus, .field textarea:focus, .field select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 3000;
+  background: var(--panel);
+  border: 1px solid var(--accent);
+  padding: 10px 16px;
+  font-size: 12px;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity .25s, transform .25s;
+  pointer-events: none;
+}
+.toast.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (max-width: 768px) {
+  .app { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+  .sidebar { max-height: 42vh; }
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <h1>地图标注工具</h1>
+      <p>画多边形或标点，每次完成后填写标注。导出 GeoJSON 后可直接发给 AI 识别。</p>
+    </div>
+
+    <div class="tool-group">
+      <div class="tool-group-title">绘制工具</div>
+      <div class="tool-row">
+        <button type="button" class="btn" id="btn-point" data-mode="point">标点</button>
+        <button type="button" class="btn" id="btn-polygon" data-mode="polygon">多边形</button>
+        <button type="button" class="btn btn--ghost" id="btn-pan">平移</button>
+      </div>
+      <p class="hint" id="mode-hint">
+        <strong>平移模式</strong>：拖动画布。选择「标点」或「多边形」开始绘制。
+      </p>
+    </div>
+
+    <div class="tool-group">
+      <div class="tool-group-title">已标注 <span id="feature-count">0</span></div>
+      <div class="feature-list" id="feature-list">
+        <div class="feature-list-empty">暂无图形。在地图上开始绘制吧。</div>
+      </div>
+    </div>
+
+    <div class="export-group">
+      <div class="tool-row">
+        <button type="button" class="btn btn--primary" id="btn-export">导出 JSON</button>
+        <button type="button" class="btn" id="btn-copy">复制</button>
+        <button type="button" class="btn" id="btn-download">下载 .json</button>
+      </div>
+      <div class="tool-row">
+        <button type="button" class="btn btn--ghost" id="btn-import">导入 JSON</button>
+        <button type="button" class="btn btn--ghost" id="btn-clear">清空全部</button>
+      </div>
+      <textarea id="json-output" readonly placeholder="点击「导出 JSON」后显示…"></textarea>
+      <input type="file" id="import-file" accept=".json,application/json" hidden>
+    </div>
+  </aside>
+
+  <main class="map-wrap">
+    <div id="map"></div>
+    <div class="map-status" id="map-status">平移模式</div>
+    <div class="draw-finish-bar" id="finish-bar">
+      <button type="button" class="btn btn--primary" id="btn-finish-poly">完成多边形</button>
+      <button type="button" class="btn btn--ghost" id="btn-cancel-poly">取消</button>
+    </div>
+  </main>
+</div>
+
+<!-- 标注弹窗 -->
+<div class="modal-backdrop" id="label-modal">
+  <form class="modal" id="label-form">
+    <h2 id="modal-title">标注图形</h2>
+    <p class="modal-sub" id="modal-sub">请填写该图形的名称与类型，便于后续识别。</p>
+    <div class="field">
+      <label for="input-name">名称 *</label>
+      <input type="text" id="input-name" required placeholder="例如：主入口广场、步行桥节点 A">
+    </div>
+    <div class="field">
+      <label for="input-category">类型 / 分类</label>
+      <select id="input-category">
+        <option value="">— 选择或留空 —</option>
+        <option value="入口">入口</option>
+        <option value="公共空间">公共空间</option>
+        <option value="建筑">建筑</option>
+        <option value="道路">道路 / 车行</option>
+        <option value="慢行">慢行 / 步行</option>
+        <option value="绿地">绿地 / 生态</option>
+        <option value="功能分区">功能分区</option>
+        <option value="其他">其他</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="input-note">备注（可选）</label>
+      <textarea id="input-note" placeholder="补充说明，例如：连接北侧住宅区与中心草坪"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn btn--ghost" id="btn-modal-cancel">取消</button>
+      <button type="submit" class="btn btn--primary">保存标注</button>
+    </div>
+  </form>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+/* ── 默认中心：上海站片区 ── */
+const DEFAULT_CENTER = [31.2505, 121.4580];
+const DEFAULT_ZOOM = 15;
+
+let map, mode = 'pan';
+let features = [];       // { id, type, geometry, properties, layer }
+let draft = null;        // 绘制中的临时数据
+let pendingEditId = null;
+let idCounter = 1;
+
+const $ = (sel) => document.getElementById(sel) || document.querySelector(sel);
+
+/* ── 地图初始化 ── */
+map = L.map('map', { zoomControl: true, scrollWheelZoom: false }).setView(DEFAULT_CENTER, DEFAULT_ZOOM);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; OpenStreetMap',
+  maxZoom: 19
+}).addTo(map);
+
+/* ── 模式切换 ── */
+const modeHints = {
+  pan: '<strong>平移模式</strong>：拖动画布。选择「标点」或「多边形」开始绘制。',
+  point: '<strong>标点模式</strong>：在地图上单击放置一个点，随后填写标注。',
+  polygon: '<strong>多边形模式</strong>：依次单击添加顶点（至少 3 个），点击「完成多边形」或双击结束。'
+};
+const statusLabels = { pan: '平移模式', point: '标点模式 — 单击放置', polygon: '多边形模式 — 单击添加顶点' };
+
+function setMode(m) {
+  cancelDraft();
+  mode = m;
+  if (map) {
+    if (m === 'pan') { map.dragging.enable(); map.doubleClickZoom.enable(); }
+    else { map.dragging.disable(); map.doubleClickZoom.disable(); }
+  }
+  document.querySelectorAll('[data-mode]').forEach((btn) => {
+    btn.classList.toggle('is-active', btn.dataset.mode === m);
+  });
+  $('btn-pan').classList.toggle('is-active', m === 'pan');
+  const status = $('map-status');
+  status.textContent = statusLabels[m] || '平移模式';
+  status.className = 'map-status' + (m === 'point' ? ' map-status--point' : m === 'polygon' ? ' map-status--polygon' : '');
+  $('mode-hint').innerHTML = modeHints[m] || modeHints.pan;
+  $('finish-bar').classList.toggle('is-visible', false);
+}
+
+$('btn-point').addEventListener('click', () => setMode('point'));
+$('btn-polygon').addEventListener('click', () => setMode('polygon'));
+$('btn-pan').addEventListener('click', () => setMode('pan'));
+
+/* ── 绘制逻辑 ── */
+function cancelDraft() {
+  if (!draft) return;
+  if (draft.layerGroup) map.removeLayer(draft.layerGroup);
+  if (draft.marker) map.removeLayer(draft.marker);
+  draft = null;
+  $('finish-bar').classList.remove('is-visible');
+}
+
+map.on('click', (e) => {
+  if (mode === 'point') {
+    cancelDraft();
+    const marker = L.circleMarker(e.latlng, {
+      radius: 8,
+      color: '#4cc9f0',
+      fillColor: '#4cc9f0',
+      fillOpacity: 0.85,
+      weight: 2
+    }).addTo(map);
+    draft = {
+      geomType: 'Point',
+      latlng: e.latlng,
+      marker
+    };
+    openLabelModal('Point');
+  } else if (mode === 'polygon') {
+    if (!draft) {
+      draft = {
+        geomType: 'Polygon',
+        latlngs: [e.latlng],
+        layerGroup: L.layerGroup().addTo(map)
+      };
+      draft.layerGroup.addLayer(L.circleMarker(e.latlng, {
+        radius: 5, color: '#e63946', fillColor: '#e63946', fillOpacity: 1, weight: 1
+      }));
+    } else {
+      draft.latlngs.push(e.latlng);
+      draft.layerGroup.addLayer(L.circleMarker(e.latlng, {
+        radius: 5, color: '#e63946', fillColor: '#e63946', fillOpacity: 1, weight: 1
+      }));
+      updateDraftPolyline();
+    }
+    $('finish-bar').classList.toggle('is-visible', draft && draft.latlngs.length >= 3);
+  }
+});
+
+map.on('dblclick', (e) => {
+  if (mode === 'polygon' && draft && draft.latlngs.length >= 3) {
+    L.DomEvent.stopPropagation(e);
+    finishPolygon();
+  }
+});
+
+function updateDraftPolyline() {
+  if (!draft || !draft.layerGroup) return;
+  if (draft.polyline) draft.layerGroup.removeLayer(draft.polyline);
+  draft.polyline = L.polyline(draft.latlngs, { color: '#e63946', weight: 2, dashArray: '6 4' }).addTo(draft.layerGroup);
+}
+
+$('btn-finish-poly').addEventListener('click', finishPolygon);
+$('btn-cancel-poly').addEventListener('click', () => { cancelDraft(); });
+
+function finishPolygon() {
+  if (!draft || draft.latlngs.length < 3) {
+    toast('多边形至少需要 3 个顶点');
+    return;
+  }
+  openLabelModal('Polygon');
+}
+
+/* ── 标注弹窗 ── */
+function openLabelModal(geomType, editFeature) {
+  pendingEditId = editFeature ? editFeature.id : null;
+  $('modal-title').textContent = editFeature ? '编辑标注' : (geomType === 'Point' ? '标注标点' : '标注多边形');
+  $('modal-sub').textContent = editFeature
+    ? '修改名称或备注。'
+  : (geomType === 'Point' ? '已放置标点，请填写信息。' : '多边形已绘制，请填写信息。');
+  $('input-name').value = editFeature ? editFeature.properties.name || '' : '';
+  $('input-category').value = editFeature ? editFeature.properties.category || '' : '';
+  $('input-note').value = editFeature ? editFeature.properties.note || '' : '';
+  $('label-modal').classList.add('is-open');
+  setTimeout(() => $('input-name').focus(), 50);
+}
+
+function closeLabelModal() {
+  $('label-modal').classList.remove('is-open');
+  pendingEditId = null;
+}
+
+$('btn-modal-cancel').addEventListener('click', () => {
+  if (!pendingEditId) cancelDraft();
+  closeLabelModal();
+});
+
+$('label-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const props = {
+    name: $('input-name').value.trim(),
+    category: $('input-category').value.trim(),
+    note: $('input-note').value.trim()
+  };
+  if (!props.name) return;
+
+  if (pendingEditId) {
+    const f = features.find((x) => x.id === pendingEditId);
+    if (f) {
+      f.properties = { ...f.properties, ...props };
+      refreshFeatureLayer(f);
+      renderList();
+      updateExportPreview();
+    }
+    closeLabelModal();
+    return;
+  }
+
+  let geometry, layer;
+  if (draft.geomType === 'Point') {
+    geometry = {
+      type: 'Point',
+      coordinates: [draft.latlng.lng, draft.latlng.lat]
+    };
+    if (draft.marker) map.removeLayer(draft.marker);
+    layer = createPointLayer(draft.latlng, props);
+    layer.addTo(map);
+  } else if (draft.geomType === 'Polygon') {
+    const ring = draft.latlngs.map((ll) => [ll.lng, ll.lat]);
+    ring.push(ring[0]);
+    geometry = { type: 'Polygon', coordinates: [ring] };
+    if (draft.layerGroup) map.removeLayer(draft.layerGroup);
+    layer = createPolygonLayer(draft.latlngs, props);
+    layer.addTo(map);
+  } else return;
+
+  const feature = {
+    id: 'feat-' + (idCounter++),
+    type: draft.geomType,
+    geometry,
+    properties: props,
+    layer
+  };
+  bindLayerPopup(feature);
+  features.push(feature);
+  draft = null;
+  $('finish-bar').classList.remove('is-visible');
+  closeLabelModal();
+  renderList();
+  updateExportPreview();
+  toast('已保存：' + props.name);
+});
+
+/* ── 图层样式 ── */
+function createPointLayer(latlng, props) {
+  return L.circleMarker(latlng, {
+    radius: 8,
+    color: '#4cc9f0',
+    fillColor: '#4cc9f0',
+    fillOpacity: 0.85,
+    weight: 2
+  });
+}
+
+function createPolygonLayer(latlngs, props) {
+  return L.polygon(latlngs, {
+    color: '#e63946',
+    fillColor: '#e63946',
+    fillOpacity: 0.2,
+    weight: 2
+  });
+}
+
+function popupHtml(props) {
+  const cat = props.category ? `<div style="opacity:.7;font-size:11px;margin-top:2px">${esc(props.category)}</div>` : '';
+  const note = props.note ? `<div style="opacity:.6;font-size:11px;margin-top:6px;line-height:1.5">${esc(props.note)}</div>` : '';
+  return `<strong>${esc(props.name)}</strong>${cat}${note}`;
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function bindLayerPopup(f) {
+  f.layer.bindPopup(popupHtml(f.properties));
+  f.layer.on('click', () => selectFeature(f.id));
+}
+
+function refreshFeatureLayer(f) {
+  map.removeLayer(f.layer);
+  if (f.type === 'Point') {
+    const [lng, lat] = f.geometry.coordinates;
+    f.layer = createPointLayer(L.latLng(lat, lng), f.properties);
+  } else {
+    const ring = f.geometry.coordinates[0].slice(0, -1);
+    f.layer = createPolygonLayer(ring.map(([lng, lat]) => L.latLng(lat, lng)), f.properties);
+  }
+  f.layer.addTo(map);
+  bindLayerPopup(f);
+}
+
+/* ── 列表 ── */
+let selectedId = null;
+
+function renderList() {
+  const list = $('feature-list');
+  $('feature-count').textContent = features.length;
+  if (!features.length) {
+    list.innerHTML = '<div class="feature-list-empty">暂无图形。在地图上开始绘制吧。</div>';
+    return;
+  }
+  list.innerHTML = features.map((f) => {
+    const badge = f.type === 'Point' ? '标点' : '多边形';
+    const cls = f.type === 'Point' ? 'point' : 'polygon';
+    const meta = [f.properties.category, f.properties.note].filter(Boolean).join(' · ') || '—';
+    return `<div class="feature-item${f.id === selectedId ? ' is-selected' : ''}" data-id="${f.id}">
+      <div class="feature-item-top">
+        <span class="feature-badge feature-badge--${cls}">${badge}</span>
+        <span class="feature-name">${esc(f.properties.name)}</span>
+      </div>
+      <div class="feature-meta">${esc(meta)}</div>
+      <div class="feature-actions">
+        <button type="button" class="btn btn--ghost" data-action="zoom">定位</button>
+        <button type="button" class="btn btn--ghost" data-action="edit">编辑</button>
+        <button type="button" class="btn btn--ghost" data-action="delete">删除</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  list.querySelectorAll('.feature-item').forEach((el) => {
+    const id = el.dataset.id;
+    el.addEventListener('click', (e) => {
+      if (e.target.closest('[data-action]')) return;
+      selectFeature(id);
+    });
+    el.querySelector('[data-action="zoom"]').addEventListener('click', () => zoomToFeature(id));
+    el.querySelector('[data-action="edit"]').addEventListener('click', () => {
+      const f = features.find((x) => x.id === id);
+      if (f) openLabelModal(f.type, f);
+    });
+    el.querySelector('[data-action="delete"]').addEventListener('click', () => deleteFeature(id));
+  });
+}
+
+function selectFeature(id) {
+  selectedId = id;
+  renderList();
+  const f = features.find((x) => x.id === id);
+  if (f) f.layer.openPopup();
+}
+
+function zoomToFeature(id) {
+  const f = features.find((x) => x.id === id);
+  if (!f) return;
+  if (f.type === 'Point') {
+    map.setView([f.geometry.coordinates[1], f.geometry.coordinates[0]], 17);
+  } else {
+    map.fitBounds(f.layer.getBounds(), { padding: [40, 40] });
+  }
+  f.layer.openPopup();
+}
+
+function deleteFeature(id) {
+  const idx = features.findIndex((x) => x.id === id);
+  if (idx < 0) return;
+  map.removeLayer(features[idx].layer);
+  features.splice(idx, 1);
+  if (selectedId === id) selectedId = null;
+  renderList();
+  updateExportPreview();
+}
+
+/* ── GeoJSON 导出 ── */
+function toGeoJSON() {
+  return {
+    type: 'FeatureCollection',
+    metadata: {
+      tool: 'map-annotator',
+      version: '1.0',
+      created: new Date().toISOString(),
+      crs_note: 'WGS84, coordinates are [longitude, latitude]'
+    },
+    features: features.map((f) => ({
+      type: 'Feature',
+      id: f.id,
+      properties: {
+        name: f.properties.name,
+        category: f.properties.category || null,
+        note: f.properties.note || null,
+        geom_type: f.type
+      },
+      geometry: f.geometry
+    }))
+  };
+}
+
+function updateExportPreview() {
+  $('json-output').value = features.length ? JSON.stringify(toGeoJSON(), null, 2) : '';
+}
+
+$('btn-export').addEventListener('click', () => {
+  if (!features.length) { toast('还没有可导出的图形'); return; }
+  updateExportPreview();
+  toast('已生成 JSON（见下方文本框）');
+});
+
+$('btn-copy').addEventListener('click', async () => {
+  if (!features.length) { toast('还没有可导出的图形'); return; }
+  const text = JSON.stringify(toGeoJSON(), null, 2);
+  $('json-output').value = text;
+  try {
+    await navigator.clipboard.writeText(text);
+    toast('已复制到剪贴板');
+  } catch {
+    $('json-output').select();
+    document.execCommand('copy');
+    toast('已选中文本，请手动复制');
+  }
+});
+
+$('btn-download').addEventListener('click', () => {
+  if (!features.length) { toast('还没有可导出的图形'); return; }
+  const blob = new Blob([JSON.stringify(toGeoJSON(), null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'map-annotations-' + new Date().toISOString().slice(0, 10) + '.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast('已开始下载');
+});
+
+/* ── 导入 ── */
+$('btn-import').addEventListener('click', () => $('import-file').click());
+
+$('import-file').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      loadGeoJSON(JSON.parse(reader.result));
+      toast('导入成功');
+    } catch (err) {
+      toast('JSON 解析失败：' + err.message);
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+});
+
+function loadGeoJSON(data) {
+  if (!data || data.type !== 'FeatureCollection' || !Array.isArray(data.features)) {
+    throw new Error('需要 GeoJSON FeatureCollection');
+  }
+  clearAll(false);
+  data.features.forEach((feat) => {
+    const geom = feat.geometry;
+    const props = {
+      name: (feat.properties && feat.properties.name) || '未命名',
+      category: (feat.properties && feat.properties.category) || '',
+      note: (feat.properties && feat.properties.note) || ''
+    };
+    let layer, type;
+    if (geom.type === 'Point') {
+      type = 'Point';
+      const [lng, lat] = geom.coordinates;
+      layer = createPointLayer(L.latLng(lat, lng), props);
+    } else if (geom.type === 'Polygon') {
+      type = 'Polygon';
+      const ring = geom.coordinates[0].slice(0, -1);
+      layer = createPolygonLayer(ring.map(([lng, lat]) => L.latLng(lat, lng)), props);
+    } else return;
+    layer.addTo(map);
+    const f = {
+      id: feat.id || 'feat-' + (idCounter++),
+      type,
+      geometry: geom,
+      properties: props,
+      layer
+    };
+    bindLayerPopup(f);
+    features.push(f);
+  });
+  renderList();
+  updateExportPreview();
+  if (features.length) {
+    const group = L.featureGroup(features.map((f) => f.layer));
+    map.fitBounds(group.getBounds(), { padding: [40, 40] });
+  }
+}
+
+$('btn-clear').addEventListener('click', () => {
+  if (!features.length || confirm('确定清空全部标注？')) clearAll(true);
+});
+
+function clearAll(showToast) {
+  features.forEach((f) => map.removeLayer(f.layer));
+  features = [];
+  selectedId = null;
+  cancelDraft();
+  renderList();
+  updateExportPreview();
+  if (showToast) toast('已清空');
+}
+
+function toast(msg) {
+  const el = $('toast');
+  el.textContent = msg;
+  el.classList.add('is-visible');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => el.classList.remove('is-visible'), 2200);
+}
+
+setMode('pan');
+</script>
+</body>
+</html>

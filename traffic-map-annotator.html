@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>交通分析地图标注 · Traffic Map Annotator</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+:root {
+  --bg: #0e0e10; --panel: #16161a; --border: #2a2a32;
+  --text: #e8e8ec; --muted: #8a8a96; --accent: #e63946;
+  --line: #00b4d8; --point: #e63946;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; font-family: "Segoe UI", system-ui, sans-serif; background: var(--bg); color: var(--text); }
+.app { display: grid; grid-template-columns: 300px 1fr; height: 100%; }
+.sidebar { border-right: 1px solid var(--border); background: var(--panel); display: flex; flex-direction: column; overflow: hidden; }
+.sidebar-header { padding: 20px 18px 14px; border-bottom: 1px solid var(--border); }
+.sidebar-header h1 { font-size: 15px; font-weight: 500; }
+.sidebar-header p { margin-top: 6px; font-size: 11px; line-height: 1.65; color: var(--muted); }
+.tool-group { padding: 14px 18px; border-bottom: 1px solid var(--border); }
+.tool-group-title { font-size: 10px; letter-spacing: .14em; color: var(--muted); margin-bottom: 10px; }
+.tool-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.btn { border: 1px solid var(--border); background: transparent; color: var(--text); font-size: 12px; padding: 8px 12px; cursor: pointer; }
+.btn:hover { border-color: #444; }
+.btn.is-active { border-color: var(--accent); background: rgba(230,57,70,.12); }
+.btn--primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn--ghost { color: var(--muted); font-size: 11px; padding: 4px 8px; }
+.hint { margin-top: 10px; font-size: 11px; line-height: 1.65; color: var(--muted); }
+.feature-list { flex: 1; overflow-y: auto; padding: 10px 12px 16px; }
+.feature-empty { padding: 20px 8px; text-align: center; font-size: 11px; color: var(--muted); line-height: 1.7; }
+.feature-item { border: 1px solid var(--border); padding: 10px 12px; margin-bottom: 8px; cursor: pointer; }
+.feature-item:hover, .feature-item.is-selected { border-color: var(--accent); }
+.feature-badge { font-size: 9px; letter-spacing: .1em; padding: 2px 6px; border: 1px solid; margin-right: 6px; }
+.feature-badge--point { color: var(--point); border-color: var(--point); }
+.feature-badge--line { color: var(--line); border-color: var(--line); }
+.feature-name { font-size: 12px; }
+.feature-meta { font-size: 10px; color: var(--muted); margin-top: 4px; line-height: 1.5; font-family: ui-monospace, monospace; }
+.feature-actions { display: flex; gap: 6px; margin-top: 8px; }
+.export-group { padding: 14px 18px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
+.export-group textarea { width: 100%; height: 100px; resize: vertical; background: var(--bg); border: 1px solid var(--border); color: var(--muted); font-family: ui-monospace, monospace; font-size: 10px; padding: 8px; }
+.map-wrap { position: relative; }
+#map { width: 100%; height: 100%; background: #080808; }
+.map-status { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); z-index: 1000; background: rgba(14,14,16,.92); border: 1px solid var(--border); padding: 8px 16px; font-size: 11px; pointer-events: none; white-space: nowrap; }
+.finish-bar { position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 1000; display: none; gap: 8px; }
+.finish-bar.is-visible { display: flex; }
+.modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.65); z-index: 2000; display: none; align-items: center; justify-content: center; padding: 20px; }
+.modal-backdrop.is-open { display: flex; }
+.modal { width: 100%; max-width: 400px; background: var(--panel); border: 1px solid var(--border); padding: 22px; }
+.modal h2 { font-size: 14px; margin-bottom: 4px; }
+.modal p { font-size: 11px; color: var(--muted); margin-bottom: 14px; line-height: 1.6; }
+.field { margin-bottom: 12px; }
+.field label { display: block; font-size: 10px; color: var(--muted); margin-bottom: 5px; }
+.field input, .field select { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); font-size: 12px; padding: 8px 10px; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+.toast { position: fixed; bottom: 24px; right: 24px; z-index: 3000; background: var(--panel); border: 1px solid var(--accent); padding: 10px 16px; font-size: 12px; opacity: 0; transition: opacity .25s; }
+.toast.is-visible { opacity: 1; }
+.leaflet-container { background: #080808 !important; }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <h1>交通分析 · 地图标注</h1>
+      <p>与主站「上海站交通分析」同底图。支持<strong style="color:#e8e8ec;">画线</strong>（步行穿越）与<strong style="color:#e8e8ec;">标点</strong>（北广场、南广场等）。导出 JSON 保存到 <code style="font-size:10px;color:#aaa">data/json/traffic-annotations.json</code> 后主站自动读取。</p>
+    </div>
+    <div class="tool-group">
+      <div class="tool-group-title">工具</div>
+      <div class="tool-row">
+        <button type="button" class="btn" id="btn-line" data-mode="line">画线</button>
+        <button type="button" class="btn" id="btn-point" data-mode="point">标点</button>
+        <button type="button" class="btn" id="btn-pan">平移</button>
+      </div>
+      <p class="hint" id="mode-hint">画线：单击添加节点，双击结束。标点：单击放置，填写名称（如北广场）。</p>
+    </div>
+    <div class="tool-group" style="flex:1;display:flex;flex-direction:column;min-height:0;border-bottom:none;">
+      <div class="tool-group-title">已标注 <span id="feature-count">0</span></div>
+      <div class="feature-list" id="feature-list"><div class="feature-empty">暂无标注</div></div>
+    </div>
+    <div class="export-group">
+      <div class="tool-row">
+        <button type="button" class="btn btn--primary" id="btn-export">导出 JSON</button>
+        <button type="button" class="btn" id="btn-copy">复制</button>
+        <button type="button" class="btn" id="btn-download">下载</button>
+      </div>
+      <div class="tool-row">
+        <button type="button" class="btn btn--ghost" id="btn-load">加载已有 JSON</button>
+        <button type="button" class="btn btn--ghost" id="btn-import">导入文件</button>
+        <button type="button" class="btn btn--ghost" id="btn-clear">清空</button>
+      </div>
+      <textarea id="json-output" readonly placeholder="导出后显示…"></textarea>
+      <input type="file" id="import-file" accept=".json" hidden>
+    </div>
+  </aside>
+  <main class="map-wrap">
+    <div id="map"></div>
+    <div class="map-status" id="map-status">平移模式</div>
+    <div class="finish-bar" id="finish-bar">
+      <button type="button" class="btn btn--primary" id="btn-finish-line">完成线段</button>
+      <button type="button" class="btn" id="btn-cancel-line">取消</button>
+    </div>
+  </main>
+</div>
+
+<div class="modal-backdrop" id="label-modal">
+  <form class="modal" id="label-form">
+    <h2 id="modal-title">标注</h2>
+    <p id="modal-sub">填写名称，主站将据此显示。</p>
+    <div class="field">
+      <label for="input-name">名称 *</label>
+      <input type="text" id="input-name" list="name-presets" required placeholder="北广场 / 南广场 / 步行穿越 1">
+      <datalist id="name-presets">
+        <option value="北广场"></option>
+        <option value="南广场"></option>
+        <option value="步行穿越 1"></option>
+        <option value="步行穿越 2"></option>
+        <option value="步行穿越 3"></option>
+      </datalist>
+    </div>
+    <div class="field" id="color-field">
+      <label for="input-color">标签颜色（标点）</label>
+      <input type="color" id="input-color" value="#e63946">
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn" id="btn-modal-cancel">取消</button>
+      <button type="submit" class="btn btn--primary">保存</button>
+    </div>
+  </form>
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const SITE_COORDS = [
+  [31.249576, 121.452969],[31.251420, 121.453913],
+  [31.249652, 121.458616],[31.251933, 121.459114],
+  [31.251507, 121.461734],[31.251549, 121.462521],
+  [31.252292, 121.464974],[31.248609, 121.466116],
+  [31.246272, 121.462449],[31.246312, 121.461362],
+  [31.247082, 121.458012],[31.247782, 121.455760],
+  [31.247835, 121.455516],[31.249533, 121.455390]
+];
+const JSON_PATH = 'data/json/traffic-annotations.json';
+
+let map, mode = 'pan';
+let labels = [];
+let walkPaths = [];
+let draft = null;
+let editId = null;
+let editKind = null;
+let idCounter = 1;
+const layers = { labels: L.layerGroup(), lines: L.layerGroup() };
+
+map = L.map('map', { center: [31.2494, 121.4556], zoom: 15, zoomControl: true, scrollWheelZoom: false });
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  maxZoom: 19,
+  attribution: '&copy; OSM &copy; CARTO'
+}).addTo(map);
+layers.labels.addTo(map);
+layers.lines.addTo(map);
+
+L.polygon(SITE_COORDS, {
+  color: '#00b4d8', weight: 1.5, opacity: .75,
+  fillColor: '#00b4d8', fillOpacity: .06, dashArray: '5 5'
+}).addTo(map);
+
+function toast(msg) {
+  const el = $('toast');
+  el.textContent = msg;
+  el.classList.add('is-visible');
+  setTimeout(() => el.classList.remove('is-visible'), 2200);
+}
+
+function setMode(m) {
+  cancelDraft();
+  mode = m;
+  map.dragging.enable();
+  map.doubleClickZoom.enable();
+  if (m === 'line' || m === 'point') {
+    map.dragging.disable();
+    map.doubleClickZoom.disable();
+  }
+  ['btn-line', 'btn-point', 'btn-pan'].forEach(id => $(id).classList.remove('is-active'));
+  if (m === 'line') $('btn-line').classList.add('is-active');
+  if (m === 'point') $('btn-point').classList.add('is-active');
+  if (m === 'pan') $('btn-pan').classList.add('is-active');
+  const labels = { pan: '平移模式', line: '画线 — 单击加点，双击结束', point: '标点 — 单击放置' };
+  $('map-status').textContent = labels[m] || '平移模式';
+  $('finish-bar').classList.remove('is-visible');
+}
+
+$('btn-line').onclick = () => setMode('line');
+$('btn-point').onclick = () => setMode('point');
+$('btn-pan').onclick = () => setMode('pan');
+
+function cancelDraft() {
+  if (draft?.group) map.removeLayer(draft.group);
+  draft = null;
+  $('finish-bar').classList.remove('is-visible');
+}
+
+map.on('click', (e) => {
+  if (mode === 'point') {
+    cancelDraft();
+    draft = { kind: 'point', latlng: e.latlng, marker: L.circleMarker(e.latlng, {
+      radius: 7, color: '#e63946', fillColor: '#e63946', fillOpacity: .9, weight: 2
+    }).addTo(map) };
+    openModal('point');
+  } else if (mode === 'line') {
+    if (!draft) {
+      draft = { kind: 'line', latlngs: [e.latlng], group: L.layerGroup().addTo(map) };
+      draft.group.addLayer(L.circleMarker(e.latlng, { radius: 4, color: '#00b4d8', fillColor: '#00b4d8', weight: 1 }));
+    } else {
+      draft.latlngs.push(e.latlng);
+      draft.group.addLayer(L.circleMarker(e.latlng, { radius: 4, color: '#00b4d8', fillColor: '#00b4d8', weight: 1 }));
+      updateDraftLine();
+    }
+    $('finish-bar').classList.toggle('is-visible', draft && draft.latlngs.length >= 2);
+  }
+});
+
+map.on('dblclick', (e) => {
+  if (mode !== 'line' || !draft || draft.latlngs.length < 2) return;
+  L.DomEvent.preventDefault(e);
+  if (draft.latlngs.length > 2) draft.latlngs.pop();
+  openModal('line');
+});
+
+function updateDraftLine() {
+  if (!draft?.group) return;
+  if (draft.polyline) draft.group.removeLayer(draft.polyline);
+  draft.polyline = L.polyline(draft.latlngs, { color: '#00b4d8', weight: 3, dashArray: '8 5' }).addTo(draft.group);
+}
+
+$('btn-finish-line').onclick = () => { if (draft?.latlngs?.length >= 2) openModal('line'); else toast('至少 2 个点'); };
+$('btn-cancel-line').onclick = cancelDraft;
+
+function openModal(kind, item) {
+  editKind = kind;
+  editId = item?.id || null;
+  $('modal-title').textContent = item ? '编辑标注' : (kind === 'point' ? '标点' : '步行路径');
+  $('color-field').style.display = kind === 'point' ? '' : 'none';
+  $('input-name').value = item?.name || (kind === 'point' ? '' : `步行穿越 ${walkPaths.length + 1}`);
+  if (item?.color) $('input-color').value = item.color;
+  $('label-modal').classList.add('is-open');
+}
+
+$('btn-modal-cancel').onclick = () => {
+  if (!editId) cancelDraft();
+  $('label-modal').classList.remove('is-open');
+  editId = null;
+};
+
+$('label-form').onsubmit = (e) => {
+  e.preventDefault();
+  const name = $('input-name').value.trim();
+  if (!name) return;
+
+  if (editId) {
+    if (editKind === 'point') {
+      const item = labels.find(x => x.id === editId);
+      if (item) { item.name = name; item.color = $('input-color').value; }
+    } else {
+      const item = walkPaths.find(x => x.id === editId);
+      if (item) item.name = name;
+    }
+    redrawAll();
+    renderList();
+    updateJson();
+    $('label-modal').classList.remove('is-open');
+    editId = null;
+    return;
+  }
+
+  if (draft?.kind === 'point') {
+    if (draft.marker) map.removeLayer(draft.marker);
+    labels.push({
+      id: 'label-' + (idCounter++),
+      name,
+      lat: +draft.latlng.lat.toFixed(6),
+      lng: +draft.latlng.lng.toFixed(6),
+      color: $('input-color').value,
+      anchor: [30, 10]
+    });
+  } else if (draft?.kind === 'line') {
+    if (draft.group) map.removeLayer(draft.group);
+    walkPaths.push({
+      id: 'walk-' + (idCounter++),
+      name,
+      coords: draft.latlngs.map(p => [+p.lat.toFixed(6), +p.lng.toFixed(6)])
+    });
+  }
+  cancelDraft();
+  redrawAll();
+  renderList();
+  updateJson();
+  $('label-modal').classList.remove('is-open');
+};
+
+function labelIcon(name, color) {
+  return L.divIcon({
+    className: '',
+    html: `<div style="font-size:13px;font-weight:400;letter-spacing:.06em;white-space:nowrap;color:${color};text-shadow:0 1px 4px rgba(0,0,0,.9);">${name}</div>`,
+    iconAnchor: [30, 10]
+  });
+}
+
+function redrawAll() {
+  layers.labels.clearLayers();
+  layers.lines.clearLayers();
+  labels.forEach(item => {
+    L.marker([item.lat, item.lng], { icon: labelIcon(item.name, item.color || '#e63946'), interactive: false }).addTo(layers.labels);
+    L.circleMarker([item.lat, item.lng], { radius: 5, color: item.color || '#e63946', fillColor: item.color || '#e63946', fillOpacity: .85, weight: 2 }).addTo(layers.labels);
+  });
+  walkPaths.forEach(path => {
+    if (!path.coords?.length) return;
+    L.polyline(path.coords, { color: '#00b4d8', weight: 2.5, opacity: .92, dashArray: '8 5' }).addTo(layers.lines);
+  });
+}
+
+function renderList() {
+  const list = $('feature-list');
+  const all = [
+    ...labels.map(x => ({ ...x, kind: 'point' })),
+    ...walkPaths.map(x => ({ ...x, kind: 'line' }))
+  ];
+  $('feature-count').textContent = all.length;
+  if (!all.length) {
+    list.innerHTML = '<div class="feature-empty">暂无标注</div>';
+    return;
+  }
+  list.innerHTML = all.map(item => {
+    const badge = item.kind === 'point'
+      ? '<span class="feature-badge feature-badge--point">标点</span>'
+      : '<span class="feature-badge feature-badge--line">画线</span>';
+    const meta = item.kind === 'point'
+      ? `${item.lat.toFixed(5)}, ${item.lng.toFixed(5)}`
+      : `${item.coords.length} 个节点`;
+    return `<div class="feature-item" data-id="${item.id}" data-kind="${item.kind}">
+      ${badge}<span class="feature-name">${item.name}</span>
+      <div class="feature-meta">${meta}</div>
+      <div class="feature-actions">
+        <button type="button" class="btn btn--ghost" data-a="edit">编辑</button>
+        <button type="button" class="btn btn--ghost" data-a="del">删除</button>
+      </div>
+    </div>`;
+  }).join('');
+  list.querySelectorAll('.feature-item').forEach(el => {
+    const id = el.dataset.id;
+    const kind = el.dataset.kind;
+    el.querySelector('[data-a="edit"]').onclick = () => {
+      const item = kind === 'point' ? labels.find(x => x.id === id) : walkPaths.find(x => x.id === id);
+      openModal(kind, item);
+    };
+    el.querySelector('[data-a="del"]').onclick = () => {
+      if (kind === 'point') labels = labels.filter(x => x.id !== id);
+      else walkPaths = walkPaths.filter(x => x.id !== id);
+      redrawAll(); renderList(); updateJson();
+    };
+  });
+}
+
+function toJSON() {
+  return {
+    project: 'traffic-annotations',
+    mapCenter: [31.2494, 121.4556],
+    mapZoom: 15,
+    exportedAt: new Date().toISOString(),
+    labels,
+    walkPaths
+  };
+}
+
+function updateJson() {
+  $('json-output').value = JSON.stringify(toJSON(), null, 2);
+}
+
+function applyData(data) {
+  labels = (data.labels || []).map((x, i) => ({ ...x, id: x.id || ('label-' + (i + 1)) }));
+  walkPaths = (data.walkPaths || []).map((x, i) => ({ ...x, id: x.id || ('walk-' + (i + 1)) }));
+  idCounter = Math.max(
+    labels.length + walkPaths.length + 1,
+    ...labels.concat(walkPaths).map(x => parseInt(String(x.id).replace(/\D/g, ''), 10) || 0)
+  ) + 1;
+  redrawAll();
+  renderList();
+  updateJson();
+}
+
+$('btn-export').onclick = () => { updateJson(); toast('已导出'); };
+$('btn-copy').onclick = async () => {
+  updateJson();
+  try { await navigator.clipboard.writeText($('json-output').value); toast('已复制'); }
+  catch { $('json-output').select(); toast('请手动复制'); }
+};
+$('btn-download').onclick = () => {
+  updateJson();
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([$('json-output').value], { type: 'application/json' }));
+  a.download = 'traffic-annotations.json';
+  a.click();
+};
+$('btn-load').onclick = () => {
+  fetch(JSON_PATH).then(r => r.json()).then(data => { applyData(data); toast('已加载'); }).catch(() => toast('加载失败'));
+};
+$('btn-import').onclick = () => $('import-file').click();
+$('import-file').onchange = (e) => {
+  const f = e.target.files[0]; if (!f) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try { applyData(JSON.parse(reader.result)); toast('导入成功'); }
+    catch { toast('解析失败'); }
+  };
+  reader.readAsText(f);
+  e.target.value = '';
+};
+$('btn-clear').onclick = () => {
+  if (!labels.length && !walkPaths.length) return;
+  labels = []; walkPaths = [];
+  redrawAll(); renderList(); updateJson();
+  toast('已清空');
+};
+
+fetch(JSON_PATH).then(r => r.ok ? r.json() : null).then(data => { if (data) applyData(data); }).catch(() => {});
+setMode('pan');
+</script>
+</body>
+</html>

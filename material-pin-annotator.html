@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>材料标注点 · Material Pin Annotator</title>
+<style>
+:root {
+  --bg: #0e0e10; --panel: #16161a; --border: #2a2a32;
+  --text: #e8e8ec; --muted: #8a8a96; --accent: #e63946;
+  --pin-a: #e63946; --pin-b: #00b4d8;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; font-family: "Segoe UI", system-ui, sans-serif; background: var(--bg); color: var(--text); }
+
+.app { display: grid; grid-template-columns: 280px 1fr; height: 100%; }
+
+.sidebar {
+  border-right: 1px solid var(--border);
+  background: var(--panel);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.sidebar-header { padding: 20px 18px 14px; border-bottom: 1px solid var(--border); }
+.sidebar-header h1 { font-size: 15px; font-weight: 500; }
+.sidebar-header p { margin-top: 6px; font-size: 11px; line-height: 1.6; color: var(--muted); }
+
+.tool-group { padding: 14px 18px; border-bottom: 1px solid var(--border); }
+.tool-group-title { font-size: 10px; letter-spacing: .14em; color: var(--muted); margin-bottom: 10px; text-transform: uppercase; }
+
+.field { margin-bottom: 10px; }
+.field label { display: block; font-size: 10px; color: var(--muted); margin-bottom: 5px; }
+.field input, .field select {
+  width: 100%; background: var(--bg); border: 1px solid var(--border);
+  color: var(--text); font-size: 12px; padding: 8px 10px;
+}
+.btn {
+  border: 1px solid var(--border); background: transparent; color: var(--text);
+  font-size: 12px; padding: 8px 12px; cursor: pointer; width: 100%; text-align: left;
+  transition: border-color .2s, background .2s;
+}
+.btn:hover { border-color: #555; background: rgba(255,255,255,.04); }
+.btn--primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn--active-a { background: rgba(230,57,70,.15); border-color: var(--pin-a); color: var(--pin-a); }
+.btn--active-b { background: rgba(0,180,216,.15); border-color: var(--pin-b); color: var(--pin-b); }
+
+.pin-status { display: flex; flex-direction: column; gap: 10px; }
+.pin-row { display: flex; align-items: center; gap: 10px; }
+.pin-dot {
+  width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0;
+  border: 2px solid rgba(255,255,255,.2);
+}
+.pin-dot--a { background: var(--pin-a); }
+.pin-dot--b { background: var(--pin-b); }
+.pin-info { flex: 1; font-size: 11px; }
+.pin-label { color: var(--text); font-weight: 500; }
+.pin-coords { color: var(--muted); margin-top: 2px; font-variant-numeric: tabular-nums; }
+
+.export-group { padding: 14px 18px; border-top: 1px solid var(--border); margin-top: auto; display: flex; flex-direction: column; gap: 8px; }
+.export-group textarea {
+  width: 100%; height: 100px; resize: vertical;
+  background: var(--bg); border: 1px solid var(--border);
+  color: var(--muted); font-family: ui-monospace, monospace;
+  font-size: 10px; padding: 8px;
+}
+
+.canvas-wrap {
+  overflow: auto; background: #0a0a0c;
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: 40px;
+}
+.canvas-stage {
+  position: relative; line-height: 0;
+  user-select: none;
+}
+.canvas-stage img { display: block; max-width: 100%; height: auto; pointer-events: none; }
+.canvas-stage.mode-a { cursor: crosshair; }
+.canvas-stage.mode-b { cursor: crosshair; }
+.canvas-stage.mode-none { cursor: default; }
+
+.pin-marker {
+  position: absolute;
+  width: 22px; height: 22px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: 3px solid #fff;
+  box-shadow: 0 0 0 2px rgba(0,0,0,.5), 0 2px 8px rgba(0,0,0,.5);
+  cursor: move;
+  transition: transform .12s;
+  z-index: 10;
+}
+.pin-marker:hover { transform: translate(-50%, -50%) scale(1.2); }
+.pin-marker--a { background: var(--pin-a); }
+.pin-marker--b { background: var(--pin-b); }
+
+.pin-marker-label {
+  position: absolute;
+  left: 50%; bottom: 100%;
+  transform: translateX(-50%) translateY(-4px);
+  background: rgba(14,14,16,.9);
+  color: #fff; font-size: 10px; font-family: "Segoe UI", system-ui, sans-serif;
+  padding: 3px 8px; white-space: nowrap; pointer-events: none;
+  border: 1px solid var(--border);
+}
+
+.hint-overlay {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  pointer-events: none; z-index: 5;
+}
+.hint-overlay span {
+  background: rgba(14,14,16,.82); border: 1px solid var(--border);
+  color: var(--muted); font-size: 12px; padding: 12px 20px;
+  max-width: 260px; text-align: center; line-height: 1.7;
+}
+
+.toast {
+  position: fixed; bottom: 24px; right: 24px; z-index: 300;
+  background: var(--panel); border: 1px solid var(--accent);
+  padding: 10px 16px; font-size: 12px; opacity: 0; transition: opacity .25s;
+}
+.toast.is-visible { opacity: 1; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <h1>材料标注点工具</h1>
+      <p>在立面图上点击放置两个材料定位点 A / B，拖动可调整位置，完成后复制 JSON。</p>
+    </div>
+
+    <div class="tool-group">
+      <div class="tool-group-title">图片</div>
+      <div class="field">
+        <label for="project-select">选择方案</label>
+        <select id="project-select">
+          <option value="zhang">张炜煜 — 建筑材料与界面导则</option>
+          <option value="liu-xing">刘幸彤 — 住宅立面系统导则</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="image-path">图片路径</label>
+        <input type="text" id="image-path" value="reference/zhang-facade-elevation.png">
+      </div>
+      <button class="btn" id="btn-reload">重新加载图片</button>
+    </div>
+
+    <div class="tool-group">
+      <div class="tool-group-title">标注模式</div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <button class="btn" id="btn-place-a">● 点击放置 A（材料 1）</button>
+        <button class="btn" id="btn-place-b">● 点击放置 B（材料 2）</button>
+      </div>
+      <p style="margin-top:10px;font-size:11px;color:var(--muted);line-height:1.65;">
+        选择模式后，在右侧图片上单击落点。<br>已落点可拖动调整。
+      </p>
+    </div>
+
+    <div class="tool-group">
+      <div class="tool-group-title">标注点</div>
+      <div class="pin-status">
+        <div class="pin-row">
+          <div class="pin-dot pin-dot--a"></div>
+          <div class="pin-info">
+            <div class="pin-label" id="pin-a-name">A — 材料 1</div>
+            <div class="pin-coords" id="pin-a-coords">未标注</div>
+          </div>
+        </div>
+        <div class="pin-row">
+          <div class="pin-dot pin-dot--b"></div>
+          <div class="pin-info">
+            <div class="pin-label" id="pin-b-name">B — 材料 2</div>
+            <div class="pin-coords" id="pin-b-coords">未标注</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tool-group">
+      <div class="tool-group-title">标注点名称</div>
+      <div class="field">
+        <label for="label-a">A 的名称</label>
+        <input type="text" id="label-a" placeholder="例：玻璃—轻钢—金属系统">
+      </div>
+      <div class="field">
+        <label for="label-b">B 的名称</label>
+        <input type="text" id="label-b" placeholder="例：多孔砖 / 透水砖">
+      </div>
+    </div>
+
+    <div class="export-group">
+      <button class="btn btn--primary" id="btn-export">导出 JSON</button>
+      <button class="btn" id="btn-copy">复制 JSON</button>
+      <button class="btn" id="btn-clear">清空</button>
+      <textarea id="json-output" readonly placeholder="导出后显示…"></textarea>
+    </div>
+  </aside>
+
+  <main class="canvas-wrap" id="canvas-wrap">
+    <div class="canvas-stage mode-none" id="canvas-stage">
+      <img id="target-img" src="reference/zhang-facade-elevation.png" alt="立面图">
+      <div class="hint-overlay" id="hint-overlay">
+        <span>先选择标注模式，再在图上单击落点</span>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const img = $('target-img');
+const stage = $('canvas-stage');
+const hintOverlay = $('hint-overlay');
+
+const PROJECTS = {
+  zhang: {
+    image: 'reference/zhang-facade-elevation.png',
+    defaultA: '玻璃—轻钢—金属系统',
+    defaultB: '多孔砖 / 透水砖',
+    materialKeyA: 'glass',
+    materialKeyB: 'brick'
+  },
+  'liu-xing': {
+    image: 'reference/liu-xing-facade-elevation.png',
+    defaultA: '立面系统 · 浅色涂层 + 铝型材 + 玻璃栏板',
+    defaultB: '首层界面 · 首层架空 / 社区客厅 / 开放底商',
+    materialKeyA: 'facade-system',
+    materialKeyB: 'facade-ground'
+  }
+};
+
+let mode = 'none'; // 'a' | 'b' | 'none'
+let pins = { a: null, b: null }; // { x, y } normalized 0–1
+let dragState = null;
+
+// ── project switch ──
+function applyProject(key) {
+  const cfg = PROJECTS[key];
+  if (!cfg) return;
+  $('image-path').value = cfg.image;
+  img.src = cfg.image;
+  if (!$('label-a').value) $('label-a').value = cfg.defaultA;
+  if (!$('label-b').value) $('label-b').value = cfg.defaultB;
+  $('label-a').placeholder = cfg.defaultA;
+  $('label-b').placeholder = cfg.defaultB;
+}
+$('project-select').onchange = () => {
+  applyProject($('project-select').value);
+  pins = { a: null, b: null };
+  removeMarker('a'); removeMarker('b');
+  updateStatus(); updateJson();
+};
+$('btn-reload').onclick = () => { img.src = $('image-path').value; };
+applyProject('zhang');
+$('label-a').value = PROJECTS.zhang.defaultA;
+$('label-b').value = PROJECTS.zhang.defaultB;
+
+// ── mode buttons ──
+function setMode(m) {
+  mode = m;
+  stage.className = 'canvas-stage mode-' + m;
+  $('btn-place-a').className = 'btn' + (m === 'a' ? ' btn--active-a' : '');
+  $('btn-place-b').className = 'btn' + (m === 'b' ? ' btn--active-b' : '');
+  hintOverlay.style.display = 'none';
+}
+$('btn-place-a').onclick = () => setMode(mode === 'a' ? 'none' : 'a');
+$('btn-place-b').onclick = () => setMode(mode === 'b' ? 'none' : 'b');
+
+// ── canvas click ──
+stage.addEventListener('click', (e) => {
+  if (mode === 'none') return;
+  if (dragState) return; // was a drag, not a click
+  const norm = clientToNorm(e);
+  pins[mode] = norm;
+  placeMarker(mode, norm);
+  updateStatus();
+  updateJson();
+  if (mode === 'a') setMode('b');
+  else setMode('none');
+});
+
+// ── coordinate helpers ──
+function clientToNorm(e) {
+  const r = img.getBoundingClientRect();
+  return {
+    x: Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)),
+    y: Math.max(0, Math.min(1, (e.clientY - r.top) / r.height))
+  };
+}
+
+// ── marker DOM ──
+function removeMarker(id) {
+  const el = document.getElementById('pin-marker-' + id);
+  if (el) el.remove();
+}
+
+function placeMarker(id, norm) {
+  removeMarker(id);
+  const el = document.createElement('div');
+  el.id = 'pin-marker-' + id;
+  el.className = 'pin-marker pin-marker--' + id;
+  el.style.left = (norm.x * 100) + '%';
+  el.style.top  = (norm.y * 100) + '%';
+
+  const lbl = document.createElement('div');
+  lbl.className = 'pin-marker-label';
+  lbl.textContent = id.toUpperCase() + ' — ' + ($(id === 'a' ? 'label-a' : 'label-b').value || (id === 'a' ? '材料 1' : '材料 2'));
+  el.appendChild(lbl);
+
+  // drag
+  el.addEventListener('mousedown', (e) => {
+    e.stopPropagation();
+    dragState = { id, startX: e.clientX, startY: e.clientY };
+    document.addEventListener('mousemove', onDragMove);
+    document.addEventListener('mouseup', onDragUp);
+  });
+
+  stage.appendChild(el);
+}
+
+function onDragMove(e) {
+  if (!dragState) return;
+  const norm = clientToNorm(e);
+  const el = document.getElementById('pin-marker-' + dragState.id);
+  if (el) {
+    el.style.left = (norm.x * 100) + '%';
+    el.style.top  = (norm.y * 100) + '%';
+  }
+  pins[dragState.id] = norm;
+  updateStatus();
+}
+
+function onDragUp(e) {
+  if (!dragState) return;
+  updateJson();
+  // Refresh label tooltip
+  placeMarker(dragState.id, pins[dragState.id]);
+  document.removeEventListener('mousemove', onDragMove);
+  document.removeEventListener('mouseup', onDragUp);
+  setTimeout(() => { dragState = null; }, 0);
+}
+
+// ── status ──
+function updateStatus() {
+  function fmtCoord(p) {
+    if (!p) return '未标注';
+    return 'x=' + p.x.toFixed(4) + '  y=' + p.y.toFixed(4);
+  }
+  $('pin-a-coords').textContent = fmtCoord(pins.a);
+  $('pin-b-coords').textContent = fmtCoord(pins.b);
+  const hasAny = pins.a || pins.b;
+  hintOverlay.style.display = hasAny ? 'none' : '';
+}
+
+// ── JSON ──
+function buildJSON() {
+  const projKey = $('project-select').value;
+  const cfg = PROJECTS[projKey];
+  return {
+    project: projKey,
+    image: $('image-path').value,
+    pins: {
+      a: pins.a ? {
+        x: +pins.a.x.toFixed(5),
+        y: +pins.a.y.toFixed(5),
+        label: $('label-a').value || cfg.defaultA,
+        materialKey: cfg.materialKeyA
+      } : null,
+      b: pins.b ? {
+        x: +pins.b.x.toFixed(5),
+        y: +pins.b.y.toFixed(5),
+        label: $('label-b').value || cfg.defaultB,
+        materialKey: cfg.materialKeyB
+      } : null
+    }
+  };
+}
+
+function updateJson() {
+  if (!pins.a && !pins.b) { $('json-output').value = ''; return; }
+  $('json-output').value = JSON.stringify(buildJSON(), null, 2);
+}
+
+$('btn-export').onclick = () => { updateJson(); toast('已生成 JSON'); };
+$('btn-copy').onclick = async () => {
+  updateJson();
+  const t = $('json-output').value;
+  if (!t) return toast('暂无数据');
+  try { await navigator.clipboard.writeText(t); toast('已复制到剪贴板'); }
+  catch { $('json-output').select(); toast('请手动复制'); }
+};
+$('btn-clear').onclick = () => {
+  pins = { a: null, b: null };
+  removeMarker('a'); removeMarker('b');
+  $('json-output').value = '';
+  setMode('none');
+  hintOverlay.style.display = '';
+  updateStatus();
+  toast('已清空');
+};
+
+// ── label change → refresh marker tooltip ──
+$('label-a').addEventListener('input', () => { if (pins.a) placeMarker('a', pins.a); });
+$('label-b').addEventListener('input', () => { if (pins.b) placeMarker('b', pins.b); });
+
+// ── toast ──
+function toast(msg) {
+  const el = $('toast');
+  el.textContent = msg;
+  el.classList.add('is-visible');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => el.classList.remove('is-visible'), 2000);
+}
+</script>
+</body>
+</html>

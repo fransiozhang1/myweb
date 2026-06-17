@@ -1,0 +1,13 @@
+{
+"type": "FeatureCollection",
+"name": "od_chords",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+"features": [
+{ "type": "Feature", "properties": { }, "geometry": { "type": "LineString", "coordinates": [ [ 121.467293, 31.246036 ], [ 121.451576, 31.248638 ] ] } },
+{ "type": "Feature", "properties": { }, "geometry": { "type": "LineString", "coordinates": [ [ 121.458806, 31.256259 ], [ 121.463024, 31.23678 ] ] } },
+{ "type": "Feature", "properties": { }, "geometry": { "type": "LineString", "coordinates": [ [ 121.464277, 31.265367 ], [ 121.458862, 31.245968 ] ] } },
+{ "type": "Feature", "properties": { }, "geometry": { "type": "LineString", "coordinates": [ [ 121.453137, 31.249115 ], [ 121.45787, 31.260448 ] ] } },
+{ "type": "Feature", "properties": { }, "geometry": { "type": "LineString", "coordinates": [ [ 121.457603, 31.250371 ], [ 121.467737, 31.246018 ] ] } },
+{ "type": "Feature", "properties": { }, "geometry": { "type": "LineString", "coordinates": [ [ 121.460252, 31.253948 ], [ 121.462087, 31.228946 ] ] } }
+]
+}

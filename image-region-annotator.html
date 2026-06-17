@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>图片区域标注 · Image Region Annotator</title>
+<style>
+:root {
+  --bg: #0e0e10; --panel: #16161a; --border: #2a2a32;
+  --text: #e8e8ec; --muted: #8a8a96; --accent: #e63946; --accent-dim: rgba(230,57,70,.15);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; font-family: "Segoe UI", system-ui, sans-serif; background: var(--bg); color: var(--text); }
+.app { display: grid; grid-template-columns: 300px 1fr; height: 100%; }
+.sidebar { border-right: 1px solid var(--border); background: var(--panel); display: flex; flex-direction: column; overflow: hidden; }
+.sidebar-header { padding: 20px 18px 14px; border-bottom: 1px solid var(--border); }
+.sidebar-header h1 { font-size: 15px; font-weight: 500; }
+.sidebar-header p { margin-top: 6px; font-size: 11px; line-height: 1.6; color: var(--muted); }
+.tool-group { padding: 14px 18px; border-bottom: 1px solid var(--border); }
+.tool-group-title { font-size: 10px; letter-spacing: .14em; color: var(--muted); margin-bottom: 10px; }
+.tool-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.btn { border: 1px solid var(--border); background: transparent; color: var(--text); font-size: 12px; padding: 8px 12px; cursor: pointer; }
+.btn:hover { border-color: #444; }
+.btn.is-active { background: var(--accent-dim); border-color: var(--accent); }
+.btn--primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn--ghost { color: var(--muted); font-size: 11px; padding: 4px 8px; }
+.hint { margin-top: 10px; font-size: 11px; line-height: 1.65; color: var(--muted); }
+.field { margin-bottom: 10px; }
+.field label { display: block; font-size: 10px; color: var(--muted); margin-bottom: 5px; }
+.field input, .field select { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); font-size: 12px; padding: 8px 10px; }
+.region-list { flex: 1; overflow-y: auto; padding: 10px 12px 16px; }
+.region-empty { padding: 20px 8px; text-align: center; font-size: 11px; color: var(--muted); line-height: 1.7; }
+.region-item { border: 1px solid var(--border); padding: 10px 12px; margin-bottom: 8px; cursor: pointer; }
+.region-item:hover, .region-item.is-selected { border-color: var(--accent); }
+.region-item-top { display: flex; align-items: center; gap: 8px; }
+.region-swatch { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+.region-name { font-size: 12px; flex: 1; }
+.region-key { font-size: 10px; color: var(--muted); margin-top: 4px; line-height: 1.55; }
+.region-actions { display: flex; gap: 6px; margin-top: 8px; }
+.export-group { padding: 14px 18px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
+.export-group textarea { width: 100%; height: 80px; resize: vertical; background: var(--bg); border: 1px solid var(--border); color: var(--muted); font-family: ui-monospace, monospace; font-size: 10px; padding: 8px; }
+
+.canvas-wrap { overflow: auto; background: #0a0a0c; display: flex; align-items: flex-start; justify-content: center; padding: 24px; }
+.app.is-texture-point .canvas-wrap { padding: 0; overflow: hidden; align-items: stretch; justify-content: flex-start; }
+.texture-workspace { display: contents; }
+.app.is-texture-point .texture-workspace {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+}
+.texture-canvas-area { display: contents; }
+.app.is-texture-point .texture-canvas-area {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: stretch;
+  justify-content: flex-start;
+  overflow: auto;
+  background: #0a0a0c;
+}
+.texture-text-panel {
+  display: none;
+  flex: 0 0 clamp(280px, 34vw, 400px);
+  background: #fff;
+  color: #111;
+  overflow-y: auto;
+  border-left: 1px solid rgba(0,0,0,.1);
+}
+.app.is-texture-point .texture-text-panel { display: flex; flex-direction: column; justify-content: center; }
+.texture-text-block {
+  padding: 24px 28px;
+  border-bottom: 1px solid rgba(0,0,0,.1);
+  font-size: 12px;
+  line-height: 1.85;
+  letter-spacing: .03em;
+  color: #111;
+  text-align: justify;
+}
+.texture-text-block:last-child { border-bottom: none; }
+.canvas-stage { position: relative; max-width: 100%; line-height: 0; user-select: none; }
+.app.is-texture-point .canvas-stage { max-width: none; height: 100%; }
+.app.is-texture-point .canvas-stage img {
+  height: 100vh;
+  width: auto;
+  max-width: none;
+}
+.canvas-stage.is-draw { cursor: crosshair; }
+.canvas-stage.is-select { cursor: default; }
+.canvas-stage.is-pan { cursor: grab; }
+.canvas-stage.is-pan:active { cursor: grabbing; }
+.canvas-stage img { display: block; max-width: 100%; height: auto; pointer-events: none; }
+.canvas-stage svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+/* 绘制模式：已有区域不拦截点击，可重叠标注 */
+.canvas-stage.is-draw svg .region-poly { pointer-events: none; }
+.canvas-stage.is-select svg .region-poly {
+  pointer-events: auto; cursor: pointer;
+  stroke-width: 0.35; vector-effect: non-scaling-stroke;
+}
+.canvas-stage svg .region-poly {
+  stroke-width: 0.35; vector-effect: non-scaling-stroke;
+  transition: fill-opacity .15s;
+}
+.canvas-stage svg .region-poly.is-hover { fill-opacity: 0.62 !important; }
+.canvas-stage svg .draft-poly {
+  fill: rgba(76,201,240,.28); stroke: #4cc9f0;
+  stroke-width: 0.5; stroke-dasharray: 1.2 0.8; vector-effect: non-scaling-stroke;
+}
+.canvas-stage.is-point svg .point-pin { pointer-events: auto; }
+.canvas-stage.is-point { cursor: crosshair; }
+.canvas-stage svg .point-pin-circle {
+  fill: var(--accent); stroke: #fff; stroke-width: 0.22;
+  vector-effect: non-scaling-stroke;
+}
+.canvas-stage svg .point-pin-label {
+  fill: #fff; font-size: 2.8px; font-weight: 700;
+  text-anchor: middle; dominant-baseline: central;
+  pointer-events: none; user-select: none;
+}
+.canvas-stage svg .point-pin.is-selected .point-pin-circle {
+  fill: #4cc9f0; stroke-width: 0.35;
+}
+.point-coord {
+  font-family: ui-monospace, monospace;
+  font-size: 10px;
+  color: #4cc9f0;
+  margin-top: 6px;
+  line-height: 1.5;
+  word-break: break-all;
+}
+.point-copy-block {
+  width: 100%;
+  min-height: 72px;
+  resize: vertical;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: #9fdcff;
+  font-family: ui-monospace, monospace;
+  font-size: 10px;
+  padding: 8px;
+  line-height: 1.55;
+}
+
+.status-bar { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: rgba(14,14,16,.92); border: 1px solid var(--border); padding: 8px 16px; font-size: 11px; z-index: 50; pointer-events: none; }
+.finish-bar { position: fixed; bottom: 56px; left: 50%; transform: translateX(-50%); z-index: 50; display: none; gap: 8px; }
+.finish-bar.is-visible { display: flex; }
+.modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.65); z-index: 200; display: none; align-items: center; justify-content: center; padding: 20px; }
+.modal-backdrop.is-open { display: flex; }
+.modal { width: 100%; max-width: 400px; background: var(--panel); border: 1px solid var(--border); padding: 22px; }
+.modal h2 { font-size: 14px; margin-bottom: 4px; }
+.modal p { font-size: 11px; color: var(--muted); margin-bottom: 16px; line-height: 1.6; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+.toast { position: fixed; bottom: 24px; right: 24px; z-index: 300; background: var(--panel); border: 1px solid var(--accent); padding: 10px 16px; font-size: 12px; opacity: 0; transition: opacity .25s; }
+.toast.is-visible { opacity: 1; }
+@media (max-width: 768px) { .app { grid-template-columns: 1fr; grid-template-rows: auto 1fr; } .sidebar { max-height: 40vh; } }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <h1 id="sidebar-title">图片区域标注</h1>
+      <p id="sidebar-desc">勾勒区域并关联「垂直功能分布」与「功能组织原则」。支持张炜煜 / 刘幸彤 / 刘优赜三套标签。打开：<code style="font-size:10px;color:#aaa">?project=liu-you</code></p>
+    </div>
+    <div class="tool-group" id="project-group">
+      <div class="tool-group-title">项目</div>
+      <div class="field">
+        <label for="project-select">成员 / 方案</label>
+        <select id="project-select">
+          <option value="zhang">张炜煜 · 休闲商业消费复合区</option>
+          <option value="liu-xing">刘幸彤 · 住宅区节点</option>
+          <option value="liu-you">刘优赜 · 生态文化复合区</option>
+          <option value="texture">城市肌理 · 热点标注（图二）</option>
+        </select>
+      </div>
+    </div>
+    <div class="tool-group">
+      <div class="tool-group-title">图片</div>
+      <div class="field"><label for="image-path">图片路径</label><input type="text" id="image-path" value="reference/liu-you-function-3d.png"></div>
+      <button type="button" class="btn" id="btn-reload-img">重新加载</button>
+      <button type="button" class="btn" id="btn-load-json">加载已有 JSON</button>
+    </div>
+    <div class="tool-group" id="mode-group">
+      <div class="tool-group-title">模式</div>
+      <div class="tool-row" id="mode-buttons">
+        <button type="button" class="btn is-active" id="btn-draw">画区域</button>
+        <button type="button" class="btn" id="btn-select">选择</button>
+        <button type="button" class="btn" id="btn-pan">平移</button>
+        <button type="button" class="btn" id="btn-point" style="display:none;">标记点</button>
+      </div>
+      <p class="hint" id="mode-hint">画区域时可在已有色块上继续勾勒，支持重叠标注。</p>
+    </div>
+    <div class="tool-group" id="point-hint-group" style="display:none;">
+      <div class="tool-group-title">城市肌理 · 按钮位置</div>
+      <p class="hint">在图二（悬停态）上<strong style="color:#e8e8ec;">单击</strong>添加热点，最多 4 个。坐标为相对图片宽高的 0—1 比例，可直接复制发给我。</p>
+      <p class="hint" style="margin-top:8px;">快捷入口：<code style="font-size:10px;color:#aaa">?preset=texture</code></p>
+    </div>
+    <div class="tool-group" style="flex:1;display:flex;flex-direction:column;min-height:0;border-bottom:none;">
+      <div class="tool-group-title"><span id="list-title">已标注</span> <span id="region-count">0</span></div>
+      <div class="region-list" id="region-list"><div class="region-empty">暂无区域</div></div>
+    </div>
+    <div class="export-group">
+      <div class="tool-row">
+        <button type="button" class="btn btn--primary" id="btn-export">导出 JSON</button>
+        <button type="button" class="btn" id="btn-copy">复制</button>
+        <button type="button" class="btn" id="btn-download">下载</button>
+      </div>
+      <div class="tool-row">
+        <button type="button" class="btn btn--ghost" id="btn-import">导入</button>
+        <button type="button" class="btn btn--ghost" id="btn-clear">清空</button>
+      </div>
+      <textarea id="json-output" readonly placeholder="导出后显示…"></textarea>
+      <textarea id="point-copy-output" class="point-copy-block" readonly placeholder="点坐标摘要…" style="display:none;margin-top:8px;"></textarea>
+      <input type="file" id="import-file" accept=".json" hidden>
+    </div>
+  </aside>
+  <main class="canvas-wrap" id="canvas-wrap">
+    <div class="texture-workspace">
+      <div class="texture-canvas-area">
+        <div class="canvas-stage is-draw" id="canvas-stage">
+          <img id="target-img" src="reference/liu-you-function-3d.png" alt="标注图">
+          <svg id="overlay-svg" viewBox="0 0 100 100" preserveAspectRatio="none"></svg>
+        </div>
+      </div>
+      <aside class="texture-text-panel" id="texture-text-panel" aria-hidden="true">
+        <div class="texture-text-block">场地北侧主要是成片的高层住宅区，虽然这里有绿化和开放空间，但它们是"内向型"的，被封闭式物业管理所包裹。南北高架像一道巨大的屏障，将这里与火车站隔开。它与周边城市组织的联系是断裂的，居民的流线依赖于特定的小区出入口，缺乏城市设计的"毛细血管"连通性。</div>
+        <div class="texture-text-block">东南这一部分主要由火车站站房、铁轨股道和大型硬质铺装组成。它是典型的"超尺度"空间，完全服务于火车站的运作逻辑。这里的建筑体量巨大但单一，街道网络彻底消失，取而代之的是严密的物理围护。它与另外两个部分之间不存在任何微观渗透，形成了某种意义上的"功能荒漠"。</div>
+        <div class="texture-text-block">西南部分既保留了老静安里弄的极小尺度残余，又被迫混杂了大量由于高架建设而产生的仓促搭建、临时停车场和交通附属设施。这种高度碎片化的空间组织，缺乏核心凝聚力，成为了城市能量流动的死角与熵增区域。</div>
+      </aside>
+    </div>
+  </main>
+</div>
+
+<div class="status-bar" id="status-bar">画区域</div>
+<div class="finish-bar" id="finish-bar">
+  <button type="button" class="btn btn--primary" id="btn-finish">完成区域</button>
+  <button type="button" class="btn" id="btn-cancel-draft">取消</button>
+</div>
+
+<div class="modal-backdrop" id="point-modal">
+  <form class="modal" id="point-form">
+    <h2>热点标签</h2>
+    <p>为按钮 / 弹窗位置填写名称（可选）。</p>
+    <div class="field">
+      <label for="input-point-label">名称</label>
+      <input type="text" id="input-point-label" placeholder="例如：核心商务区">
+    </div>
+    <div class="field">
+      <label>坐标（只读）</label>
+      <div class="point-coord" id="point-coord-preview">—</div>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn" id="btn-point-modal-cancel">取消</button>
+      <button type="submit" class="btn btn--primary">保存</button>
+    </div>
+  </form>
+</div>
+<div class="modal-backdrop" id="label-modal">
+  <form class="modal" id="label-form">
+    <h2>双重标注</h2>
+    <p>每个多边形需同时关联垂直功能层级与功能组织原则。</p>
+    <div class="field">
+      <label for="input-level">垂直功能分布 · 空间层级 *</label>
+      <select id="input-level" required>
+        <option value="">— 请选择 —</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="input-principle">功能组织原则 *</label>
+      <select id="input-principle" required>
+        <option value="">— 请选择 —</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="input-color">填充颜色</label>
+      <input type="color" id="input-color" value="#e63946">
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn" id="btn-modal-cancel">取消</button>
+      <button type="submit" class="btn btn--primary">保存</button>
+    </div>
+  </form>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+
+const PROJECTS = {
+  zhang: {
+    project: 'zhang-function-highlight',
+    member: '张炜煜',
+    image: 'reference/zhang-function-3d.png',
+    jsonPath: 'data/json/zhang-function-regions.json',
+    downloadName: 'zhang-function-regions.json',
+    levels: {
+      b1: '地下层 (B1)',
+      '1f': '首层 (1F)',
+      '2f-4f': '裙房层 (2F—4F)',
+      '5f-15f': '中高区 (5F—15F)',
+      r: '屋顶层 (R)'
+    },
+    principles: {
+      'lower-vitality': '下部活力化',
+      'upper-mix': '上部复合化',
+      'node-public': '节点公共化',
+      'traffic-link': '交通联动化'
+    }
+  },
+  'liu-xing': {
+    project: 'liu-xing-function-highlight',
+    member: '刘幸彤',
+    image: 'reference/liu-xing-function-3d.png',
+    jsonPath: 'data/json/liu-xing-function-regions.json',
+    downloadName: 'liu-xing-function-regions.json',
+    levels: {
+      'b1-b2': '地下层 (B1/B2)',
+      '1f': '首层 / 架空层 (1F)',
+      '2f-7f': '低区居住 (2F—7F)',
+      '8f-16f': '中区居住 (8F—16F)',
+      '17f-24f': '高区居住 (17F—24F)',
+      r: '屋顶层 (R)'
+    },
+    principles: {
+      'underground-efficient': '地下高效化',
+      'ground-share': '首层共享化',
+      'courtyard-active': '庭院活动化',
+      'roof-eco': '屋顶生态化'
+    }
+  },
+  'liu-you': {
+    project: 'liu-you-function-highlight',
+    member: '刘优赜',
+    image: 'reference/liu-you-function-3d.png',
+    jsonPath: 'data/json/liu-you-function-regions.json',
+    downloadName: 'liu-you-function-regions.json',
+    levels: {
+      b1: '地下层 (B1)',
+      '1f': '首层公园层 (1F)',
+      '1f-2f': '艺术馆使用层 (1F—2F)',
+      '2f-elevated': '高架步道层 (约 2F)',
+      r: '屋顶观景层 (R)'
+    },
+    principles: {
+      'ground-weave': '首层织补化',
+      'boundary-function': '边界功能化',
+      'node-public': '节点公共化'
+    }
+  },
+  texture: {
+    project: 'texture-hotspots',
+    member: '城市肌理',
+    image: 'reference/texture-2.png',
+    jsonPath: 'data/json/texture-hotspots.json',
+    downloadName: 'texture-hotspots.json',
+    tool: 'point',
+    maxPoints: 4,
+    levels: {},
+    principles: {}
+  }
+};
+
+let projectKey = 'liu-you';
+let LEVEL_LABELS = {};
+let PRINCIPLE_LABELS = {};
+let PRESET = {};
+let points = [];
+let pointDraft = null;
+let editPointId = null;
+let toolKind = 'region'; /* region | point */
+
+function currentProject() {
+  return PROJECTS[projectKey] || PROJECTS.zhang;
+}
+
+function applyTextureUi(cfg) {
+  const isPoint = cfg.tool === 'point';
+  toolKind = isPoint ? 'point' : 'region';
+  document.querySelector('.app').classList.toggle('is-texture-point', isPoint);
+  const textPanel = $('texture-text-panel');
+  if (textPanel) textPanel.setAttribute('aria-hidden', isPoint ? 'false' : 'true');
+  $('sidebar-title').textContent = isPoint ? '城市肌理 · 热点标注' : '图片区域标注';
+  $('sidebar-desc').innerHTML = isPoint
+    ? '在城市肌理图二（<code style="font-size:10px;color:#aaa">texture-2.png</code>）上点击标记 4 个按钮位置，导出坐标后发给我即可接入弹窗。'
+    : '勾勒区域并关联「垂直功能分布」与「功能组织原则」。打开：<code style="font-size:10px;color:#aaa">?preset=texture</code> 可切换到此模式。';
+  $('project-group').style.display = isPoint ? 'none' : '';
+  $('point-hint-group').style.display = isPoint ? '' : 'none';
+  $('btn-point').style.display = isPoint ? '' : 'none';
+  $('btn-draw').style.display = isPoint ? 'none' : '';
+  $('btn-select').style.display = isPoint ? 'none' : '';
+  $('label-modal').style.display = isPoint ? 'none' : '';
+  $('finish-bar').style.display = isPoint ? 'none' : '';
+  $('list-title').textContent = isPoint ? '已标记点' : '已标注';
+  $('point-copy-output').style.display = isPoint ? '' : 'none';
+  $('btn-export').textContent = isPoint ? '导出坐标 JSON' : '导出 JSON';
+  if (isPoint) {
+    setMode('point');
+  } else if (mode === 'point') {
+    setMode('draw');
+  }
+}
+
+function applyProject(key, opts) {
+  opts = opts || {};
+  const cfg = PROJECTS[key];
+  if (!cfg) return;
+  projectKey = key;
+  LEVEL_LABELS = cfg.levels || {};
+  PRINCIPLE_LABELS = cfg.principles || {};
+  PRESET = {
+    project: cfg.project,
+    member: cfg.member,
+    image: cfg.image,
+    coordSystem: 'normalized',
+    version: cfg.tool === 'point' ? '1.0' : '2.0'
+  };
+  if (cfg.tool === 'point') PRESET.type = 'points';
+  $('project-select').value = key;
+  $('image-path').value = cfg.image;
+  img.src = cfg.image;
+  fillLabelSelects();
+  applyTextureUi(cfg);
+  if (!opts.keepRegions) {
+    regions = [];
+    points = [];
+    cancelDraft();
+    cancelPointDraft();
+    renderList();
+    renderSvg();
+    updateJson();
+  }
+  if (!opts.skipFetch) loadProjectJson();
+}
+
+function fillLabelSelects() {
+  const levelSel = $('input-level');
+  const principleSel = $('input-principle');
+  levelSel.innerHTML = '<option value="">— 请选择 —</option>' +
+    Object.entries(LEVEL_LABELS).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join('');
+  principleSel.innerHTML = '<option value="">— 请选择 —</option>' +
+    Object.entries(PRINCIPLE_LABELS).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join('');
+}
+
+function loadProjectJson() {
+  const cfg = currentProject();
+  fetch(cfg.jsonPath)
+    .then((r) => (r.ok ? r.json() : null))
+    .then((data) => {
+      if (!data) return;
+      if (cfg.tool === 'point' && Array.isArray(data.points)) {
+        points = data.points.map((p, i) => ({
+          id: p.id || ('point-' + (i + 1)),
+          label: p.label || ('点 ' + (i + 1)),
+          x: +p.x,
+          y: +p.y
+        }));
+        idCounter = points.reduce((max, p) => {
+          const m = String(p.id || '').match(/(\d+)$/);
+          return m ? Math.max(max, parseInt(m[1], 10) + 1) : max;
+        }, 1);
+        renderList();
+        renderSvg();
+        updateJson();
+        toast('已加载 ' + points.length + ' 个热点');
+        return;
+      }
+      if (!Array.isArray(data.regions)) return;
+      regions = data.regions.map((r) => ({
+        ...r,
+        principleKey: r.principleKey || '',
+        label: r.label || ((LEVEL_LABELS[r.levelKey] || r.levelKey) + ' · ' + (PRINCIPLE_LABELS[r.principleKey] || r.principleKey || ''))
+      }));
+      idCounter = regions.reduce((max, r) => {
+        const m = String(r.id || '').match(/(\d+)$/);
+        return m ? Math.max(max, parseInt(m[1], 10) + 1) : max;
+      }, 1);
+      renderList();
+      renderSvg();
+      updateJson();
+      toast('已加载 ' + cfg.member + ' 标注');
+    })
+    .catch(() => {});
+}
+
+let mode = 'draw';
+let regions = [], draft = null, editId = null, idCounter = 1, selectedId = null;
+const img = $('target-img'), svg = $('overlay-svg'), stage = $('canvas-stage');
+
+const hints = {
+  draw: '画区域：单击添加顶点（≥3），可在已有色块上重叠绘制。',
+  select: '选择：点击色块选中，左侧可编辑或删除。',
+  pan: '平移：拖动画布查看。',
+  point: '标记点：在图片上单击添加热点（最多 ' + (currentProject().maxPoints || 4) + ' 个）。'
+};
+
+function setMode(m) {
+  if (m !== 'draw') cancelDraft();
+  if (m !== 'point') cancelPointDraft();
+  mode = m;
+  stage.className = 'canvas-stage is-' + m;
+  $('btn-draw').classList.toggle('is-active', m === 'draw');
+  $('btn-select').classList.toggle('is-active', m === 'select');
+  $('btn-pan').classList.toggle('is-active', m === 'pan');
+  $('btn-point').classList.toggle('is-active', m === 'point');
+  $('status-bar').textContent = { draw: '画区域', select: '选择', pan: '平移', point: '标记点' }[m] || m;
+  $('mode-hint').textContent = toolKind === 'point'
+    ? '单击图片添加热点；选中后可编辑名称或删除。坐标为 left/top 百分比（0—1）。'
+    : hints[m];
+  renderSvg();
+}
+
+$('btn-draw').onclick = () => setMode('draw');
+$('btn-select').onclick = () => setMode('select');
+$('btn-pan').onclick = () => setMode('pan');
+$('btn-point').onclick = () => setMode('point');
+
+function clientToNorm(e) {
+  const r = img.getBoundingClientRect();
+  return [
+    Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)),
+    Math.max(0, Math.min(1, (e.clientY - r.top) / r.height))
+  ];
+}
+function normToPct(n) { return (n * 100).toFixed(4); }
+function pointsAttr(pts) { return pts.map(([x,y]) => normToPct(x)+','+normToPct(y)).join(' '); }
+function hexToRgba(hex, a) {
+  const h = hex.replace('#','');
+  return `rgba(${parseInt(h.slice(0,2),16)},${parseInt(h.slice(2,4),16)},${parseInt(h.slice(4,6),16)},${a})`;
+}
+
+function cancelDraft() {
+  draft = null;
+  $('finish-bar').classList.remove('is-visible');
+  renderSvg();
+}
+
+function cancelPointDraft() {
+  pointDraft = null;
+  editPointId = null;
+}
+
+stage.addEventListener('click', (e) => {
+  if (mode === 'point') {
+    if (e.target.closest('.point-pin')) return;
+    const cfg = currentProject();
+    const maxPts = cfg.maxPoints || 4;
+    if (points.length >= maxPts) {
+      toast('最多 ' + maxPts + ' 个点，请先删除再添加');
+      return;
+    }
+    const [x, y] = clientToNorm(e);
+    pointDraft = { x, y };
+    editPointId = null;
+    $('input-point-label').value = '点 ' + (points.length + 1);
+    $('point-coord-preview').textContent =
+      'x: ' + x.toFixed(4) + '  ·  y: ' + y.toFixed(4) +
+      '\nleft: ' + (x * 100).toFixed(2) + '%  ·  top: ' + (y * 100).toFixed(2) + '%';
+    $('point-modal').classList.add('is-open');
+    renderSvg();
+    return;
+  }
+  if (mode !== 'draw') return;
+  const pt = clientToNorm(e);
+  if (!draft) draft = { points: [pt] };
+  else draft.points.push(pt);
+  $('finish-bar').classList.toggle('is-visible', draft.points.length >= 3);
+  renderSvg();
+});
+
+stage.addEventListener('dblclick', (e) => {
+  if (mode === 'draw' && draft && draft.points.length >= 3) {
+    e.preventDefault();
+    openModal();
+  }
+});
+
+$('btn-finish').onclick = () => {
+  if (draft && draft.points.length >= 3) openModal();
+  else toast('至少 3 个顶点');
+};
+$('btn-cancel-draft').onclick = cancelDraft;
+
+function renderSvg() {
+  let html = '';
+  if (toolKind === 'point') {
+    points.forEach((pt) => {
+      const cx = normToPct(pt.x);
+      const cy = normToPct(pt.y);
+      const sel = pt.id === selectedId ? ' is-selected' : '';
+      html += `<g class="point-pin${sel}" data-id="${pt.id}">
+        <circle class="point-pin-circle" cx="${cx}" cy="${cy}" r="1.8"></circle>
+        <text class="point-pin-label" x="${cx}" y="${cy}">${points.indexOf(pt) + 1}</text>
+      </g>`;
+    });
+    if (pointDraft) {
+      const cx = normToPct(pointDraft.x);
+      const cy = normToPct(pointDraft.y);
+      html += `<g class="point-pin is-selected">
+        <circle class="point-pin-circle" cx="${cx}" cy="${cy}" r="1.8" fill="#4cc9f0"></circle>
+      </g>`;
+    }
+    svg.innerHTML = html;
+    svg.querySelectorAll('.point-pin[data-id]').forEach((el) => {
+      el.onclick = (ev) => {
+        ev.stopPropagation();
+        selectPoint(el.dataset.id);
+      };
+    });
+    return;
+  }
+  regions.forEach((reg) => {
+    const fill = hexToRgba(reg.color, 0.4);
+    html += `<polygon class="region-poly" data-id="${reg.id}" points="${pointsAttr(reg.points)}"
+      fill="${fill}" fill-opacity="0.4" stroke="${reg.color}" stroke-opacity="0.85"></polygon>`;
+  });
+  if (draft) {
+    if (draft.points.length >= 2)
+      html += `<polyline class="draft-poly" points="${pointsAttr(draft.points)}"></polyline>`;
+    if (draft.points.length >= 3)
+      html += `<polygon class="draft-poly" points="${pointsAttr(draft.points)}"></polygon>`;
+    draft.points.forEach(([x,y]) => {
+      html += `<circle class="draft-vertex" cx="${normToPct(x)}" cy="${normToPct(y)}" r="0.45"></circle>`;
+    });
+  }
+  svg.innerHTML = html;
+  if (mode === 'select') {
+    svg.querySelectorAll('.region-poly').forEach((el) => {
+      el.onclick = (ev) => { ev.stopPropagation(); selectRegion(el.dataset.id); };
+    });
+  }
+}
+
+window.addEventListener('resize', renderSvg);
+img.addEventListener('load', renderSvg);
+
+function openModal(region) {
+  editId = region ? region.id : null;
+  $('input-level').value = region ? region.levelKey : '';
+  $('input-principle').value = region ? region.principleKey : '';
+  $('input-color').value = region ? region.color : '#e63946';
+  $('label-modal').classList.add('is-open');
+}
+function closeModal() { $('label-modal').classList.remove('is-open'); editId = null; }
+
+$('btn-modal-cancel').onclick = () => { if (!editId) cancelDraft(); closeModal(); };
+
+$('label-form').onsubmit = (e) => {
+  e.preventDefault();
+  const levelKey = $('input-level').value;
+  const principleKey = $('input-principle').value;
+  const color = $('input-color').value;
+  if (!levelKey || !principleKey) return;
+
+  const data = { levelKey, principleKey, color,
+    label: LEVEL_LABELS[levelKey] + ' · ' + PRINCIPLE_LABELS[principleKey] };
+
+  if (editId) {
+    Object.assign(regions.find(r => r.id === editId), data);
+  } else if (draft) {
+    regions.push({ id: 'region-' + (idCounter++), points: draft.points.slice(), ...data });
+    draft = null;
+    $('finish-bar').classList.remove('is-visible');
+  }
+  closeModal();
+  renderList(); renderSvg(); updateJson();
+  toast('已保存');
+};
+
+function openPointModal(point) {
+  editPointId = point ? point.id : null;
+  pointDraft = point ? { x: point.x, y: point.y } : pointDraft;
+  $('input-point-label').value = point ? point.label : ($('input-point-label').value || '');
+  if (pointDraft) {
+    $('point-coord-preview').textContent =
+      'x: ' + pointDraft.x.toFixed(4) + '  ·  y: ' + pointDraft.y.toFixed(4) +
+      '\nleft: ' + (pointDraft.x * 100).toFixed(2) + '%  ·  top: ' + (pointDraft.y * 100).toFixed(2) + '%';
+  }
+  $('point-modal').classList.add('is-open');
+}
+
+$('btn-point-modal-cancel').onclick = () => {
+  $('point-modal').classList.remove('is-open');
+  cancelPointDraft();
+  renderSvg();
+};
+
+$('point-form').onsubmit = (e) => {
+  e.preventDefault();
+  const label = $('input-point-label').value.trim() || ('点 ' + (points.length + 1));
+  if (editPointId) {
+    const pt = points.find((p) => p.id === editPointId);
+    if (pt) pt.label = label;
+  } else if (pointDraft) {
+    points.push({
+      id: 'point-' + (idCounter++),
+      label,
+      x: +pointDraft.x.toFixed(5),
+      y: +pointDraft.y.toFixed(5)
+    });
+  }
+  $('point-modal').classList.remove('is-open');
+  cancelPointDraft();
+  renderList();
+  renderSvg();
+  updateJson();
+  toast('已保存热点');
+};
+
+function selectPoint(id) {
+  selectedId = id;
+  renderList();
+  renderSvg();
+}
+
+function renderList() {
+  const list = $('region-list');
+  if (toolKind === 'point') {
+    $('region-count').textContent = points.length + ' / ' + (currentProject().maxPoints || 4);
+    if (!points.length) {
+      list.innerHTML = '<div class="region-empty">在图上单击添加第 1 个热点。</div>';
+      return;
+    }
+    list.innerHTML = points.map((pt, i) => `
+      <div class="region-item${pt.id===selectedId?' is-selected':''}" data-id="${pt.id}">
+        <div class="region-item-top">
+          <span class="region-swatch" style="background:var(--accent)"></span>
+          <span class="region-name">${i + 1}. ${esc(pt.label)}</span>
+        </div>
+        <div class="point-coord">x: ${pt.x.toFixed(4)} · y: ${pt.y.toFixed(4)}<br>
+          left: ${(pt.x * 100).toFixed(2)}% · top: ${(pt.y * 100).toFixed(2)}%</div>
+        <div class="region-actions">
+          <button type="button" class="btn btn--ghost" data-a="edit">编辑</button>
+          <button type="button" class="btn btn--ghost" data-a="del">删除</button>
+        </div>
+      </div>`).join('');
+    list.querySelectorAll('.region-item').forEach((el) => {
+      const id = el.dataset.id;
+      el.onclick = (e) => { if (!e.target.closest('[data-a]')) selectPoint(id); };
+      el.querySelector('[data-a="edit"]').onclick = () => openPointModal(points.find((x) => x.id === id));
+      el.querySelector('[data-a="del"]').onclick = () => {
+        points = points.filter((x) => x.id !== id);
+        renderList(); renderSvg(); updateJson();
+      };
+    });
+    return;
+  }
+  $('region-count').textContent = regions.length;
+  if (!regions.length) {
+    list.innerHTML = '<div class="region-empty">在图上勾勒区域，并关联两类标签。</div>';
+    return;
+  }
+  list.innerHTML = regions.map(r => `
+    <div class="region-item${r.id===selectedId?' is-selected':''}" data-id="${r.id}">
+      <div class="region-item-top">
+        <span class="region-swatch" style="background:${r.color}"></span>
+        <span class="region-name">${esc(r.label)}</span>
+      </div>
+      <div class="region-key">层级：${esc(LEVEL_LABELS[r.levelKey]||r.levelKey)}<br>原则：${esc(PRINCIPLE_LABELS[r.principleKey]||r.principleKey)}</div>
+      <div class="region-actions">
+        <button type="button" class="btn btn--ghost" data-a="edit">编辑</button>
+        <button type="button" class="btn btn--ghost" data-a="del">删除</button>
+      </div>
+    </div>`).join('');
+
+  list.querySelectorAll('.region-item').forEach(el => {
+    const id = el.dataset.id;
+    el.onclick = (e) => { if (!e.target.closest('[data-a]')) selectRegion(id); };
+    el.querySelector('[data-a="edit"]').onclick = () => openModal(regions.find(x=>x.id===id));
+    el.querySelector('[data-a="del"]').onclick = () => {
+      regions = regions.filter(x => x.id !== id);
+      renderList(); renderSvg(); updateJson();
+    };
+  });
+}
+
+function selectRegion(id) {
+  selectedId = id;
+  renderList();
+  svg.querySelectorAll('.region-poly').forEach(el => {
+    el.classList.toggle('is-hover', el.dataset.id === id);
+  });
+}
+
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+
+function toJSON() {
+  if (toolKind === 'point') {
+    return {
+      ...PRESET,
+      exportedAt: new Date().toISOString(),
+      points: points.map((p) => ({
+        id: p.id,
+        label: p.label,
+        x: +p.x.toFixed(5),
+        y: +p.y.toFixed(5),
+        leftPct: +(p.x * 100).toFixed(2),
+        topPct: +(p.y * 100).toFixed(2)
+      }))
+    };
+  }
+  return {
+    ...PRESET,
+    exportedAt: new Date().toISOString(),
+    regions: regions.map(r => ({
+      id: r.id,
+      levelKey: r.levelKey,
+      principleKey: r.principleKey,
+      label: r.label,
+      color: r.color,
+      points: r.points.map(([x,y]) => [+x.toFixed(5), +y.toFixed(5)])
+    }))
+  };
+}
+function updateJson() {
+  if (toolKind === 'point') {
+    const payload = points.length ? JSON.stringify(toJSON(), null, 2) : '';
+    $('json-output').value = payload;
+    $('point-copy-output').value = points.length
+      ? points.map((p, i) =>
+          (i + 1) + '. ' + p.label + ' → left:' + (p.x * 100).toFixed(2) + '%, top:' + (p.y * 100).toFixed(2) + '% (x:' + p.x.toFixed(4) + ', y:' + p.y.toFixed(4) + ')'
+        ).join('\n')
+      : '';
+    return;
+  }
+  $('json-output').value = regions.length ? JSON.stringify(toJSON(), null, 2) : '';
+  $('point-copy-output').value = '';
+}
+
+$('btn-export').onclick = () => {
+  const empty = toolKind === 'point' ? !points.length : !regions.length;
+  if (empty) return toast('暂无数据');
+  updateJson();
+  toast('已导出');
+};
+$('btn-copy').onclick = async () => {
+  const empty = toolKind === 'point' ? !points.length : !regions.length;
+  if (empty) return;
+  const t = toolKind === 'point' ? $('point-copy-output').value : JSON.stringify(toJSON(), null, 2);
+  $('json-output').value = toolKind === 'point' ? JSON.stringify(toJSON(), null, 2) : t;
+  try { await navigator.clipboard.writeText(t); toast('已复制'); }
+  catch { $('json-output').select(); toast('请手动复制'); }
+};
+$('btn-download').onclick = () => {
+  const empty = toolKind === 'point' ? !points.length : !regions.length;
+  if (empty) return;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(toJSON(), null, 2)], {type:'application/json'}));
+  a.download = currentProject().downloadName;
+  a.click();
+};
+$('btn-import').onclick = () => $('import-file').click();
+$('import-file').onchange = (e) => {
+  const f = e.target.files[0]; if (!f) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const data = JSON.parse(reader.result);
+      if (data.type === 'points' || Array.isArray(data.points)) {
+        applyProject('texture', { keepRegions: true, skipFetch: true });
+        if (data.image) { $('image-path').value = data.image; img.src = data.image; }
+        points = (data.points || []).map((p, i) => ({
+          id: p.id || ('point-' + (i + 1)),
+          label: p.label || ('点 ' + (i + 1)),
+          x: +p.x,
+          y: +p.y
+        }));
+        renderList(); renderSvg(); updateJson();
+        toast('导入成功');
+        return;
+      }
+      const key = Object.keys(PROJECTS).find((k) => PROJECTS[k].project === data.project);
+      if (key) applyProject(key, { keepRegions: true, skipFetch: true });
+      if (data.image) { $('image-path').value = data.image; img.src = data.image; }
+      regions = (data.regions || []).map(r => ({
+        ...r,
+        principleKey: r.principleKey || '',
+        label: r.label || (LEVEL_LABELS[r.levelKey] + ' · ' + (PRINCIPLE_LABELS[r.principleKey]||''))
+      }));
+      renderList(); renderSvg(); updateJson();
+      toast('导入成功');
+    } catch { toast('解析失败'); }
+  };
+  reader.readAsText(f);
+  e.target.value = '';
+};
+$('btn-clear').onclick = () => {
+  const empty = toolKind === 'point' ? !points.length : !regions.length;
+  if (!empty && !confirm('清空？')) return;
+  if (toolKind === 'point') {
+    points = [];
+  } else {
+    regions = [];
+    cancelDraft();
+  }
+  cancelPointDraft();
+  renderList(); renderSvg(); updateJson();
+};
+$('btn-reload-img').onclick = () => { img.src = $('image-path').value; };
+$('btn-load-json').onclick = () => loadProjectJson();
+$('project-select').onchange = () => {
+  if (regions.length && !confirm('切换项目将清空当前未导出的标注，继续？')) {
+    $('project-select').value = projectKey;
+    return;
+  }
+  applyProject($('project-select').value);
+};
+
+(function initProjectFromUrl() {
+  const params = new URLSearchParams(location.search);
+  const q = params.get('project') || params.get('preset');
+  const hash = (location.hash || '').replace(/^#/, '');
+  const key = q || (hash === 'texture' ? 'texture'
+    : hash === 'zhang' ? 'zhang'
+    : hash === 'liu-xing' ? 'liu-xing'
+    : hash === 'liu-you' ? 'liu-you'
+    : params.get('mode') === 'point' ? 'texture'
+    : 'liu-you');
+  applyProject(PROJECTS[key] ? key : 'liu-you', { keepRegions: true, skipFetch: true });
+  loadProjectJson();
+})();
+
+function toast(msg) {
+  const el = $('toast');
+  el.textContent = msg;
+  el.classList.add('is-visible');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => el.classList.remove('is-visible'), 2000);
+}
+
+renderList();
+if (toolKind !== 'point') setMode('draw');
+</script>
+</body>
+</html>

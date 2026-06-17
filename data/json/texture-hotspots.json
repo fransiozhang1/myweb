@@ -1,0 +1,43 @@
+{
+  "project": "texture-hotspots",
+  "member": "城市肌理",
+  "image": "reference/texture-2.png",
+  "coordSystem": "normalized",
+  "version": "1.0",
+  "type": "points",
+  "exportedAt": "2026-06-16T14:25:49.704Z",
+  "points": [
+    {
+      "id": "point-1",
+      "label": "1",
+      "title": "北侧居民小区",
+      "image": "reference/texture-hotspot-1.png",
+      "x": 0.24838,
+      "y": 0.59683
+    },
+    {
+      "id": "point-2",
+      "label": "2",
+      "title": "西南侧新建小区",
+      "image": "reference/texture-hotspot-2.png",
+      "x": 0.1875,
+      "y": 0.62821
+    },
+    {
+      "id": "point-3",
+      "label": "3",
+      "title": "高架桥下废品场",
+      "image": "reference/texture-hotspot-3.png",
+      "x": 0.23012,
+      "y": 0.64108
+    },
+    {
+      "id": "point-4",
+      "label": "4",
+      "title": "上海站维修场站",
+      "image": "reference/texture-hotspot-4.png",
+      "x": 0.3056,
+      "y": 0.64314
+    }
+  ]
+}
